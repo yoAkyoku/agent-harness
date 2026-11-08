@@ -10,7 +10,7 @@
 
 | 階段 | Codex | Claude Code | opencode | DSH | 代理瀏覽器 | 本專案 |
 |---|---|---|---|---|---|---|
-| 交付任務 | thread → turn；IDE、CLI、App、SDK 與 App Server 協定 | 互動對話、無頭 `-p` 搭配 stream-JSON、Agent SDK | TUI、`opencode run --format json`、共用的本機伺服器、ACP | Web、headless、SDK、ACP 等設定檔共用一棵外掛樹 | 側邊欄或任務分頁，常先「提出計畫」 | HTTP API／工作台：任務＋選定來源；重送同一個 key 會拿回原本的 Run |
+| 交付任務 | thread → turn；IDE、CLI、App、SDK 與 App Server 協定 | 互動對話、無頭 `-p` 搭配 stream-JSON、Agent SDK | TUI、`opencode run --format json`、共用的本機伺服器、ACP | Web、headless、SDK、ACP 等設定檔共用一棵外掛樹 | 側邊欄或任務分頁，常先「提出計畫」 | HTTP API、工作台或無頭 NDJSON 用戶端：任務＋選定來源；重送同一個 key 會拿回原本的 Run |
 | 顯示計畫 | turn 串流中的計畫項目 | Plan 模式（核准前唯讀） | `plan` agent（除計畫檔外禁止編輯） | Plan 模式只是「軟性引導」；`exit_plan_mode` 顯示計畫 | 核准的計畫界定之後動作的範圍 | 必須先保存計畫，其他工具才會開放；計畫公開在事件串流中 |
 | 核准高風險動作 | 型別化的核准請求：接受、本次對話都接受、拒絕、取消 | 權限模式；deny → ask → allow 規則；hooks | `ask` 可回覆一次／一律／拒絕 | 失敗即關閉的結果：allowed-once、rejected、cancelled、unavailable | 依網站／動作類別授權；敏感步驟由使用者接手 | 可選的一次性發布核准，綁定參數摘要 |
 | 中途引導或中斷 | steer、排隊、中斷 | 中斷；排隊後續訊息 | Enter 引導、排隊、Esc 中斷；提示 ID 具冪等性 | inbox 的 `steer`／`followup`／`cancel(keepInbox)` | 暫停、接手、繼續 | Run 進行中可追加訊息（以訊息 ID 冪等受理，於下一次決策送達）；可取消 |
@@ -50,6 +50,7 @@
 | 6 | 引用預覽和發布用不同規則判定伺服器產生的證據附錄，模型自寫的標題可能讓一項檢查看不到正文、另一項卻看得到。 | — | 兩者改用同一個判定函式。 |
 | 7 | 修正 #1 時發現：未開本機思考模式的原生模型（包含 Claude 與 OpenAI 相容轉接器）從不會被提供 `task_finish`，而是以純文字結束，因此遠端模型從不經過完成回覆檢查。 | Claude Code 與 Codex 以型別化的結果結束一回合；DSH 記錄回合結束的原因 | 遠端轉接器在發布後會被提供 `task_finish`；有提供 `task_finish` 時，發布後的純文字結束同樣經過 `completion_summary` 檢查，不符的回覆不放入下一次請求，改為只開放 `task_finish` 的可修正步驟。 |
 | 8 | 執行中的 Run 只能取消，使用者無法在不重來的情況下補充或修正指示。 | Codex steer/queue、opencode `delivery: steer \| queue`、DSH inbox 的 `steer`／`followup` | `POST /api/runs/{id}/messages` 以 `message_id` 冪等受理訊息；Runtime 在下一個步驟邊界以使用者回合送達，記錄 `message.queued`／`message.delivered`；沒送到模型的訊息以 `message.undelivered` 回報。 |
+| 9 | 腳本與 CI 只能自行撰寫 HTTP 呼叫來驅動 harness。 | Claude Code `-p --output-format stream-json`、`opencode run --format json` | `python -m agent_harness_demo.headless` 提交任務，把每個已保存事件輸出為 NDJSON，最後輸出 `headless.result`；逐筆確認事件、從 cursor 重新連線，退出碼 0 完成／1 失敗／2 被拒／3 取消／4 中斷。 |
 
 ## 已經具備
 
@@ -59,11 +60,10 @@
 
 ## 待辦（依對本專案的價值排序）
 
-1. **無頭模式。** 提交任務並以 NDJSON 輸出事件紀錄的 CLI，依終止狀態給退出碼（Claude Code `-p --output-format stream-json`、`opencode run --format json`）。
-2. **工具 hooks。** 執行前後的 hook 記錄為事件，deny 優先（Claude Code、Codex、opencode）；驗證器必須與 hooks 互相獨立。
-3. **唯讀的 MCP 來源。** 把 MCP resource 當成另一種選定來源，擁有自己的證據 ID。
-4. **欄位感知的引用。** 引用表格樣本的數值，必須位在標籤所指的欄位。
-5. **真實的 Claude 批次。** 轉接器目前只有模擬傳輸測試；要錄一次真實執行需要 API 金鑰與花費同意。
+1. **工具 hooks。** 執行前後的 hook 記錄為事件，deny 優先（Claude Code、Codex、opencode）；驗證器必須與 hooks 互相獨立。
+2. **唯讀的 MCP 來源。** 把 MCP resource 當成另一種選定來源，擁有自己的證據 ID。
+3. **欄位感知的引用。** 引用表格樣本的數值，必須位在標籤所指的欄位。
+4. **真實的 Claude 批次。** 轉接器目前只有模擬傳輸測試；要錄一次真實執行需要 API 金鑰與花費同意。
 
 ## 來源
 

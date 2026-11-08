@@ -43,6 +43,10 @@ Runtime 只依賴 `model.py` 的 `DecisionModel` 介面（`request_body`、`cont
 
 目前的 Claude 模型一定會思考，且每個思考區塊綁定產生它的對話前綴；本 harness 會刻意改寫歷史（裁切、執行狀態快照、發布後收尾），改寫後重送思考區塊會被拒絕，所以 Claude adapter 從不重送思考區塊，模型每一輪看不到前一輪的私密推理。這是明確記錄的取捨。
 
+## 無頭用戶端
+
+`agent_harness_demo.headless` 只是一般的觀察者：透過 HTTP API 建立工作區、Session 與 Run，再以 `flow=ack` 讀取持久事件串流，逐筆確認，串流中斷時從最後的 cursor 重新接上（已輸出的序號會略過）。它原樣輸出事件為 NDJSON，並把終止狀態對應成退出碼。觀察者從不擁有執行，所以用戶端結束時 Run 仍會繼續。重新連線的路徑目前還沒有測試。
+
 ## 執行與觀察分開
 
 Store事件是權威序列，先持久保存才通知UI。observer用連續cursor去重補讀，ACK提供有界慢客戶端行為；終態後仍要讀完持久序列，不能只見舊terminal就忽略後續恢復資料。同key／同內容提交查回原Run，不因網路重試新增工作。

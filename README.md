@@ -70,6 +70,17 @@ docker run --rm -p 127.0.0.1:8787:8787 -e ANTHROPIC_API_KEY agent-harness --prov
 
 Remote providers cost money per call. Claude defaults to `claude-opus-5-5` at effort `low`; use `--effort` and `--context-window` to tune it. Claude's private reasoning is never replayed, because the harness rewrites history by design — see [architecture](docs/architecture.md#providers).
 
+### Headless mode
+
+Run one task on a running workbench from a script or CI job. Every saved event is printed as one JSON line, then a `headless.result` line with the final status and artifact links:
+
+```bash
+export AGENT_HARNESS_TOKEN=...   # the token the workbench was started with
+uv run python -m agent_harness_demo.headless --workspace ./docs --source notes.md --task "Summarise the notes into summary.md"
+```
+
+Exit codes: `0` completed, `1` failed, `2` refused request or usage error, `3` cancelled, `4` interrupted. The client acknowledges each event and reconnects from its last cursor if the stream drops; stopping it does not stop the Run.
+
 ## Tests
 
 ```bash

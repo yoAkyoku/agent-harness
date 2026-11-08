@@ -16,6 +16,7 @@ dependencies = [
     { name = "httpx" },
     { name = "jsonschema" },
     { name = "uvicorn", extra = ["standard"] },
+    { name = "websockets" },
 ]
 
 [package.dev-dependencies]
@@ -32,6 +33,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.28,<1" },
     { name = "jsonschema", specifier = ">=4.26,<5" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.34,<1" },
+    { name = "websockets", specifier = ">=13,<18" },
 ]
 
 [package.metadata.requires-dev]

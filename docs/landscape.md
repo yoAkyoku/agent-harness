@@ -10,7 +10,7 @@ The point is not feature parity. Those products are coding agents or browsers wi
 
 | Stage | Codex | Claude Code | opencode | DSH | Agentic browsers | This harness |
 |---|---|---|---|---|---|---|
-| Give a task | Thread → turn; IDE, CLI, app, SDK and an App Server protocol | Interactive session, headless `-p` with stream-JSON, Agent SDK | TUI, `opencode run --format json`, shared local server, ACP | Web, headless, SDK and ACP profiles over one plugin tree | Side panel or task tab, often with a "plan first" step | HTTP API / workbench: task + selected sources; idempotent submission key |
+| Give a task | Thread → turn; IDE, CLI, app, SDK and an App Server protocol | Interactive session, headless `-p` with stream-JSON, Agent SDK | TUI, `opencode run --format json`, shared local server, ACP | Web, headless, SDK and ACP profiles over one plugin tree | Side panel or task tab, often with a "plan first" step | HTTP API, workbench or headless NDJSON client: task + selected sources; idempotent submission key |
 | Show the plan | Plan items in the turn stream | Plan mode (read-only until approved) | `plan` agent (edits denied except plan files) | Plan mode is "soft guidance"; `exit_plan_mode` shows a plan | Plan approval defines the scope of later actions | A plan must be saved before any other tool is offered; the plan is public in the event stream |
 | Approve risky actions | Typed approval requests: accept, accept for session, decline, cancel | Permission modes; deny → ask → allow rules; hooks | `ask` replies once / always / reject | Fail-closed outcomes: allowed-once, rejected, cancelled, unavailable | Per-site / per-action-class grants; take over for sensitive steps | Optional single-use publication approval bound to a parameter digest |
 | Steer or interrupt | Steer, queue, interrupt mid-turn | Interrupt; queue follow-ups | Enter steers, queue, Esc interrupts; idempotent prompt IDs | Inbox `steer` / `followup` / `cancel(keepInbox)` | Pause, take over, resume | Add a message while the Run works (idempotent by message ID; delivered at the next decision); cancel |
@@ -50,6 +50,7 @@ The products' mechanisms were used as a checklist against the code. Each item re
 | 6 | The citation preview and publication used different rules to find the server-generated evidence appendix, so a model-written heading could hide body text from one check but not the other. | — | Both use the same detector. |
 | 7 | Found while fixing #1: native models without the local thinking profile — including the Claude and OpenAI-compatible adapters — were never offered `task_finish` and ended with plain text, so the completion check never ran for remote providers. | Claude Code and Codex end a turn with a typed result; DSH records why a turn ended | Remote adapters are offered `task_finish` after publication. A plain-text ending after publication, when `task_finish` was offered, goes through the same `completion_summary` check; an unsupported reply is kept out of the next request and becomes a correctable step that offers only `task_finish`. |
 | 8 | A running Run could only be cancelled; the user had no way to add or correct an instruction without starting over. | Codex steer/queue, opencode `delivery: steer \| queue`, DSH inbox with `steer`/`followup` | `POST /api/runs/{id}/messages` admits a message idempotently by `message_id`; the runtime delivers it as a user turn at the next step boundary and logs `message.queued` / `message.delivered`; messages that never reached the model are reported as `message.undelivered`. |
+| 9 | Scripts and CI could only drive the harness through hand-written HTTP calls. | Claude Code `-p --output-format stream-json`, `opencode run --format json` | `python -m agent_harness_demo.headless` submits a task, prints every saved event as NDJSON plus a `headless.result` line, acknowledges events, reconnects from its cursor, and exits with 0 completed / 1 failed / 2 refused / 3 cancelled / 4 interrupted. |
 
 ## Already in place
 
@@ -59,11 +60,10 @@ The products' mechanisms were used as a checklist against the code. Each item re
 
 ## Backlog, by value for this harness
 
-1. **Headless mode.** A CLI that submits a task and prints the event log as NDJSON, with exit codes per terminal state (Claude Code `-p --output-format stream-json`, `opencode run --format json`).
-2. **Tool hooks.** Pre- and post-execution hooks recorded as events, with deny taking precedence (Claude Code, Codex, opencode). Verifiers must stay independent of hooks.
-3. **Read-only MCP sources.** Treat an MCP resource as another selected source with its own evidence IDs.
-4. **Column-aware citations.** A value that cites a table sample should sit under the column its label names.
-5. **A real Claude batch.** The adapter is covered by mock-transport tests only; a recorded run needs an API key and consent to spend.
+1. **Tool hooks.** Pre- and post-execution hooks recorded as events, with deny taking precedence (Claude Code, Codex, opencode). Verifiers must stay independent of hooks.
+2. **Read-only MCP sources.** Treat an MCP resource as another selected source with its own evidence IDs.
+3. **Column-aware citations.** A value that cites a table sample should sit under the column its label names.
+4. **A real Claude batch.** The adapter is covered by mock-transport tests only; a recorded run needs an API key and consent to spend.
 
 ## Sources
 
