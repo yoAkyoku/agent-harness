@@ -335,6 +335,8 @@ class Runtime:
         corrections = 0
         completion_recovery_pending = False
         completion_recovery_attempted = False
+        completion_recovery_note = (" The previous completion reply contained no visible text. The artifact is already published. "
+                                    "Use task_finish only to provide a concise, grounded summary. Do not call other tools.")
         publication_recovery_pending = False
         publication_recovery_attempted = False
         publication_finalization_pending = False
@@ -431,7 +433,8 @@ class Runtime:
                                                                           "memory_omitted": omitted_memories})
             finish_available = False
             published_this_run = False
-            if ((receipt_mode or self.model.settings.thinking or self.model.info.get("requires_tool_finish") is True)
+            if ((receipt_mode or self.model.settings.thinking or self.model.info.get("requires_tool_finish") is True
+                 or self.model.info.get("offers_tool_finish") is True)
                     and navigation_state["plan_saved"] and latest_draft is None
                     and all(correction.call.name == "task_finish" for correction in pending.values())):
                 current = await self.store.run(identity)
@@ -449,10 +452,7 @@ class Runtime:
                 ) + (
                     "上一則文字答案尚未發布，不能以純文字結束。請以 artifact_write 將完整交付內容保存為使用者要求的檔案，正文引用已讀來源，格式 [原檔名 EID]，citations 只填證據 ID。此次只允許 artifact_write。"
                     if publication_recovery_pending else ""
-                ) + (
-                    " The previous completion reply contained no visible text. The artifact is already published. Use task_finish only to provide a concise, grounded summary. Do not call other tools."
-                    if completion_recovery_pending else ""
-                )
+                ) + (completion_recovery_note if completion_recovery_pending else "")
             available_tools = model_tools(require_citations=require_citations,
                 include_tables=any(Path(source["path"]).suffix.lower() == ".csv" for source in run["sources"]),
                 include_labels=label_queries_available, include_finish=finish_available, include_draft=review_mode,
@@ -763,6 +763,26 @@ class Runtime:
                         "remaining_corrections": limits.max_corrections - corrections, "tools": ["artifact_write"],
                     })
                     continue
+                if (run["mode"] != "fixture" and "task_finish" in offered_tools and current and current["artifacts"]
+                        and not pending and latest_draft is None):
+                    # The model could have finished through task_finish; a plain-text ending is held to the same check.
+                    claim_failure = completion_summary(decision.text, await self._published_texts(identity))
+                    if claim_failure is not None:
+                        if corrections >= limits.max_corrections or step >= limits.max_steps:
+                            raise claim_failure
+                        corrections += 1
+                        messages.pop()  # the rejected reply stays in the events, not in the model's next request
+                        completion_recovery_pending = True
+                        completion_recovery_note = (
+                            f" The previous plain-text completion was rejected: {claim_failure.message} "
+                            "The artifact is already published. Use task_finish only, with a concise summary of what "
+                            "the published artifact contains. Do not call other tools.")
+                        await self._record(identity, "completion.recovery_requested", {
+                            "failed_step": step, "retry_step": step + 1, "reason": "unsupported_completion_claim",
+                            "error": {"code": claim_failure.code, "message": claim_failure.message},
+                            "remaining_corrections": limits.max_corrections - corrections, "tools": ["task_finish"],
+                        })
+                        continue
                 await self._complete(identity, decision.text, bool(pending), unpublished_draft=latest_draft is not None)
                 return
             finalization_candidate: tuple[ToolCall, Record] | None = None

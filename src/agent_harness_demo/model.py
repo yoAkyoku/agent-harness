@@ -186,6 +186,8 @@ class ModelAdapter:
             "mode": settings.mode, "name": settings.name, "endpoint": settings.endpoint,
             "stream": settings.stream, "transport_fixture": transport_fixture, "decision_protocol": settings.decision_protocol,
             "requires_tool_finish": settings.decision_protocol == "json_tools",
+            # Remote models get task_finish after publication, so their completion is checked too.
+            "offers_tool_finish": settings.mode == "openai",
             "context_capacity_tokens": settings.context_window_tokens if configured else 16777216,
             "context_capacity_source": "application_configuration" if configured else "synthetic_fixture",
             "context_profile": REMOTE_CONTEXT_PROFILE if settings.mode == "openai" else "synthetic_fixture",

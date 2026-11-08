@@ -104,6 +104,7 @@ class AnthropicAdapter:
         self.info: dict[str, Any] = {
             "mode": "anthropic", "name": settings.name, "endpoint": settings.endpoint, "stream": False,
             "transport_fixture": transport is not None, "decision_protocol": "native", "requires_tool_finish": False,
+            "offers_tool_finish": True,
             "context_capacity_tokens": settings.context_window_tokens, "context_capacity_source": "application_configuration",
             "context_profile": REMOTE_CONTEXT_PROFILE, "effort": settings.effort, "thinking_replay": "never",
         }

@@ -33,7 +33,7 @@ The point is not feature parity. Those products are coding agents or browsers wi
 ## Where the harness is intentionally different
 
 - **Capabilities instead of permissions.** The products grant a general agent broad tools and then gate them. Here the tool set itself is the boundary: read selected sources, compute over them, publish a cited artifact. That makes the approval surface small enough to bind every approval to an exact parameter digest.
-- **Verification instead of trust.** An artifact must cite the evidence that produced each computed value, and a `task_finish` reply must agree with what was published. None of the compared products documents a check of its output against tool evidence.
+- **Verification instead of trust.** An artifact must cite the evidence that produced each computed value, and the completion reply must agree with what was published. None of the compared products documents a check of its output against tool evidence.
 - **Honest stopping.** Over budget, the harness stops rather than summarising history the user cannot inspect.
 
 ## Gaps found in this pass
@@ -48,6 +48,7 @@ The products' mechanisms were used as a checklist against the code. Each item re
 | 4 | Pages could be framed, so an approval button could be clickjacked. | Standard clickjacking defence | Every response sends `X-Frame-Options: DENY`, `frame-ancestors 'none'`, `nosniff` and `Referrer-Policy: no-referrer` (the first URL carries the token). |
 | 5 | `model.requested` recorded the context budget but not what was sent, so a request could not be tied to its catalogue after the fact. | DSH: "model-visible means logged" | Each `model.requested` event records the offered tool names and a SHA-256 of the exact request body. |
 | 6 | The citation preview and publication used different rules to find the server-generated evidence appendix, so a model-written heading could hide body text from one check but not the other. | — | Both use the same detector. |
+| 7 | Found while fixing #1: native models without the local thinking profile — including the Claude and OpenAI-compatible adapters — were never offered `task_finish` and ended with plain text, so the completion check never ran for remote providers. | Claude Code and Codex end a turn with a typed result; DSH records why a turn ended | Remote adapters are offered `task_finish` after publication. A plain-text ending after publication, when `task_finish` was offered, goes through the same `completion_summary` check; an unsupported reply is kept out of the next request and becomes a correctable step that offers only `task_finish`. |
 
 ## Already in place
 
@@ -55,19 +56,14 @@ The products' mechanisms were used as a checklist against the code. Each item re
 - **Durable, replayable streaming.** opencode's client bus is live-only; here a client can reconnect from any cursor.
 - **Crash semantics.** Intent is persisted before dispatch, so an interrupted effect is reported as uncertain rather than retried, like DSH's rule of keeping an interrupted turn instead of truncating it.
 
-## Open gap found while fixing #1
-
-Enforcing the catalogue showed that native, non-thinking models — which includes the Claude and OpenAI-compatible adapters — are never offered `task_finish`; they finish with plain text. The completion-reply check (`completion_summary`) and publication finalization therefore run only for local JSON-tools or thinking runs, not for the remote providers. Closing it means offering `task_finish` after publication for those providers and treating a plain-text ending after publication as a correctable completion error. It changes remote behaviour that so far has only mock-transport tests, so it is left for a change of its own.
-
 ## Backlog, by value for this harness
 
-1. **Grounded completion for remote providers.** See the open gap above.
-2. **Steer or queue at step boundaries.** Let the user add a message to a running Run, delivered before the next model decision with an idempotent message ID (Codex steer/queue, opencode `delivery`, DSH inbox).
-3. **Headless mode.** A CLI that submits a task and prints the event log as NDJSON, with exit codes per terminal state (Claude Code `-p --output-format stream-json`, `opencode run --format json`).
-4. **Tool hooks.** Pre- and post-execution hooks recorded as events, with deny taking precedence (Claude Code, Codex, opencode). Verifiers must stay independent of hooks.
-5. **Read-only MCP sources.** Treat an MCP resource as another selected source with its own evidence IDs.
-6. **Column-aware citations.** A value that cites a table sample should sit under the column its label names.
-7. **A real Claude batch.** The adapter is covered by mock-transport tests only; a recorded run needs an API key and consent to spend.
+1. **Steer or queue at step boundaries.** Let the user add a message to a running Run, delivered before the next model decision with an idempotent message ID (Codex steer/queue, opencode `delivery`, DSH inbox).
+2. **Headless mode.** A CLI that submits a task and prints the event log as NDJSON, with exit codes per terminal state (Claude Code `-p --output-format stream-json`, `opencode run --format json`).
+3. **Tool hooks.** Pre- and post-execution hooks recorded as events, with deny taking precedence (Claude Code, Codex, opencode). Verifiers must stay independent of hooks.
+4. **Read-only MCP sources.** Treat an MCP resource as another selected source with its own evidence IDs.
+5. **Column-aware citations.** A value that cites a table sample should sit under the column its label names.
+6. **A real Claude batch.** The adapter is covered by mock-transport tests only; a recorded run needs an API key and consent to spend.
 
 ## Sources
 
