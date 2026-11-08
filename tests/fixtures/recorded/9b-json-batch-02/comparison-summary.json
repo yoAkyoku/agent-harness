@@ -1,0 +1,58 @@
+{
+  "candidate_revision": "d62f09b1da142b2723810439c363c16afdecac14",
+  "model": "qwen3.5:9b-q4_K_M",
+  "decision_protocol": "json_tools",
+  "publication_workflow": "draft_review",
+  "thinking": false,
+  "accepted_cases": 0,
+  "attempted_cases": 1,
+  "all_six_accepted": false,
+  "attempts": [
+    {
+      "case": "analysis-standard",
+      "run_id": "d1b6a9c42a944f2480e83b35300d79ec",
+      "status": "failed",
+      "error": {
+        "code": "context_limit_exceeded",
+        "message": "The complete request exceeds the configured conservative context envelope."
+      },
+      "usage": {
+        "model_calls": 9,
+        "tool_calls": 10
+      },
+      "elapsed_seconds": 105.52,
+      "manual_accepted": false,
+      "artifacts": 2,
+      "artifact_manifest": [
+        {
+          "id": "0cab9011acb7843e7d8dcc00c028d525",
+          "name": "report.md",
+          "sha256": "0089c843be2dfc98eef07b5e8d72ea9b613e0348fa7ef70a285d1138072aceab",
+          "bytes": 645,
+          "export_path": "artifacts/0cab9011acb7843e7d8dcc00c028d525/report.md"
+        },
+        {
+          "id": "f464a5877d2a7ee8497fbe66ccd26e06",
+          "name": "report.md",
+          "sha256": "c3564e43b9edb8cda4c8d2e93e27b44a5de05a1b5144d716b6f827b395662607",
+          "bytes": 662,
+          "export_path": "artifacts/f464a5877d2a7ee8497fbe66ccd26e06/report.md"
+        }
+      ],
+      "numeric_tool_oracle": true,
+      "actual_hash_publications": 2,
+      "task_finish_observed": false,
+      "unpublished_draft_sha256": "24d507f89524b09d12a9a89f632621048d6fff3a2f39a40bf14e331a536025a2",
+      "refused_decision": 10,
+      "conservative_upper_bound": 8964
+    }
+  ],
+  "unrun_cases": [
+    "analysis-variant",
+    "analysis-missing",
+    "documents-standard",
+    "documents-variant",
+    "documents-missing"
+  ],
+  "diagnosis": "Publication status hint alone did not end restaging; a third pending draft hit Context before publication. Task-finish role needs explicit user-reply semantics that survive tool-description pruning; causal effect remains to test."
+}

@@ -1,0 +1,224 @@
+{
+  "started_at": "2026-11-01T04:39:32.827590+00:00",
+  "git_revision": "2aced43812db0a17119da2987f3e35e6ccfbf154",
+  "implementation_status": "",
+  "config": {
+    "mode": "local",
+    "model": {
+      "mode": "local",
+      "name": "qwen3.5:4b-q4_K_M",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+      "stream": true,
+      "transport_fixture": false,
+      "decision_protocol": "json_tools",
+      "requires_tool_finish": true,
+      "context_capacity_tokens": 8192,
+      "context_capacity_source": "application_configuration",
+      "context_profile": "ollama-0.40.10-qwen35-gpt2",
+      "renderer_verification": {
+        "renderer": "qwen3.5",
+        "parser": "qwen3.5",
+        "template_source": "renderer_parser",
+        "implicit_messages": false,
+        "implicit_system": false,
+        "tokenizer_model": "gpt2",
+        "tokenizer_pre": "qwen35",
+        "add_bos_token": false
+      },
+      "digest": "d8b0f5e9760cd1682034f292d7ef72ec46f432149be0df7574bf2d6e92e38c04",
+      "server_version": "0.40.10",
+      "capabilities": [
+        "completion",
+        "vision",
+        "tools",
+        "thinking"
+      ],
+      "reasoning_effort": "none"
+    },
+    "demo_path": "C:\\path\\to\\agent-harness\\src\\agent_harness_demo\\demo_sources",
+    "validation": {
+      "fault_once_source_read": false
+    },
+    "implementation": {
+      "algorithm": "package-files-sha256-v1",
+      "source_sha256": "5e9bc3f5208573fa036f62f98a692eb8206ef79199dfb4de7408414bfd9bacfd"
+    }
+  },
+  "publication_workflow": "draft_review",
+  "decision_protocol": "json_tools",
+  "completion_workflow": "artifact_receipt",
+  "model_selection": {
+    "selected": "qwen3.5:4b-q4_K_M",
+    "suite_default": "qwen3.5:9b-q4_K_M",
+    "comparison": true
+  },
+  "suite_sha256": "fd5e2c378d98646d6286912742bdaecb1ad9e9504cce2ab01ee7833e909d3d42",
+  "suite": {
+    "version": 1,
+    "model": "qwen3.5:9b-q4_K_M",
+    "limits": {
+      "max_steps": 12,
+      "max_tool_calls": 20,
+      "max_corrections": 2,
+      "timeout_seconds": 180,
+      "max_output_tokens": 1024
+    },
+    "cases": [
+      {
+        "id": "analysis-standard",
+        "kind": "analysis",
+        "task": "請分析 metrics.csv，計算訂單總數、異常總數及整體異常率（異常數 / 訂單數 × 100），保存為 report.md，附可追溯來源。若缺少必要欄位，明確指出缺少什麼；只計算有證據的數值，不能補零或猜測異常率。",
+        "sources": [
+          "metrics.csv"
+        ],
+        "truth": {
+          "orders": "240",
+          "exceptions": "15",
+          "rate": "6.25",
+          "numeric_results": [
+            "240",
+            "15",
+            "6.250000"
+          ],
+          "missing": []
+        }
+      },
+      {
+        "id": "analysis-variant",
+        "kind": "analysis",
+        "task": "請分析 metrics.csv，計算訂單總數、異常總數及整體異常率（異常數 / 訂單數 × 100），保存為 report.md，附可追溯來源。若缺少必要欄位，明確指出缺少什麼；只計算有證據的數值，不能補零或猜測異常率。",
+        "sources": [
+          "metrics.csv"
+        ],
+        "truth": {
+          "orders": "280",
+          "exceptions": "21",
+          "rate": "7.5",
+          "numeric_results": [
+            "280",
+            "21",
+            "7.500000"
+          ],
+          "missing": []
+        }
+      },
+      {
+        "id": "analysis-missing",
+        "kind": "analysis",
+        "task": "請分析 metrics.csv，計算訂單總數、異常總數及整體異常率（異常數 / 訂單數 × 100），保存為 report.md，附可追溯來源。若缺少必要欄位，明確指出缺少什麼；只計算有證據的數值，不能補零或猜測異常率。",
+        "sources": [
+          "metrics.csv"
+        ],
+        "truth": {
+          "orders": "150",
+          "exceptions": null,
+          "rate": null,
+          "numeric_results": [
+            "150"
+          ],
+          "missing": [
+            "exceptions"
+          ]
+        }
+      },
+      {
+        "id": "documents-standard",
+        "kind": "documents",
+        "task": "請整理所選文件的索引，每份列出主題、負責人與關鍵事項（發布條件或事件升級窗口），保存為 index.md 並附來源。缺少的必要資訊明確標示未提供，不猜測人名或日期。",
+        "sources": [
+          "release.md",
+          "handoff.md"
+        ],
+        "truth": {
+          "facts": {
+            "release.md": [
+              "Release checklist",
+              "Nina",
+              "all smoke tests pass"
+            ],
+            "handoff.md": [
+              "Support handoff",
+              "Owen",
+              "Iris"
+            ]
+          },
+          "missing": []
+        }
+      },
+      {
+        "id": "documents-variant",
+        "kind": "documents",
+        "task": "請整理所選文件的索引，每份列出主題、負責人與關鍵事項（發布條件或事件升級窗口），保存為 index.md 並附來源。缺少的必要資訊明確標示未提供，不猜測人名或日期。",
+        "sources": [
+          "migration.md",
+          "support.md"
+        ],
+        "truth": {
+          "facts": {
+            "migration.md": [
+              "Database migration",
+              "Tao",
+              "backup restore verified"
+            ],
+            "support.md": [
+              "Migration support",
+              "Rina",
+              "Ken"
+            ]
+          },
+          "missing": []
+        }
+      },
+      {
+        "id": "documents-missing",
+        "kind": "documents",
+        "task": "請整理所選文件的索引，每份列出主題、負責人與關鍵事項（發布條件或事件升級窗口），保存為 index.md 並附來源。缺少的必要資訊明確標示未提供，不猜測人名或日期。",
+        "sources": [
+          "release.md",
+          "handoff.md"
+        ],
+        "truth": {
+          "facts": {
+            "release.md": [
+              "Release checklist",
+              "Sora",
+              "passing regression tests"
+            ],
+            "handoff.md": [
+              "Support handoff",
+              "Mika"
+            ]
+          },
+          "missing": [
+            "handoff.md owner"
+          ]
+        }
+      }
+    ]
+  },
+  "input_sources": {
+    "analysis-standard": {
+      "metrics.csv": "week,orders,exceptions\n1,90,9\n2,150,6\n"
+    },
+    "analysis-variant": {
+      "metrics.csv": "week,orders,exceptions\n4,112,7\n5,168,14\n"
+    },
+    "analysis-missing": {
+      "metrics.csv": "week,orders\n7,60\n8,90\n"
+    },
+    "documents-standard": {
+      "release.md": "# Release checklist\nOwner: Nina\nRelease gate: all smoke tests pass.\n",
+      "handoff.md": "# Support handoff\nOwner: Owen\nIncident escalation contact: Iris.\n"
+    },
+    "documents-variant": {
+      "migration.md": "# Database migration\nOwner: Tao\nRelease gate: backup restore verified.\n",
+      "support.md": "# Migration support\nOwner: Rina\nIncident escalation contact: Ken.\n"
+    },
+    "documents-missing": {
+      "release.md": "# Release checklist\nOwner: Sora\nRelease gate: passing regression tests.\n",
+      "handoff.md": "# Support handoff\nIncident escalation contact: Mika.\n"
+    }
+  },
+  "base_url": "http://127.0.0.1:8806",
+  "policy": "one admitted Run per case; retain failures; manually review each case before the next; no fallback/download"
+}

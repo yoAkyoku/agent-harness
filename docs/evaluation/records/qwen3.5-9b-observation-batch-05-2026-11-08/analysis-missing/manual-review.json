@@ -1,0 +1,34 @@
+{
+  "accepted": true,
+  "case_id": "analysis-missing",
+  "reviewed_at": "2026-11-08",
+  "batch_mode": "quality_observation",
+  "run_id": "155dfd7a19614b7a885674d02d6ffa27",
+  "candidate_source_sha256": "3eb2d10122350712106415b5b39d19255dfd19b7959193ff9e2cb22bb1561207",
+  "source_sha256": {
+    "metrics.csv": "c0c04b429bc6bcfeac5c5f0eac8d4ee604b151bd2ad872680afc5a59d3d920e8"
+  },
+  "review": {
+    "comparison": "Artifact SHA and completion reply are identical to batch 04 (2de7ea3762a744daa2eb338057cbd327); the batch-04 review applies unchanged.",
+    "batch_04_review": {
+      "comparison": "Artifact SHA and completion reply are identical to batch 03 (7e20e3422ee24d798c70d298faeccc4e); the batch-03 review applies unchanged.",
+      "batch_03_review": {
+        "comparison": "Artifact SHA and completion reply are identical to batch 02 (47a0d931fd914b6192a8825bfa372327); the batch-02 review applies unchanged.",
+        "batch_02_review": {
+          "source_values": "metrics.csv has only week and orders; orders 60 and 90 (150 total). No exceptions column.",
+          "citations": "150 cites E2 sum(orders); source SHA matches the Run.",
+          "completeness_and_language": "Artifact identical to batch 01 (same SHA): orders total present, exception total 未提供, rate 無法計算, no invented rate.",
+          "completion_reply": "Fixed relative to batch 01: the reply now says orders total is 150 and that the exception total and overall rate cannot be computed because the column is missing. It was correct on the first attempt; the completion check did not need to reject anything, so seeing the published body was enough.",
+          "defects": "Minor and unchanged from batch 01: the model ran an unrequested mean(orders) that it did not publish.",
+          "runtime": "Automatic checks passed in 37.61 seconds with 6 model calls and 7 tool calls; no corrections; GPU shared with Unreal Editor."
+        },
+        "corrections": [],
+        "runtime": "Automatic checks passed in 23.62 seconds with 6 model calls and 7 tool calls; GPU shared with Unreal Editor."
+      },
+      "corrections": [],
+      "runtime": "Automatic checks passed in 44.29 seconds with 6 model calls and 7 tool calls; GPU shared with Unreal Editor."
+    },
+    "corrections": [],
+    "runtime": "Automatic checks passed in 82.0 seconds with 6 model calls and 7 tool calls; GPU shared with Unreal Editor."
+  }
+}

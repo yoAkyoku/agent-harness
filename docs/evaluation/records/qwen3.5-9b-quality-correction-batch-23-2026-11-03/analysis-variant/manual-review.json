@@ -1,0 +1,14 @@
+{
+  "accepted": true,
+  "case_id": "analysis-variant",
+  "reviewed_at": "2026-11-03",
+  "run_id": "be8c0ab3ac4e4622bd9d49e2a318e70e",
+  "candidate_source_sha256": "93c32f29efda4627afd2501f70241f5d62f81d4dec5692b18a103723a6618600",
+  "source_sha256": "1405c39960d3bd5eb343cdfc167ccb589ffb99689548b497709bd6e8db516d9b",
+  "review": {
+    "source_values": "Fixed evaluation metrics.csv rows are orders 112 and 168 (280 total) and exceptions 7 and 14 (21 total); 21 / 280 * 100 = 7.5%.",
+    "citations": "E2, E3 and E4 are adjacent to the relevant values. Tool evidence traces the sums to source rows 2-3 and the rate to ratio_percent(E3,E2); SHA256 matches the Run.",
+    "completeness_and_language": "All requested metrics are correct and labeled, with no duplicate uncited conclusion, invented dates or missing-data substitutes. The report published once; both empty plan updates preserved the existing plan; final reply follows publication.",
+    "runtime": "Automatic checks passed in 34.71 seconds with 7 model calls and 11 tool calls, one corrected artifact attempt, and one published version."
+  }
+}

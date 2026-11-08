@@ -1,0 +1,16 @@
+{
+  "git_revision": "056e4c6",
+  "publication_workflow": "draft_review",
+  "model": "qwen3.5:4b-q4_K_M",
+  "accepted_cases": 0,
+  "attempted_cases": 1,
+  "planned_cases": 6,
+  "stopped_at": "analysis-standard",
+  "run_id": "e446754b6cb648bd8cfcf383ba749283",
+  "error": {
+    "code": "context_limit_exceeded",
+    "message": "The complete request exceeds the configured conservative context envelope."
+  },
+  "remaining_cases": "not admitted",
+  "input_integrity": "evaluation/slice-09 byte-identical to0ab14835ae47302e672c81a834a7c5945c74aa0d verified by git diff --exit-code"
+}

@@ -1,0 +1,248 @@
+{
+  "scope": "Offline preserved-event inspection, no new provider call or claim of complete semantic repair.",
+  "last_decision_tools": [
+    "table_inspect",
+    "artifact_draft"
+  ],
+  "draft_receipt_encoding_seen": false,
+  "context_events": [
+    {
+      "kind": "context.pruned",
+      "step": 4,
+      "call_ids": [
+        "json_7a8e14fcf6974b7da25f7a4c0fbafcb8"
+      ],
+      "reason": "completed_navigation",
+      "retained_executor_state": {
+        "plan_saved": true,
+        "plan_steps": [
+          "檢查 metrics.csv 是否存在必要欄位（訂單數、異常數）以計算總數與比率。",
+          "若欄位缺失，記錄缺項並停止計算；若有數據，使用 table_aggregate 求和訂單數與異常數。",
+          "使用 number_calculate 計算整體異常率（異常數 / 訂單數 × 100）。",
+          "將結果、來源引用及缺項說明整合至 report.md。"
+        ],
+        "catalog_listed": false,
+        "selected_source_paths": [
+          "metrics.csv"
+        ]
+      },
+      "method": "qwen35_rendered_byte_bpe_upper_bound",
+      "input_utf8_bytes": 8190,
+      "rendered_prompt_bytes_upper_bound": 6969,
+      "tool_preamble_bytes": 0,
+      "special_token_allowance": 64,
+      "output_token_reserve": 1024,
+      "upper_bound_tokens": 8057,
+      "capacity_tokens": 8192
+    },
+    {
+      "kind": "context.pruned",
+      "step": 5,
+      "call_ids": [
+        "json_8bf3f522c8aa41259fe26beaeb3eb9c7"
+      ],
+      "reason": "acknowledged_evidence",
+      "retained_executor_state": {
+        "plan_saved": true,
+        "plan_steps": [
+          "檢查 metrics.csv 是否存在必要欄位（訂單數、異常數）以計算總數與比率。",
+          "若欄位缺失，記錄缺項並停止計算；若有數據，使用 table_aggregate 求和訂單數與異常數。",
+          "使用 number_calculate 計算整體異常率（異常數 / 訂單數 × 100）。",
+          "將結果、來源引用及缺項說明整合至 report.md。"
+        ],
+        "catalog_listed": false,
+        "selected_source_paths": [
+          "metrics.csv"
+        ],
+        "verified_evidence": {
+          "E1": {
+            "path": "metrics.csv",
+            "sha256": "c0c04b429bc6bcfeac5c5f0eac8d4ee604b151bd2ad872680afc5a59d3d920e8",
+            "columns": [
+              "week",
+              "orders"
+            ],
+            "rows": 2,
+            "line_start": 2,
+            "line_end": 3,
+            "sample": [
+              [
+                "7",
+                "60"
+              ],
+              [
+                "8",
+                "90"
+              ]
+            ],
+            "aggregatable_columns": [
+              "week",
+              "orders"
+            ],
+            "evidence_id": "E1"
+          }
+        }
+      },
+      "method": "qwen35_rendered_byte_bpe_upper_bound",
+      "input_utf8_bytes": 11053,
+      "rendered_prompt_bytes_upper_bound": 9601,
+      "tool_preamble_bytes": 0,
+      "special_token_allowance": 64,
+      "output_token_reserve": 1024,
+      "upper_bound_tokens": 10689,
+      "capacity_tokens": 8192
+    },
+    {
+      "kind": "context.pruned",
+      "step": 5,
+      "call_ids": [
+        "json_641a1ab93337481e88da78894ff0d544",
+        "json_e6cb9acaaf9347fba05daf5f1d0bd1ee"
+      ],
+      "reason": "acknowledged_evidence",
+      "retained_executor_state": {
+        "plan_saved": true,
+        "plan_steps": [
+          "檢查 metrics.csv 是否存在必要欄位（訂單數、異常數）以計算總數與比率。",
+          "若欄位缺失，記錄缺項並停止計算；若有數據，使用 table_aggregate 求和訂單數與異常數。",
+          "使用 number_calculate 計算整體異常率（異常數 / 訂單數 × 100）。",
+          "將結果、來源引用及缺項說明整合至 report.md。"
+        ],
+        "catalog_listed": false,
+        "selected_source_paths": [
+          "metrics.csv"
+        ],
+        "verified_evidence": {
+          "E1": {
+            "path": "metrics.csv",
+            "sha256": "c0c04b429bc6bcfeac5c5f0eac8d4ee604b151bd2ad872680afc5a59d3d920e8",
+            "columns": [
+              "week",
+              "orders"
+            ],
+            "rows": 2,
+            "line_start": 2,
+            "line_end": 3,
+            "sample": [
+              [
+                "7",
+                "60"
+              ],
+              [
+                "8",
+                "90"
+              ]
+            ],
+            "aggregatable_columns": [
+              "week",
+              "orders"
+            ],
+            "evidence_id": "E1"
+          },
+          "E2": {
+            "path": "metrics.csv",
+            "sha256": "c0c04b429bc6bcfeac5c5f0eac8d4ee604b151bd2ad872680afc5a59d3d920e8",
+            "columns": [
+              "week",
+              "orders"
+            ],
+            "rows": 2,
+            "line_start": 2,
+            "line_end": 3,
+            "column": "orders",
+            "operation": "sum",
+            "value": "150",
+            "evidence_id": "E2"
+          },
+          "E3": {
+            "path": "metrics.csv",
+            "sha256": "c0c04b429bc6bcfeac5c5f0eac8d4ee604b151bd2ad872680afc5a59d3d920e8",
+            "columns": [
+              "week",
+              "orders"
+            ],
+            "rows": 2,
+            "line_start": 2,
+            "line_end": 3,
+            "sample": [
+              [
+                "7",
+                "60"
+              ],
+              [
+                "8",
+                "90"
+              ]
+            ],
+            "aggregatable_columns": [
+              "week",
+              "orders"
+            ],
+            "evidence_id": "E3"
+          }
+        }
+      },
+      "method": "qwen35_rendered_byte_bpe_upper_bound",
+      "input_utf8_bytes": 10374,
+      "rendered_prompt_bytes_upper_bound": 8995,
+      "tool_preamble_bytes": 0,
+      "special_token_allowance": 64,
+      "output_token_reserve": 1024,
+      "upper_bound_tokens": 10083,
+      "capacity_tokens": 8192
+    },
+    {
+      "kind": "context.pruned",
+      "step": 5,
+      "reason": "tool_descriptions",
+      "method": "qwen35_rendered_byte_bpe_upper_bound",
+      "input_utf8_bytes": 9513,
+      "rendered_prompt_bytes_upper_bound": 8166,
+      "tool_preamble_bytes": 0,
+      "special_token_allowance": 64,
+      "output_token_reserve": 1024,
+      "upper_bound_tokens": 9254,
+      "capacity_tokens": 8192
+    },
+    {
+      "kind": "context.pruned",
+      "step": 5,
+      "reason": "tool_schema_bounds",
+      "method": "qwen35_rendered_byte_bpe_upper_bound",
+      "input_utf8_bytes": 8852,
+      "rendered_prompt_bytes_upper_bound": 7597,
+      "tool_preamble_bytes": 0,
+      "special_token_allowance": 64,
+      "output_token_reserve": 1024,
+      "upper_bound_tokens": 8685,
+      "capacity_tokens": 8192
+    },
+    {
+      "kind": "context.pruned",
+      "step": 5,
+      "reason": "inspection_capability_hints",
+      "omitted_result_views": 3,
+      "method": "qwen35_rendered_byte_bpe_upper_bound",
+      "input_utf8_bytes": 8711,
+      "rendered_prompt_bytes_upper_bound": 7474,
+      "tool_preamble_bytes": 0,
+      "special_token_allowance": 64,
+      "output_token_reserve": 1024,
+      "upper_bound_tokens": 8562,
+      "capacity_tokens": 8192
+    },
+    {
+      "kind": "context.limited",
+      "step": 5,
+      "method": "qwen35_rendered_byte_bpe_upper_bound",
+      "input_utf8_bytes": 8711,
+      "rendered_prompt_bytes_upper_bound": 7474,
+      "tool_preamble_bytes": 0,
+      "special_token_allowance": 64,
+      "output_token_reserve": 1024,
+      "upper_bound_tokens": 8562,
+      "capacity_tokens": 8192
+    }
+  ],
+  "hypothesis": "Current encode_draft_receipts only processes groups wholly composed of artifact_draft, so the final mixed inspect/draft group is not encoded. Public replay should test lossless encoding of just the draft pair while preserving its other call/result and actual call index. Do not remove mixed results, change limits or regrade this draft."
+}

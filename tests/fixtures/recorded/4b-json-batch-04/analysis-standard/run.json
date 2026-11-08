@@ -1,0 +1,91 @@
+{
+  "id": "beab297ffdd046869f1c2ba4f40924c2",
+  "session_id": "9b759b072b10411cbe585c7f5585de99",
+  "task": "請分析 metrics.csv，計算訂單總數、異常總數及整體異常率（異常數 / 訂單數 × 100），保存為 report.md，附可追溯來源。若缺少必要欄位，明確指出缺少什麼；只計算有證據的數值，不能補零或猜測異常率。",
+  "status": "failed",
+  "mode": "local",
+  "result": "",
+  "created_at": "2026-10-31T10:38:02.724311+00:00",
+  "sources": [
+    {
+      "path": "metrics.csv",
+      "sha256": "c6def025fd7ec5096bc4aebfc7981026fd384f619748f724a0f5d0531f4b6698",
+      "bytes": 38
+    }
+  ],
+  "limits": {
+    "context_window_tokens": null,
+    "max_output_tokens": 1024,
+    "max_excerpt_bytes": 512,
+    "max_memory_bytes": 1024,
+    "max_history_bytes": 16384,
+    "max_steps": 12,
+    "max_tool_calls": 20,
+    "max_corrections": 2,
+    "timeout_seconds": 180.0,
+    "approval_timeout_seconds": 120
+  },
+  "model": {
+    "mode": "local",
+    "name": "qwen3.5:4b-q4_K_M",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+    "stream": true,
+    "transport_fixture": false,
+    "decision_protocol": "json_tools",
+    "requires_tool_finish": true,
+    "context_capacity_tokens": 8192,
+    "context_capacity_source": "application_configuration",
+    "context_profile": "ollama-0.40.10-qwen35-gpt2",
+    "renderer_verification": {
+      "renderer": "qwen3.5",
+      "parser": "qwen3.5",
+      "template_source": "renderer_parser",
+      "implicit_messages": false,
+      "implicit_system": false,
+      "tokenizer_model": "gpt2",
+      "tokenizer_pre": "qwen35",
+      "add_bos_token": false
+    },
+    "digest": "d8b0f5e9760cd1682034f292d7ef72ec46f432149be0df7574bf2d6e92e38c04",
+    "server_version": "0.40.10",
+    "capabilities": [
+      "completion",
+      "vision",
+      "tools",
+      "thinking"
+    ],
+    "reasoning_effort": "none"
+  },
+  "validation": {
+    "fault_once_source_read": false
+  },
+  "policy": {
+    "require_publish_approval": false,
+    "publication_workflow": "draft_review"
+  },
+  "context": {
+    "turns": [],
+    "history": [],
+    "history_run_ids": [],
+    "omitted": [],
+    "source_excerpts": [],
+    "memories": [],
+    "memory_omitted": []
+  },
+  "base_artifact": null,
+  "resume_checkpoint": null,
+  "recovery": null,
+  "cancellation": null,
+  "error": {
+    "code": "correction_limit_exceeded",
+    "message": "This Run exhausted its recoverable tool correction budget."
+  },
+  "usage": {
+    "model_calls": 8,
+    "tool_calls": 9
+  },
+  "artifacts": [],
+  "inherited_artifacts": [],
+  "approvals": [],
+  "last_sequence": 56
+}

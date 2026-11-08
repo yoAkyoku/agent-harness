@@ -1,0 +1,19 @@
+{
+  "accepted": false,
+  "case_id": "documents-missing",
+  "reviewed_at": "2026-11-08",
+  "batch_mode": "quality_observation",
+  "run_id": "51cb4f43f60547af81e91c80a68d7b10",
+  "candidate_source_sha256": "3eb2d10122350712106415b5b39d19255dfd19b7959193ff9e2cb22bb1561207",
+  "source_sha256": {
+    "release.md": "89f63157eb841fe39461fac5749bf54d2ec74df1c41cd648429aa655a7de3aec",
+    "handoff.md": "2cf803047b9d95089dfcf154c7fe722de7bed7987e89204f69e25d84da7e03e9"
+  },
+  "review": {
+    "source_values": "release.md: Release checklist, owner Sora, release gate 'passing regression tests'. handoff.md: Support handoff, incident escalation contact Mika, no owner line.",
+    "harness_behaviour": "Correct. Attempt 1 (same substitution as batches 01-04) was rejected. Attempt 2 repeated batch 04's workaround, relabelling the lines '負責人 (Owner)' and '負責人 (Incident escalation contact)'; with annotations removed before grouping it is now recognised as the same field and rejected. Attempt 3 resubmitted attempt 2 unchanged. The correction budget was exhausted and nothing was published.",
+    "defects": "Not accepted: no artifact. The model did not find the edit the feedback describes (mark handoff.md's owner 未提供 and keep Mika as the escalation contact).",
+    "comparison": "Batch 04 published the relabelled artifact with Mika shown as owner; this batch blocks that workaround and fails within limits instead.",
+    "runtime": "Run failed in 33.85 seconds with 6 model calls and 9 tool calls (3 rejected artifact_write); GPU shared with Unreal Editor."
+  }
+}

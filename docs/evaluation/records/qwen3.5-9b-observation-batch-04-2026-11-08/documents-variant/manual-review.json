@@ -1,0 +1,33 @@
+{
+  "accepted": true,
+  "case_id": "documents-variant",
+  "reviewed_at": "2026-11-08",
+  "batch_mode": "quality_observation",
+  "run_id": "0f8235e528424069aadd411ba5b72aa7",
+  "candidate_source_sha256": "2537fcd3d2f7ec3d29742735e15224fd4fd74f843827480fba092daf8b536464",
+  "source_sha256": {
+    "migration.md": "af3bbd7e3935ab94b8fb55f1a64dfcd7bc4fe7823e4dbe2ae363a4fdcb7c95dc",
+    "support.md": "829c700af5074fcdd086042420b957fbcad4671124b9bffbd656178649b09a7b"
+  },
+  "review": {
+    "comparison": "Artifact SHA and completion reply are identical to batch 03 (fcf1a1e9adfc4e0497890cc68fe76fd6); the batch-03 review applies unchanged.",
+    "batch_03_review": {
+      "comparison": "Artifact SHA and completion reply are identical to batch 02 (00b8ba0db578447da36ff41ed925b776); the batch-02 review applies unchanged.",
+      "batch_02_review": {
+        "source_values": "migration.md: Database migration, owner Tao, release gate 'backup restore verified'. support.md: Migration support, owner Rina, incident escalation contact Ken, no window.",
+        "citations": "First artifact_write rejected with missing_body_citation; after the feedback the model added per-document EIDs. Republished body cites E1 and E2 next to their sections.",
+        "completeness_and_language": "Artifact identical to batch 01 (same SHA). Same minor defects: the contact sits under a '事件升級窗口' label and the footnote mentions dates.",
+        "completion_reply": "Describes this artifact's topics, owners and key facts and repeats the footnote; consistent with the artifact.",
+        "runtime": "Automatic checks passed in 40.56 seconds with 6 model calls and 7 tool calls; one natural correction; GPU shared with Unreal Editor."
+      },
+      "corrections": [
+        "missing_body_citation"
+      ],
+      "runtime": "Automatic checks passed in 25.66 seconds with 6 model calls and 7 tool calls; GPU shared with Unreal Editor."
+    },
+    "corrections": [
+      "missing_body_citation"
+    ],
+    "runtime": "Automatic checks passed in 31.37 seconds with 6 model calls and 7 tool calls; GPU shared with Unreal Editor."
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "accepted": false,
+  "case_id": "analysis-tickets",
+  "reviewed_at": "2026-11-08",
+  "batch_mode": "quality_observation",
+  "run_id": "ecd66649c83640108f58ebb4d6e5cde8",
+  "candidate_source_sha256": "3eb2d10122350712106415b5b39d19255dfd19b7959193ff9e2cb22bb1561207",
+  "source_sha256": {
+    "tickets.csv": "34a18ce7afca7f840091e458b7faebc9af7db67de3a8d2d9e1d4d6a9d6e67072"
+  },
+  "review": {
+    "source_values": "tickets.csv: A 40/34/6h, B 60/45/10h, C 20/17/8h. Tickets 120, resolved 96, rate 96/120*100 = 80%, mean(hours) = 8; per-team hours would be A 6, B 10, C 8.",
+    "correct_parts": "工單總數 120 [E2 sum(tickets)], 已解決工單總數 96 [E3 sum(resolved)], 整體解決率 80.0% [E5 ratio_percent(E3, E2)], and the note that the hours mean is 8 [E4 mean(hours)] are all correct and correctly cited.",
+    "defects": "Rejected: the model added a per-team table '團隊平均處理時數' with A 34, B 45, C 6. 34 and 45 are A's and B's resolved counts and 6 is A's hours; none is a team's hours. Every row cites E1, the table_inspect sample, which does contain those numbers but in other columns, so the citations exist while pointing at the wrong field. The completion reply repeats the wrong per-team figures.",
+    "task_design_note": "The task text '各團隊的平均處理時數（hours 欄的平均）' was intended as the overall mean of the hours column but can be read as a per-team listing. That ambiguity is a flaw in this unseen task's wording; it does not excuse the wrong numbers, which are wrong under either reading.",
+    "harness_note": "Automatic checks passed because every expected value appears in the body. No verifier checks that a number cited to inspection evidence sits in the column its label names; that would need the label-to-column meaning and was not added.",
+    "runtime": "Completed in 91.43 seconds with 6 model calls and 8 tool calls (sum, sum, mean, ratio_percent); no corrections; GPU shared with Unreal Editor."
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "scope": "Independent real-model GUI workflow evidence, not pooled fixed-suite quality acceptance.",
+  "revision": "1e05f2e3401a57d9a0e840b6d0aa8b4dc1858c09",
+  "first_run": {
+    "id": "ba2622198f7d438d8888b871579b169e",
+    "status": "completed",
+    "usage": {
+      "model_calls": 7,
+      "tool_calls": 8
+    },
+    "events": 56,
+    "same_run_before_after_reload": true,
+    "restore_route": "reload returns to start; clicking existing history restores the active approval",
+    "approval_approved_count": 1,
+    "approval_consumed_count": 1,
+    "artifact": {
+      "id": "e9a40ac96973a6df02f66d94dc0fe3ec",
+      "run_id": "ba2622198f7d438d8888b871579b169e",
+      "name": "report.md",
+      "sha256": "6c0ae6cec490cab714b1503f5e74202d5fb855cd868d28ac4bb9dfd2b059bd96",
+      "bytes": 607,
+      "parent_artifact_id": null,
+      "version": 1,
+      "call_id": "json_8ce0b5d7f50549d3b203716df8322a07",
+      "download_url": "/api/runs/ba2622198f7d438d8888b871579b169e/artifacts/e9a40ac96973a6df02f66d94dc0fe3ec"
+    },
+    "artifact_bytes": 607,
+    "independent_numeric_values": [
+      "240",
+      "15",
+      "6.25%"
+    ],
+    "ui_event_sequences_exactly_once": true,
+    "download_link_clicked": true,
+    "http_export_hash_verified": true,
+    "browser_file_completion_verified": false,
+    "body_manual_checks": "Reported labels, numbers and source relations match original CSV and actual full-column/ratio tools. No invented dates in body.",
+    "plan_limitations": "Qualified hypothetical header examples and broad stopping language; plan also loosely groups ratio under table_aggregate although actual number_calculate is correctly used. This is not complete instruction-adherence or plan-quality acceptance."
+  },
+  "modification_run": {
+    "id": "69d12230b4a44d86ae1c78f2bc217cce",
+    "status": "failed",
+    "error": {
+      "code": "context_limit_exceeded",
+      "message": "The complete request exceeds the configured conservative context envelope."
+    },
+    "usage": {
+      "model_calls": 3,
+      "tool_calls": 3
+    },
+    "base_artifact_id": "e9a40ac96973a6df02f66d94dc0fe3ec",
+    "artifacts": 0,
+    "diagnosis": "Both attempted draft citations refer to previous-Run IDs while current evidence registry is empty. No read/calculation occurs. Later request exceeds context; no v2 publication.",
+    "original_artifact_retained": true
+  },
+  "remaining": [
+    "browser physical file completion",
+    "successful real-model revision",
+    "deny",
+    "cancel",
+    "memory CRUD/cross-session selection",
+    "controlled safe resume",
+    "final GUI audit"
+  ],
+  "full_gui_accepted": false,
+  "all_six_quality_accepted": false
+}

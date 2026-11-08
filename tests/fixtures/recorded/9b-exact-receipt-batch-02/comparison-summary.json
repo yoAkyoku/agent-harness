@@ -1,0 +1,59 @@
+{
+  "fixed_revision": "578179979fe09bdf72d2e47e8011055f15896212",
+  "settings": "9B/nonthinking/json_tools/exact/direct/artifact_receipt; original six cases/truth/limits",
+  "accepted": 3,
+  "admitted": 4,
+  "required": 6,
+  "quality_accepted": false,
+  "stop_reason": "documents-standard body lacks source linkage; factual topics/roles/facts now correct",
+  "not_admitted": [
+    "documents-variant",
+    "documents-missing"
+  ],
+  "cases": [
+    {
+      "case": "analysis-standard",
+      "run_id": "464c7ea413b04fc784bc6197e25ea173",
+      "status": "completed",
+      "accepted": true,
+      "elapsed_seconds": 30.7,
+      "usage": {
+        "model_calls": 6,
+        "tool_calls": 7
+      }
+    },
+    {
+      "case": "analysis-variant",
+      "run_id": "2faf810e33df4e128fc6dc7c569987a3",
+      "status": "completed",
+      "accepted": true,
+      "elapsed_seconds": 24.94,
+      "usage": {
+        "model_calls": 6,
+        "tool_calls": 7
+      }
+    },
+    {
+      "case": "analysis-missing",
+      "run_id": "1c9c0f6665d94c23a1c6af9c34956556",
+      "status": "completed",
+      "accepted": true,
+      "elapsed_seconds": 24.23,
+      "usage": {
+        "model_calls": 5,
+        "tool_calls": 7
+      }
+    },
+    {
+      "case": "documents-standard",
+      "run_id": "ff0565632ae54ac7a42cd0c2f9f19fd5",
+      "status": "completed",
+      "accepted": false,
+      "elapsed_seconds": 22.37,
+      "usage": {
+        "model_calls": 5,
+        "tool_calls": 6
+      }
+    }
+  ]
+}

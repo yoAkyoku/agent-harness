@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' ws://127.0.0.1:* ws://localhost:*; img-src 'self' data:; object-src 'none'; base-uri 'none'">
+  <title>Agent Harness Demo</title>
+  <link rel="stylesheet" href="/assets/styles.css?v=9.0">
+  <script type="module" src="/assets/app.js?v=11.3"></script>
+</head>
+<body>
+  <div class="workbench">
+    <aside class="sidebar" aria-label="工作區與紀錄">
+      <a class="brand" href="/" aria-label="Agent Harness 首頁">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="m16 3 12 7v12l-12 7L4 22V10Z"/><path d="M10 21V11h5a4 4 0 0 1 0 8h-5m8-8 5 10"/></svg>
+        <span>Agent Harness<small>本機任務工作台</small></span>
+      </a>
+      <button id="new-task" class="new-task" type="button"><span aria-hidden="true">＋</span> 新任務</button>
+      <section class="workspace-section" aria-labelledby="workspace-heading">
+        <h2 id="workspace-heading">工作資料夾</h2>
+        <form id="workspace-form">
+          <label class="sr-only" for="workspace-path">資料夾完整路徑</label>
+          <input id="workspace-path" name="path" placeholder="D:\Projects\my-sources" autocomplete="off" required>
+          <button class="subtle-button" type="submit">載入資料夾</button>
+        </form>
+        <button id="use-demo" class="demo-button" type="button">使用範例資料</button>
+        <div id="workspace-label" class="folder-label">尚未選擇工作區</div>
+        <div class="sources-heading"><h3>任務來源</h3><span id="source-count">0 / 8</span></div>
+        <div id="sources" class="sources"><p class="sidebar-note">載入資料夾後，選擇這次任務可以讀取的檔案。</p></div>
+      </section>
+      <details id="memory-panel" class="memory-panel">
+        <summary>工作區記憶 <span id="memory-count">0</span></summary>
+        <p class="sidebar-note">只保存你在此輸入的內容。適用於這個資料夾，不授予檔案或工具權限。</p>
+        <div id="memory-list"></div>
+        <form id="memory-form">
+          <h3 id="memory-editor-heading">新增記憶</h3>
+          <label for="memory-title">名稱</label><input id="memory-title" required maxlength="100">
+          <label for="memory-kind">類型</label><select id="memory-kind"><option value="preference">偏好</option><option value="fact">待來源核實的事實</option></select>
+          <label for="memory-content">記憶內容</label><textarea id="memory-content" required maxlength="2000" rows="3"></textarea>
+          <label for="memory-keywords">適用關鍵字（以逗號分隔）</label><input id="memory-keywords" placeholder="例如：摘要, 報告">
+          <p class="sidebar-note">任務或已選檔名包含任一關鍵字時使用；留空適用所有新任務。超過任務預算會省略。</p>
+          <label for="memory-note">來源註記（由你填寫）</label><input id="memory-note" maxlength="300">
+          <button id="memory-save" class="subtle-button" type="submit" disabled>明確保存記憶</button>
+          <button id="memory-reset" class="subtle-button" type="button">取消編輯</button>
+          <p id="memory-feedback" role="status" class="sidebar-note"></p>
+        </form>
+      </details>
+      <section class="history-section" aria-labelledby="history-heading">
+        <h2 id="history-heading">工作紀錄</h2>
+        <div id="sessions"><p class="sidebar-note">完成的工作會保留在這裡。</p></div>
+      </section>
+      <div class="local-note"><span class="local-dot" aria-hidden="true"></span> 檔案與紀錄保存在本機</div>
+    </aside>
+
+    <main class="task-panel">
+      <header class="topbar"><span id="workspace-breadcrumb">新的工作</span><span id="mode-badge" class="mode-badge">載入模型設定</span></header>
+      <div class="task-body">
+        <div class="intro"><div class="intro-symbol" aria-hidden="true">✳</div><h1>把資料交給任務。</h1><p>選好來源、交代工作，在同一個地方查看執行與成果。</p></div>
+        <div class="fixture-note"><strong id="mode-title">模型模式</strong><p id="mode-description">正在讀取這個工作台的模型設定。</p></div>
+        <form id="task-form" class="task-composer">
+          <div id="session-tools" class="session-tools" hidden>
+            <label for="run-history">查看這個對話的執行紀錄</label><select id="run-history" aria-label="查看執行版本"></select>
+            <label for="base-artifact">這次修改以哪份成果為基底？</label><select id="base-artifact"><option value="">不使用基底，建立新的任務</option></select>
+            <p id="base-hint">修改會建立新版本，原稿仍可下載。</p>
+          </div>
+          <label for="task-input">這次要完成什麼？</label>
+          <textarea id="task-input" rows="4" maxlength="8000" required placeholder="例如：讀取已選來源，保存一份可檢查的來源快照。">讀取已選來源，保存一份可檢查的來源快照。</textarea>
+          <label for="publication-workflow">成果流程</label>
+          <select id="publication-workflow" aria-describedby="publication-workflow-hint"><option value="direct">直接提出保存</option><option value="draft_review">先草稿，再由模型核對後提出保存</option></select>
+          <p id="publication-workflow-hint">草稿流程會多用一次以上模型決策。草稿尚非可下載成果，內容仍需檢查。</p>
+          <label for="completion-workflow">完成時如何回覆？</label>
+          <select id="completion-workflow" aria-describedby="completion-workflow-hint"><option value="model_summary">由模型回覆摘要</option><option value="artifact_receipt">只確認已發布的檔案</option></select>
+          <p id="completion-workflow-hint">檔案確認僅列出模型選定、已核對的成果；正文仍需檢查。</p>
+          <label class="approval-option"><input id="require-publish-approval" type="checkbox" checked> 保存成果前，由我確認這次內容</label>
+          <div class="composer-bottom"><span id="selection-hint">先從左側選擇資料來源</span><button id="start-task" class="primary-button" type="submit" disabled>開始任務 <span aria-hidden="true">↗</span></button></div>
+        </form>
+        <div id="error" class="error-message" role="alert" hidden></div>
+        <section id="execution" class="execution" aria-labelledby="execution-heading" hidden>
+          <div class="execution-header"><div><h2 id="execution-heading">執行過程</h2><p id="run-caption"></p></div><div class="execution-actions"><span id="run-status" class="run-status">等待執行</span><button id="cancel-run" class="subtle-button" type="button" hidden>取消執行</button></div></div>
+          <div id="usage" class="usage"></div>
+          <section id="recovery-card" class="fixture-note" aria-labelledby="recovery-heading" hidden>
+            <h3 id="recovery-heading">檢查中斷後的工作</h3>
+            <p id="recovery-summary" role="status"></p>
+            <ul id="recovery-attempts"></ul>
+            <details><summary>查看保存的恢復紀錄</summary><pre id="recovery-details"></pre></details>
+            <button id="resume-run" class="primary-button" type="button" disabled>建立新執行並續做</button>
+          </section>
+          <section id="approval-card" class="approval-card" aria-labelledby="approval-heading" hidden>
+            <p class="approval-eyebrow">需要你的決定</p><h3 id="approval-heading">確認這次成果保存</h3>
+            <p id="approval-target"></p><p id="approval-expiry" class="approval-meta"></p>
+            <pre id="approval-content" tabindex="0" aria-label="待批准的完整成果內容"></pre>
+            <details><summary>查看完整有效參數與範圍</summary><pre id="approval-parameters"></pre></details>
+            <p id="approval-version" class="approval-meta"></p>
+            <div class="approval-actions"><button id="approve-operation" class="primary-button" type="button">批准這次保存</button><button id="deny-operation" class="subtle-button" type="button">拒絕</button></div>
+          </section>
+          <div id="plan" class="fixture-note" hidden><strong id="plan-title">模型提出的計畫</strong><p id="plan-context">計畫是預計動作；工具是否成功、引用是否有效，以實際結果為準。</p><ol id="plan-steps"></ol></div>
+          <p id="connection-state" class="connection-state" role="status"></p>
+          <ol id="timeline" class="timeline" aria-label="已保存的執行事件"></ol>
+          <p id="run-result" class="run-result"></p>
+          <button id="reload-run" class="subtle-button" type="button" hidden>重新載入進度</button>
+        </section>
+      </div>
+      <footer class="task-footer">每筆工具結果都先保存，再顯示於工作台。</footer>
+    </main>
+
+    <aside class="preview-panel" aria-label="來源與成果預覽">
+      <header class="preview-header"><h2 id="preview-heading">成果預覽</h2><span id="preview-kind" class="preview-kind">等待成果</span></header>
+      <div id="preview-empty" class="preview-empty"><div class="paper-icon" aria-hidden="true"><span></span><span></span><span></span></div><h3>工作完成後，成果在這裡。</h3><p>內容、檔案大小與下載連結，直接對照實際保存的檔案。</p></div>
+      <div id="preview-content" class="preview-content" hidden>
+        <div class="file-header"><div><h3 id="preview-name"></h3><p id="preview-meta"></p></div><a id="download" class="download-button" hidden>下載</a></div>
+        <button id="revise-artifact" class="subtle-button" type="button" hidden>以這個版本修改</button>
+        <div id="artifact-list" class="artifact-list"></div>
+        <pre id="preview-text" tabindex="0"></pre>
+      </div>
+      <div class="preview-footnote">來源與模型輸出以純文字呈現。</div>
+    </aside>
+  </div>
+</body>
+</html>

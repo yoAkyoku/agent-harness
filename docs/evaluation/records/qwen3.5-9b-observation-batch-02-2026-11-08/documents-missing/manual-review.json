@@ -1,0 +1,20 @@
+{
+  "accepted": false,
+  "case_id": "documents-missing",
+  "reviewed_at": "2026-11-08",
+  "batch_mode": "quality_observation",
+  "run_id": "cc76bbe08d854cdbb5fc2d9940a07015",
+  "candidate_source_sha256": "872f7912770f848a3abd6544eaee596d0f87292a165330c9843ae4fde65913d8",
+  "source_sha256": {
+    "release.md": "89f63157eb841fe39461fac5749bf54d2ec74df1c41cd648429aa655a7de3aec",
+    "handoff.md": "2cf803047b9d95089dfcf154c7fe722de7bed7987e89204f69e25d84da7e03e9"
+  },
+  "review": {
+    "source_values": "release.md: Release checklist, owner Sora, release gate 'passing regression tests'. handoff.md: Support handoff, incident escalation contact Mika, no owner line.",
+    "citations": "Each section cites its own source EID; source SHAs match the Run.",
+    "completeness_and_language": "Artifact identical to batch 01 (same SHA).",
+    "defects": "Rejected (automatic check missing_field_values_explicit also failed), same as batch 01: Mika, the escalation contact, is filled in as the owner of handoff.md, and the footnote claims fields were marked 未提供 although none are.",
+    "completion_reply": "Restates the artifact, including Mika as owner, so it agrees with the artifact. The role substitution itself is outside the completion check.",
+    "runtime": "Run completed in 30.6 seconds with 5 model calls and 7 tool calls; no corrections; GPU shared with Unreal Editor."
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "accepted": false,
+  "case_id": "documents-standard",
+  "reviewed_at": "2026-11-08",
+  "batch_mode": "quality_observation",
+  "run_id": "56095dfb38ce471c9769df7089649327",
+  "candidate_source_sha256": "efdd734e5628fd1b3f9ebea211d7dbe97e7b36ac49e15c9dbea68ab9d4e9b4bd",
+  "source_sha256": {
+    "release.md": "3bc249192bdae0dd0a082cca658ad4a4205a91f26a64a9671ef79a726bb0ebaf",
+    "handoff.md": "bdf1ce54996bb3137a4a99b824aeac755b7c406eff8714c740b7e0c5702100ad"
+  },
+  "review": {
+    "source_values": "release.md: topic Release checklist, owner Nina, release gate 'all smoke tests pass'. handoff.md: topic Support handoff, owner Owen, incident escalation contact Iris, no escalation window.",
+    "citations": "Each document section cites its own source EID; source SHAs match the Run.",
+    "completeness_and_language": "Topics, owners and key facts are all present and correctly associated. Topics stay in their English source wording, which the prompt allows.",
+    "defects": "Rejected: the model read the task's parenthetical '(發布條件或事件升級窗口)' as a separate field. For release.md it lists the release gate under 關鍵事項 and then states '發布條件或事件升級窗口: 未提供', contradicting the supplied gate. For handoff.md the same line is defensible (no window is given) but the contact is filed only as a key fact. The completion reply says missing information was marked, which hides the contradiction.",
+    "harness_note": "This is the defect the removed case-specific rule (_document_escalation_detail_issues) used to block by parsing the task text. Generic evidence verifiers cannot see it; it is recorded as a model-quality observation rather than patched with another task-keyword rule.",
+    "runtime": "Automatic checks passed in 16.6 seconds with 5 model calls and 6 tool calls; no corrections; one published artifact."
+  }
+}

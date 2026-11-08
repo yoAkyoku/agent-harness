@@ -1,0 +1,13 @@
+.git
+.venv
+.private
+.scratch
+.pytest-tmp
+.pytest_cache
+.mypy_cache
+**/__pycache__
+docs
+downloads
+evaluation
+tests
+scripts

@@ -1,0 +1,18 @@
+{
+  "accepted": true,
+  "case_id": "analysis-variant",
+  "reviewed_at": "2026-11-08",
+  "batch_mode": "quality_observation",
+  "run_id": "070ec1193ea74912a9f6f4d4d894d06f",
+  "candidate_source_sha256": "efdd734e5628fd1b3f9ebea211d7dbe97e7b36ac49e15c9dbea68ab9d4e9b4bd",
+  "source_sha256": {
+    "metrics.csv": "1405c39960d3bd5eb343cdfc167ccb589ffb99689548b497709bd6e8db516d9b"
+  },
+  "review": {
+    "source_values": "metrics.csv has orders 112 and 168 (280 total) and exceptions 7 and 14 (21 total); 21 / 280 * 100 = 7.5%.",
+    "citations": "280 cites E2 sum(orders), 21 cites E3 sum(exceptions), 7.5% cites E4 ratio_percent(E3, E2); source SHA matches the Run.",
+    "completeness_and_language": "All requested metrics present and correctly labelled. The field-check section correctly states both required columns exist.",
+    "defects": "Same redundant conditional clause about missing fields in the completion reply as analysis-standard.",
+    "runtime": "Automatic checks passed in 20.47 seconds with 7 model calls and 8 tool calls; no corrections; one published artifact."
+  }
+}

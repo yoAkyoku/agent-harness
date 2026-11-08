@@ -1,0 +1,19 @@
+{
+  "accepted": true,
+  "case_id": "documents-variant",
+  "reviewed_at": "2026-11-08",
+  "batch_mode": "quality_observation",
+  "run_id": "00b8ba0db578447da36ff41ed925b776",
+  "candidate_source_sha256": "872f7912770f848a3abd6544eaee596d0f87292a165330c9843ae4fde65913d8",
+  "source_sha256": {
+    "migration.md": "af3bbd7e3935ab94b8fb55f1a64dfcd7bc4fe7823e4dbe2ae363a4fdcb7c95dc",
+    "support.md": "829c700af5074fcdd086042420b957fbcad4671124b9bffbd656178649b09a7b"
+  },
+  "review": {
+    "source_values": "migration.md: Database migration, owner Tao, release gate 'backup restore verified'. support.md: Migration support, owner Rina, incident escalation contact Ken, no window.",
+    "citations": "First artifact_write rejected with missing_body_citation; after the feedback the model added per-document EIDs. Republished body cites E1 and E2 next to their sections.",
+    "completeness_and_language": "Artifact identical to batch 01 (same SHA). Same minor defects: the contact sits under a '事件升級窗口' label and the footnote mentions dates.",
+    "completion_reply": "Describes this artifact's topics, owners and key facts and repeats the footnote; consistent with the artifact.",
+    "runtime": "Automatic checks passed in 40.56 seconds with 6 model calls and 7 tool calls; one natural correction; GPU shared with Unreal Editor."
+  }
+}

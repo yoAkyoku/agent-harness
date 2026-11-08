@@ -1,0 +1,10 @@
+{
+  "scope": "Synthetic model transport replay; not real-model acceptance",
+  "prefix": [
+    "{\n\"calls\": [\n{\"name\": \"plan_update\", \"arguments\": {\"steps\": [\"檢查 metrics.csv 是否存在且可讀取，確認欄位結構與數據完整性。\", \"若缺少「訂單總數」所需欄位（如 order_id 或類似唯一識別欄位），記錄缺失並停止計算該項。\", \"若缺少「異常總數」所需欄位（如 status=abnormal/error 的標記欄位），記錄缺失並停止計算該項。\", \"確認是否具備計算分母（訂單數）與分子（異常數）的證據，否則不進行除法運算。\", \"若有足夠數據，使用 table_aggregate 求和訂單數與異常數，再用 number_calculate 計算百分比。\", \"將結果與來源引用寫入 report.md，並僅在工具成功返回時宣稱完成。\"]}\n}\n]\n}",
+    "{\"calls\":[{\"name\":\"workspace_list\",\"arguments\":{}}]}",
+    "{\"calls\":[{\"name\":\"table_inspect\",\"arguments\":{\"path\":\"metrics.csv\"}}]}"
+  ],
+  "mixed": "{\"calls\":[{\"name\":\"plan_update\",\"arguments\":{\"steps\":[\"確認 metrics.csv 欄位僅含 week 與 orders，無異常狀態標記。\",\"明確指出缺少「異常總數」所需欄位（如 status、error_count 等），無法計算分子。\",\"因分母（訂單總數）可算但分子缺失，整體異常率無法計算，停止運算。\",\"將發現的欄位缺失與無法計算的原因寫入 report.md，引用 metrics.csv (E1)。\"]}},{\"name\":\"table_aggregate\",\"arguments\":{\"path\":\"metrics.csv\",\"column\":\"orders\",\"operation\":\"sum\"}}]}",
+  "draft": "{\n  \"calls\": [\n    {\n      \"name\": \"artifact_write\",\n      \"arguments\": {\n        \"name\": \"report.md\",\n        \"content\": \"# 訂單異常率分析報告\\n\\n## 資料來源\\n- **檔案**: metrics.csv (E1)\\n- **欄位檢查**: 僅包含 `week` 與 `orders`，無異常狀態標記（如 `status`、`error_count` 等）。\\n\\n## 計算結果\\n### 1. 訂單總數\\n- **數值**: 150 (E2)\\n- **來源**: metrics.csv, 欄位 `orders`, 運算 `sum`\\n\\n### 2. 異常總數\\n- **狀態**: 無法計算\\n- **原因**: 資料中缺少用於識別異常的欄位（例如 `status`、`error_count` 等），且無其他證據顯示異常數量。\\n\\n### 3. 整體異常率\\n- **狀態**: 無法計算\\n- **原因**: 分子（異常總數）缺失，分母（訂單總數）雖有值但無法形成有效比率。公式為：\\n  $$ \\\\text{異常率} = \\\\frac{\\\\text{異常總數}}{\\\\text{訂單總數}} \\\\times 100 $$\\n\\n## 結論\\n由於缺少異常相關欄位，無法計算異常總數及整體異常率。僅能確認總訂單數為 150。\\n\",\n        \"citations\": [\n          \"E1\",\n          \"E2\"\n        ]\n      }\n    }\n  ]\n}"
+}

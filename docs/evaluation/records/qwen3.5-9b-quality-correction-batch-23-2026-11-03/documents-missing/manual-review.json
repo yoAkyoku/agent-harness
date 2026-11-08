@@ -1,0 +1,17 @@
+{
+  "accepted": true,
+  "case_id": "documents-missing",
+  "reviewed_at": "2026-11-03",
+  "run_id": "e3c7a904fc4740feb136707d838e0aa9",
+  "candidate_source_sha256": "93c32f29efda4627afd2501f70241f5d62f81d4dec5692b18a103723a6618600",
+  "source_sha256": {
+    "release.md": "89f63157eb841fe39461fac5749bf54d2ec74df1c41cd648429aa655a7de3aec",
+    "handoff.md": "2cf803047b9d95089dfcf154c7fe722de7bed7987e89204f69e25d84da7e03e9"
+  },
+  "review": {
+    "source_values": "release.md: Release checklist, owner Sora, release gate passing regression tests. handoff.md: Support handoff, escalation contact Mika; owner is absent and explicitly marked 未提供.",
+    "citations": "The release row cites E1 for owner and gate; the handoff row cites E2 for the source title, absent owner, and contact. Appendix line ranges and SHA-256 values match both current source files.",
+    "completeness_and_language": "Both source rows are present. The only suite-required missing field, handoff.md owner, is clearly marked 未提供. Additional absent key fields are also marked 未提供; no unsupported person or date is supplied. The release gate is accurately rendered in Chinese.",
+    "runtime": "Run completed with a visible plan, one output_language_mismatch rejection followed by corrected Chinese artifact publication, then task_finish. Final reply accurately reports publication and missing information; all automatic checks passed. Elapsed 54.31 seconds, 6 model calls, 9 tool calls."
+  }
+}

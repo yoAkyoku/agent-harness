@@ -1,0 +1,36 @@
+{
+  "mode": "local",
+  "model": {
+    "mode": "local",
+    "name": "qwen3.5:9b-q4_K_M",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+    "stream": true,
+    "transport_fixture": false,
+    "context_capacity_tokens": 8192,
+    "context_capacity_source": "application_configuration",
+    "context_profile": "ollama-0.40.10-qwen35-gpt2",
+    "renderer_verification": {
+      "renderer": "qwen3.5",
+      "parser": "qwen3.5",
+      "template_source": "renderer_parser",
+      "implicit_messages": false,
+      "implicit_system": false,
+      "tokenizer_model": "gpt2",
+      "tokenizer_pre": "qwen35",
+      "add_bos_token": false
+    },
+    "digest": "56671c2ab9385f9cfcb404638e32cd62d88e3501d44822208363c010179a3c90",
+    "server_version": "0.40.10",
+    "capabilities": [
+      "completion",
+      "vision",
+      "tools",
+      "thinking"
+    ],
+    "reasoning_effort": "none"
+  },
+  "demo_path": "C:\\path\\to\\agent-harness\\src\\agent_harness_demo\\demo_sources",
+  "validation": {
+    "fault_once_source_read": false
+  }
+}

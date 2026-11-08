@@ -1,0 +1,19 @@
+{
+  "accepted": false,
+  "case_id": "documents-missing",
+  "reviewed_at": "2026-11-08",
+  "batch_mode": "quality_observation",
+  "run_id": "bc150dc1201043d4aba02e01f0bd7ee3",
+  "candidate_source_sha256": "01630ac8685937ef2a13657fba61951530667d260557bbb47e8054797b2f02d4",
+  "source_sha256": {
+    "release.md": "89f63157eb841fe39461fac5749bf54d2ec74df1c41cd648429aa655a7de3aec",
+    "handoff.md": "2cf803047b9d95089dfcf154c7fe722de7bed7987e89204f69e25d84da7e03e9"
+  },
+  "review": {
+    "source_values": "release.md: Release checklist, owner Sora, release gate 'passing regression tests'. handoff.md: Support handoff, incident escalation contact Mika, no owner line.",
+    "harness_behaviour": "Correct: the first artifact_write (byte-identical to the artifact published in batches 01 and 02) was rejected with mixed_source_roles naming Sora as release.md's Owner and Mika as handoff.md's Incident escalation contact. The model was given two corrections; both resubmissions were byte-identical to the first, so the Run stopped with correction_limit_exceeded and published nothing. The wrong owner never reached an artifact.",
+    "defects": "Not accepted: no artifact. The model did not act on the feedback at all; between attempts it only re-saved its plan. The feedback names the mixed field and values but does not say which line to change, which may be too indirect for this model.",
+    "comparison": "Batches 01 and 02 published the substituted owner and completed; this batch refuses to publish it and fails within limits.",
+    "runtime": "Run failed in 55.49 seconds with 6 model calls and 9 tool calls (3 rejected artifact_write); GPU shared with Unreal Editor."
+  }
+}

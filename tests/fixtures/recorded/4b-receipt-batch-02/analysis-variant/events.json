@@ -1,0 +1,1528 @@
+[
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 1,
+    "kind": "run.accepted",
+    "timestamp": "2026-11-01T04:40:24.502907+00:00",
+    "data": {
+      "mode": "local",
+      "model": {
+        "mode": "local",
+        "name": "qwen3.5:4b-q4_K_M",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+        "stream": true,
+        "transport_fixture": false,
+        "decision_protocol": "json_tools",
+        "requires_tool_finish": true,
+        "context_capacity_tokens": 8192,
+        "context_capacity_source": "application_configuration",
+        "context_profile": "ollama-0.40.10-qwen35-gpt2",
+        "renderer_verification": {
+          "renderer": "qwen3.5",
+          "parser": "qwen3.5",
+          "template_source": "renderer_parser",
+          "implicit_messages": false,
+          "implicit_system": false,
+          "tokenizer_model": "gpt2",
+          "tokenizer_pre": "qwen35",
+          "add_bos_token": false
+        },
+        "digest": "d8b0f5e9760cd1682034f292d7ef72ec46f432149be0df7574bf2d6e92e38c04",
+        "server_version": "0.40.10",
+        "capabilities": [
+          "completion",
+          "vision",
+          "tools",
+          "thinking"
+        ],
+        "reasoning_effort": "none"
+      },
+      "validation": {
+        "fault_once_source_read": false
+      },
+      "policy": {
+        "require_publish_approval": false,
+        "publication_workflow": "draft_review",
+        "completion_workflow": "artifact_receipt"
+      }
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 2,
+    "kind": "run.started",
+    "timestamp": "2026-11-01T04:40:24.510027+00:00",
+    "data": {}
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 3,
+    "kind": "context.selected",
+    "timestamp": "2026-11-01T04:40:24.515151+00:00",
+    "data": {
+      "source_excerpts": [],
+      "memories": [],
+      "memory_omitted": [],
+      "history_run_ids": [],
+      "omitted": [],
+      "base_artifact_id": null
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 4,
+    "kind": "context.memory_refreshed",
+    "timestamp": "2026-11-01T04:40:24.522151+00:00",
+    "data": {
+      "step": 1,
+      "memories": [],
+      "memory_omitted": []
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 5,
+    "kind": "model.requested",
+    "timestamp": "2026-11-01T04:40:24.528175+00:00",
+    "data": {
+      "step": 1,
+      "context_budget": {
+        "method": "qwen35_rendered_byte_bpe_upper_bound",
+        "input_utf8_bytes": 3488,
+        "rendered_prompt_bytes_upper_bound": 2889,
+        "tool_preamble_bytes": 0,
+        "special_token_allowance": 64,
+        "output_token_reserve": 1024,
+        "upper_bound_tokens": 3977,
+        "capacity_tokens": 8192
+      }
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 6,
+    "kind": "model.responded",
+    "timestamp": "2026-11-01T04:40:27.763070+00:00",
+    "data": {
+      "step": 1,
+      "text": "",
+      "tool_count": 1,
+      "usage": {
+        "prompt_tokens": 691,
+        "completion_tokens": 148,
+        "total_tokens": 839
+      },
+      "message": {
+        "role": "assistant",
+        "content": null,
+        "decision_protocol": "json_tools",
+        "wire_content": "{\n  \"calls\": [\n    {\n      \"name\": \"plan_update\",\n      \"arguments\": {\n        \"steps\": [\n          \"檢查 metrics.csv 是否存在必要欄位（訂單數、異常數）以計算總數與比率。\",\n          \"若欄位缺失，記錄缺項並停止計算；若有數據，使用 table_aggregate 求和訂單數與異常數。\",\n          \"使用 number_calculate 計算整體異常率（異常數 / 訂單數 × 100）。\",\n          \"將結果、來源引用及缺項說明整合至 report.md。\"\n        ]\n      }\n    }\n  ]\n}",
+        "tool_calls": [
+          {
+            "id": "json_d031e8d20a764faf91e9e5f782da9d21",
+            "type": "function",
+            "function": {
+              "name": "plan_update",
+              "arguments": "{\"steps\": [\"檢查 metrics.csv 是否存在必要欄位（訂單數、異常數）以計算總數與比率。\", \"若欄位缺失，記錄缺項並停止計算；若有數據，使用 table_aggregate 求和訂單數與異常數。\", \"使用 number_calculate 計算整體異常率（異常數 / 訂單數 × 100）。\", \"將結果、來源引用及缺項說明整合至 report.md。\"]}"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 7,
+    "kind": "tool.requested",
+    "timestamp": "2026-11-01T04:40:27.770201+00:00",
+    "data": {
+      "call_id": "json_d031e8d20a764faf91e9e5f782da9d21",
+      "tool": "plan_update",
+      "arguments": {
+        "steps": [
+          "檢查 metrics.csv 是否存在必要欄位（訂單數、異常數）以計算總數與比率。",
+          "若欄位缺失，記錄缺項並停止計算；若有數據，使用 table_aggregate 求和訂單數與異常數。",
+          "使用 number_calculate 計算整體異常率（異常數 / 訂單數 × 100）。",
+          "將結果、來源引用及缺項說明整合至 report.md。"
+        ]
+      }
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 8,
+    "kind": "tool.dispatched",
+    "timestamp": "2026-11-01T04:40:27.777036+00:00",
+    "data": {
+      "call_id": "json_d031e8d20a764faf91e9e5f782da9d21",
+      "tool": "plan_update",
+      "effect": "run_metadata",
+      "arguments": {
+        "steps": [
+          "檢查 metrics.csv 是否存在必要欄位（訂單數、異常數）以計算總數與比率。",
+          "若欄位缺失，記錄缺項並停止計算；若有數據，使用 table_aggregate 求和訂單數與異常數。",
+          "使用 number_calculate 計算整體異常率（異常數 / 訂單數 × 100）。",
+          "將結果、來源引用及缺項說明整合至 report.md。"
+        ]
+      },
+      "scope": {
+        "workspace": "C:\\path\\to\\agent-harness\\evaluation\\slice-09\\analysis-variant",
+        "artifact_directory": "C:\\path\\to\\agent-harness\\.private\\slice09-4b-receipt-quality-02\\artifacts",
+        "effect": "run_metadata",
+        "sources": [
+          {
+            "path": "metrics.csv",
+            "sha256": "1405c39960d3bd5eb343cdfc167ccb589ffb99689548b497709bd6e8db516d9b",
+            "bytes": 40
+          }
+        ]
+      },
+      "parameters_sha256": "729ce71ba794ecf5b50ad9e5624fb53353dcd2f5734564ff8c604018c8f9888b"
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 9,
+    "kind": "plan.updated",
+    "timestamp": "2026-11-01T04:40:27.784062+00:00",
+    "data": {
+      "steps": [
+        "檢查 metrics.csv 是否存在必要欄位（訂單數、異常數）以計算總數與比率。",
+        "若欄位缺失，記錄缺項並停止計算；若有數據，使用 table_aggregate 求和訂單數與異常數。",
+        "使用 number_calculate 計算整體異常率（異常數 / 訂單數 × 100）。",
+        "將結果、來源引用及缺項說明整合至 report.md。"
+      ]
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 10,
+    "kind": "tool.completed",
+    "timestamp": "2026-11-01T04:40:27.791063+00:00",
+    "data": {
+      "call_id": "json_d031e8d20a764faf91e9e5f782da9d21",
+      "tool": "plan_update",
+      "result": {
+        "saved": true,
+        "steps": [
+          "檢查 metrics.csv 是否存在必要欄位（訂單數、異常數）以計算總數與比率。",
+          "若欄位缺失，記錄缺項並停止計算；若有數據，使用 table_aggregate 求和訂單數與異常數。",
+          "使用 number_calculate 計算整體異常率（異常數 / 訂單數 × 100）。",
+          "將結果、來源引用及缺項說明整合至 report.md。"
+        ]
+      }
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 11,
+    "kind": "model.requested",
+    "timestamp": "2026-11-01T04:40:27.800235+00:00",
+    "data": {
+      "step": 2,
+      "context_budget": {
+        "method": "qwen35_rendered_byte_bpe_upper_bound",
+        "input_utf8_bytes": 6976,
+        "rendered_prompt_bytes_upper_bound": 5926,
+        "tool_preamble_bytes": 0,
+        "special_token_allowance": 64,
+        "output_token_reserve": 1024,
+        "upper_bound_tokens": 7014,
+        "capacity_tokens": 8192
+      }
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 12,
+    "kind": "model.responded",
+    "timestamp": "2026-11-01T04:40:28.623288+00:00",
+    "data": {
+      "step": 2,
+      "text": "",
+      "tool_count": 1,
+      "usage": {
+        "prompt_tokens": 1422,
+        "completion_tokens": 18,
+        "total_tokens": 1440
+      },
+      "message": {
+        "role": "assistant",
+        "content": null,
+        "decision_protocol": "json_tools",
+        "wire_content": "{\"calls\":[{\"name\":\"table_inspect\",\"arguments\":{\"path\":\"metrics.csv\"}}]}",
+        "tool_calls": [
+          {
+            "id": "json_56125d66d20d45e59fca3a60b8d06aed",
+            "type": "function",
+            "function": {
+              "name": "table_inspect",
+              "arguments": "{\"path\": \"metrics.csv\"}"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 13,
+    "kind": "tool.requested",
+    "timestamp": "2026-11-01T04:40:28.631763+00:00",
+    "data": {
+      "call_id": "json_56125d66d20d45e59fca3a60b8d06aed",
+      "tool": "table_inspect",
+      "arguments": {
+        "path": "metrics.csv"
+      }
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 14,
+    "kind": "tool.dispatched",
+    "timestamp": "2026-11-01T04:40:28.639274+00:00",
+    "data": {
+      "call_id": "json_56125d66d20d45e59fca3a60b8d06aed",
+      "tool": "table_inspect",
+      "effect": "read_only",
+      "arguments": {
+        "path": "metrics.csv"
+      },
+      "scope": {
+        "workspace": "C:\\path\\to\\agent-harness\\evaluation\\slice-09\\analysis-variant",
+        "artifact_directory": "C:\\path\\to\\agent-harness\\.private\\slice09-4b-receipt-quality-02\\artifacts",
+        "effect": "read_only",
+        "sources": [
+          {
+            "path": "metrics.csv",
+            "sha256": "1405c39960d3bd5eb343cdfc167ccb589ffb99689548b497709bd6e8db516d9b",
+            "bytes": 40
+          }
+        ]
+      },
+      "parameters_sha256": "edbd740a798753d0f61312558f351099d648d781ec89ac953f510461563ab0a7"
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 15,
+    "kind": "tool.completed",
+    "timestamp": "2026-11-01T04:40:28.647368+00:00",
+    "data": {
+      "call_id": "json_56125d66d20d45e59fca3a60b8d06aed",
+      "tool": "table_inspect",
+      "result": {
+        "path": "metrics.csv",
+        "sha256": "1405c39960d3bd5eb343cdfc167ccb589ffb99689548b497709bd6e8db516d9b",
+        "columns": [
+          "week",
+          "orders",
+          "exceptions"
+        ],
+        "rows": 2,
+        "line_start": 2,
+        "line_end": 3,
+        "sample": [
+          [
+            "4",
+            "112",
+            "7"
+          ],
+          [
+            "5",
+            "168",
+            "14"
+          ]
+        ],
+        "aggregatable_columns": [
+          "week",
+          "orders",
+          "exceptions"
+        ],
+        "evidence_id": "E1"
+      }
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 16,
+    "kind": "model.requested",
+    "timestamp": "2026-11-01T04:40:28.655875+00:00",
+    "data": {
+      "step": 3,
+      "context_budget": {
+        "method": "qwen35_rendered_byte_bpe_upper_bound",
+        "input_utf8_bytes": 7531,
+        "rendered_prompt_bytes_upper_bound": 6409,
+        "tool_preamble_bytes": 0,
+        "special_token_allowance": 64,
+        "output_token_reserve": 1024,
+        "upper_bound_tokens": 7497,
+        "capacity_tokens": 8192
+      }
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 17,
+    "kind": "model.responded",
+    "timestamp": "2026-11-01T04:40:29.847530+00:00",
+    "data": {
+      "step": 3,
+      "text": "",
+      "tool_count": 2,
+      "usage": {
+        "prompt_tokens": 1592,
+        "completion_tokens": 48,
+        "total_tokens": 1640
+      },
+      "message": {
+        "role": "assistant",
+        "content": null,
+        "decision_protocol": "json_tools",
+        "wire_content": "{\"calls\":[{\"name\":\"table_aggregate\",\"arguments\":{\"path\":\"metrics.csv\",\"column\":\"orders\",\"operation\":\"sum\"}},{\"name\":\"table_aggregate\",\"arguments\":{\"path\":\"metrics.csv\",\"column\":\"exceptions\",\"operation\":\"sum\"}}]}",
+        "tool_calls": [
+          {
+            "id": "json_4021d09dffa54451969ab0e46cb8ca9c",
+            "type": "function",
+            "function": {
+              "name": "table_aggregate",
+              "arguments": "{\"path\": \"metrics.csv\", \"column\": \"orders\", \"operation\": \"sum\"}"
+            }
+          },
+          {
+            "id": "json_288dcdbc70db4391961605903098a8de",
+            "type": "function",
+            "function": {
+              "name": "table_aggregate",
+              "arguments": "{\"path\": \"metrics.csv\", \"column\": \"exceptions\", \"operation\": \"sum\"}"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 18,
+    "kind": "tool.requested",
+    "timestamp": "2026-11-01T04:40:29.855917+00:00",
+    "data": {
+      "call_id": "json_4021d09dffa54451969ab0e46cb8ca9c",
+      "tool": "table_aggregate",
+      "arguments": {
+        "path": "metrics.csv",
+        "column": "orders",
+        "operation": "sum"
+      }
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 19,
+    "kind": "tool.dispatched",
+    "timestamp": "2026-11-01T04:40:29.861917+00:00",
+    "data": {
+      "call_id": "json_4021d09dffa54451969ab0e46cb8ca9c",
+      "tool": "table_aggregate",
+      "effect": "read_only",
+      "arguments": {
+        "path": "metrics.csv",
+        "column": "orders",
+        "operation": "sum"
+      },
+      "scope": {
+        "workspace": "C:\\path\\to\\agent-harness\\evaluation\\slice-09\\analysis-variant",
+        "artifact_directory": "C:\\path\\to\\agent-harness\\.private\\slice09-4b-receipt-quality-02\\artifacts",
+        "effect": "read_only",
+        "sources": [
+          {
+            "path": "metrics.csv",
+            "sha256": "1405c39960d3bd5eb343cdfc167ccb589ffb99689548b497709bd6e8db516d9b",
+            "bytes": 40
+          }
+        ]
+      },
+      "parameters_sha256": "bae15e18173e27729162ed95b5b8b538e0b5303dc9274c6da6bed662f80a2c82"
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 20,
+    "kind": "tool.completed",
+    "timestamp": "2026-11-01T04:40:29.869975+00:00",
+    "data": {
+      "call_id": "json_4021d09dffa54451969ab0e46cb8ca9c",
+      "tool": "table_aggregate",
+      "result": {
+        "path": "metrics.csv",
+        "sha256": "1405c39960d3bd5eb343cdfc167ccb589ffb99689548b497709bd6e8db516d9b",
+        "columns": [
+          "week",
+          "orders",
+          "exceptions"
+        ],
+        "rows": 2,
+        "line_start": 2,
+        "line_end": 3,
+        "column": "orders",
+        "operation": "sum",
+        "value": "280",
+        "evidence_id": "E2"
+      }
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 21,
+    "kind": "tool.requested",
+    "timestamp": "2026-11-01T04:40:29.903006+00:00",
+    "data": {
+      "call_id": "json_288dcdbc70db4391961605903098a8de",
+      "tool": "table_aggregate",
+      "arguments": {
+        "path": "metrics.csv",
+        "column": "exceptions",
+        "operation": "sum"
+      }
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 22,
+    "kind": "tool.dispatched",
+    "timestamp": "2026-11-01T04:40:29.910011+00:00",
+    "data": {
+      "call_id": "json_288dcdbc70db4391961605903098a8de",
+      "tool": "table_aggregate",
+      "effect": "read_only",
+      "arguments": {
+        "path": "metrics.csv",
+        "column": "exceptions",
+        "operation": "sum"
+      },
+      "scope": {
+        "workspace": "C:\\path\\to\\agent-harness\\evaluation\\slice-09\\analysis-variant",
+        "artifact_directory": "C:\\path\\to\\agent-harness\\.private\\slice09-4b-receipt-quality-02\\artifacts",
+        "effect": "read_only",
+        "sources": [
+          {
+            "path": "metrics.csv",
+            "sha256": "1405c39960d3bd5eb343cdfc167ccb589ffb99689548b497709bd6e8db516d9b",
+            "bytes": 40
+          }
+        ]
+      },
+      "parameters_sha256": "30bbf0166ee3ec066ba7c28b41e3b3f13cdd7f7b1ea57f1944bf186e69ffcf7c"
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 23,
+    "kind": "tool.completed",
+    "timestamp": "2026-11-01T04:40:29.918275+00:00",
+    "data": {
+      "call_id": "json_288dcdbc70db4391961605903098a8de",
+      "tool": "table_aggregate",
+      "result": {
+        "path": "metrics.csv",
+        "sha256": "1405c39960d3bd5eb343cdfc167ccb589ffb99689548b497709bd6e8db516d9b",
+        "columns": [
+          "week",
+          "orders",
+          "exceptions"
+        ],
+        "rows": 2,
+        "line_start": 2,
+        "line_end": 3,
+        "column": "exceptions",
+        "operation": "sum",
+        "value": "21",
+        "evidence_id": "E3"
+      }
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 24,
+    "kind": "context.pruned",
+    "timestamp": "2026-11-01T04:40:29.926662+00:00",
+    "data": {
+      "step": 4,
+      "call_ids": [
+        "json_d031e8d20a764faf91e9e5f782da9d21"
+      ],
+      "reason": "completed_navigation",
+      "retained_executor_state": {
+        "plan_saved": true,
+        "plan_steps": [
+          "檢查 metrics.csv 是否存在必要欄位（訂單數、異常數）以計算總數與比率。",
+          "若欄位缺失，記錄缺項並停止計算；若有數據，使用 table_aggregate 求和訂單數與異常數。",
+          "使用 number_calculate 計算整體異常率（異常數 / 訂單數 × 100）。",
+          "將結果、來源引用及缺項說明整合至 report.md。"
+        ],
+        "catalog_listed": false,
+        "selected_source_paths": [
+          "metrics.csv"
+        ]
+      },
+      "method": "qwen35_rendered_byte_bpe_upper_bound",
+      "input_utf8_bytes": 8292,
+      "rendered_prompt_bytes_upper_bound": 7055,
+      "tool_preamble_bytes": 0,
+      "special_token_allowance": 64,
+      "output_token_reserve": 1024,
+      "upper_bound_tokens": 8143,
+      "capacity_tokens": 8192
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 25,
+    "kind": "model.requested",
+    "timestamp": "2026-11-01T04:40:29.934177+00:00",
+    "data": {
+      "step": 4,
+      "context_budget": {
+        "method": "qwen35_rendered_byte_bpe_upper_bound",
+        "input_utf8_bytes": 8292,
+        "rendered_prompt_bytes_upper_bound": 7055,
+        "tool_preamble_bytes": 0,
+        "special_token_allowance": 64,
+        "output_token_reserve": 1024,
+        "upper_bound_tokens": 8143,
+        "capacity_tokens": 8192
+      }
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 26,
+    "kind": "model.responded",
+    "timestamp": "2026-11-01T04:40:31.296237+00:00",
+    "data": {
+      "step": 4,
+      "text": "",
+      "tool_count": 1,
+      "usage": {
+        "prompt_tokens": 1825,
+        "completion_tokens": 30,
+        "total_tokens": 1855
+      },
+      "message": {
+        "role": "assistant",
+        "content": null,
+        "decision_protocol": "json_tools",
+        "wire_content": "{\"calls\":[{\"name\":\"number_calculate\",\"arguments\":{\"operation\":\"ratio_percent\",\"numerator\":\"E3\",\"denominator\":\"E2\"}}]}",
+        "tool_calls": [
+          {
+            "id": "json_10f2cef0002a4401a82efaacc21f53b2",
+            "type": "function",
+            "function": {
+              "name": "number_calculate",
+              "arguments": "{\"operation\": \"ratio_percent\", \"numerator\": \"E3\", \"denominator\": \"E2\"}"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 27,
+    "kind": "tool.requested",
+    "timestamp": "2026-11-01T04:40:31.304023+00:00",
+    "data": {
+      "call_id": "json_10f2cef0002a4401a82efaacc21f53b2",
+      "tool": "number_calculate",
+      "arguments": {
+        "operation": "ratio_percent",
+        "numerator": "E3",
+        "denominator": "E2"
+      }
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 28,
+    "kind": "tool.dispatched",
+    "timestamp": "2026-11-01T04:40:31.311029+00:00",
+    "data": {
+      "call_id": "json_10f2cef0002a4401a82efaacc21f53b2",
+      "tool": "number_calculate",
+      "effect": "read_only",
+      "arguments": {
+        "operation": "ratio_percent",
+        "numerator": "E3",
+        "denominator": "E2"
+      },
+      "scope": {
+        "workspace": "C:\\path\\to\\agent-harness\\evaluation\\slice-09\\analysis-variant",
+        "artifact_directory": "C:\\path\\to\\agent-harness\\.private\\slice09-4b-receipt-quality-02\\artifacts",
+        "effect": "read_only",
+        "sources": [
+          {
+            "path": "metrics.csv",
+            "sha256": "1405c39960d3bd5eb343cdfc167ccb589ffb99689548b497709bd6e8db516d9b",
+            "bytes": 40
+          }
+        ]
+      },
+      "parameters_sha256": "632105894416f96f57a21cf51e52d385053378ba828bcdbb421c6dfa2b244648"
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 29,
+    "kind": "tool.completed",
+    "timestamp": "2026-11-01T04:40:31.318038+00:00",
+    "data": {
+      "call_id": "json_10f2cef0002a4401a82efaacc21f53b2",
+      "tool": "number_calculate",
+      "result": {
+        "operation": "ratio_percent",
+        "inputs": [
+          "E3",
+          "E2"
+        ],
+        "value": "7.500000",
+        "evidence_id": "E4"
+      }
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 30,
+    "kind": "context.pruned",
+    "timestamp": "2026-11-01T04:40:31.327547+00:00",
+    "data": {
+      "step": 5,
+      "call_ids": [
+        "json_56125d66d20d45e59fca3a60b8d06aed"
+      ],
+      "reason": "acknowledged_evidence",
+      "retained_executor_state": {
+        "plan_saved": true,
+        "plan_steps": [
+          "檢查 metrics.csv 是否存在必要欄位（訂單數、異常數）以計算總數與比率。",
+          "若欄位缺失，記錄缺項並停止計算；若有數據，使用 table_aggregate 求和訂單數與異常數。",
+          "使用 number_calculate 計算整體異常率（異常數 / 訂單數 × 100）。",
+          "將結果、來源引用及缺項說明整合至 report.md。"
+        ],
+        "catalog_listed": false,
+        "selected_source_paths": [
+          "metrics.csv"
+        ],
+        "verified_evidence": {
+          "E1": {
+            "path": "metrics.csv",
+            "sha256": "1405c39960d3bd5eb343cdfc167ccb589ffb99689548b497709bd6e8db516d9b",
+            "columns": [
+              "week",
+              "orders",
+              "exceptions"
+            ],
+            "rows": 2,
+            "line_start": 2,
+            "line_end": 3,
+            "sample": [
+              [
+                "4",
+                "112",
+                "7"
+              ],
+              [
+                "5",
+                "168",
+                "14"
+              ]
+            ],
+            "aggregatable_columns": [
+              "week",
+              "orders",
+              "exceptions"
+            ],
+            "evidence_id": "E1"
+          }
+        }
+      },
+      "method": "qwen35_rendered_byte_bpe_upper_bound",
+      "input_utf8_bytes": 8487,
+      "rendered_prompt_bytes_upper_bound": 7220,
+      "tool_preamble_bytes": 0,
+      "special_token_allowance": 64,
+      "output_token_reserve": 1024,
+      "upper_bound_tokens": 8308,
+      "capacity_tokens": 8192
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 31,
+    "kind": "context.pruned",
+    "timestamp": "2026-11-01T04:40:31.333943+00:00",
+    "data": {
+      "step": 5,
+      "call_ids": [
+        "json_4021d09dffa54451969ab0e46cb8ca9c",
+        "json_288dcdbc70db4391961605903098a8de"
+      ],
+      "reason": "acknowledged_evidence",
+      "retained_executor_state": {
+        "plan_saved": true,
+        "plan_steps": [
+          "檢查 metrics.csv 是否存在必要欄位（訂單數、異常數）以計算總數與比率。",
+          "若欄位缺失，記錄缺項並停止計算；若有數據，使用 table_aggregate 求和訂單數與異常數。",
+          "使用 number_calculate 計算整體異常率（異常數 / 訂單數 × 100）。",
+          "將結果、來源引用及缺項說明整合至 report.md。"
+        ],
+        "catalog_listed": false,
+        "selected_source_paths": [
+          "metrics.csv"
+        ],
+        "verified_evidence": {
+          "E1": {
+            "path": "metrics.csv",
+            "sha256": "1405c39960d3bd5eb343cdfc167ccb589ffb99689548b497709bd6e8db516d9b",
+            "columns": [
+              "week",
+              "orders",
+              "exceptions"
+            ],
+            "rows": 2,
+            "line_start": 2,
+            "line_end": 3,
+            "sample": [
+              [
+                "4",
+                "112",
+                "7"
+              ],
+              [
+                "5",
+                "168",
+                "14"
+              ]
+            ],
+            "aggregatable_columns": [
+              "week",
+              "orders",
+              "exceptions"
+            ],
+            "evidence_id": "E1"
+          },
+          "E2": {
+            "path": "metrics.csv",
+            "sha256": "1405c39960d3bd5eb343cdfc167ccb589ffb99689548b497709bd6e8db516d9b",
+            "columns": [
+              "week",
+              "orders",
+              "exceptions"
+            ],
+            "rows": 2,
+            "line_start": 2,
+            "line_end": 3,
+            "column": "orders",
+            "operation": "sum",
+            "value": "280",
+            "evidence_id": "E2"
+          },
+          "E3": {
+            "path": "metrics.csv",
+            "sha256": "1405c39960d3bd5eb343cdfc167ccb589ffb99689548b497709bd6e8db516d9b",
+            "columns": [
+              "week",
+              "orders",
+              "exceptions"
+            ],
+            "rows": 2,
+            "line_start": 2,
+            "line_end": 3,
+            "column": "exceptions",
+            "operation": "sum",
+            "value": "21",
+            "evidence_id": "E3"
+          }
+        }
+      },
+      "method": "qwen35_rendered_byte_bpe_upper_bound",
+      "input_utf8_bytes": 7726,
+      "rendered_prompt_bytes_upper_bound": 6544,
+      "tool_preamble_bytes": 0,
+      "special_token_allowance": 64,
+      "output_token_reserve": 1024,
+      "upper_bound_tokens": 7632,
+      "capacity_tokens": 8192
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 32,
+    "kind": "model.requested",
+    "timestamp": "2026-11-01T04:40:31.341139+00:00",
+    "data": {
+      "step": 5,
+      "context_budget": {
+        "method": "qwen35_rendered_byte_bpe_upper_bound",
+        "input_utf8_bytes": 7726,
+        "rendered_prompt_bytes_upper_bound": 6544,
+        "tool_preamble_bytes": 0,
+        "special_token_allowance": 64,
+        "output_token_reserve": 1024,
+        "upper_bound_tokens": 7632,
+        "capacity_tokens": 8192
+      }
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 33,
+    "kind": "model.responded",
+    "timestamp": "2026-11-01T04:40:37.364222+00:00",
+    "data": {
+      "step": 5,
+      "text": "",
+      "tool_count": 1,
+      "usage": {
+        "prompt_tokens": 1638,
+        "completion_tokens": 244,
+        "total_tokens": 1882
+      },
+      "message": {
+        "role": "assistant",
+        "content": null,
+        "decision_protocol": "json_tools",
+        "wire_content": "{\n  \"calls\": [\n    {\n      \"name\": \"artifact_draft\",\n      \"arguments\": {\n        \"name\": \"report.md\",\n        \"content\": \"# Metrics Analysis Report\\n\\n## Data Inspection\\n- **Source**: `metrics.csv` (E1)\\n- **Columns Found**: `week`, `orders`, `exceptions`\\n- **Rows Processed**: 2\\n\\n## Calculated Values\\n- **Total Orders**: 280 (E2)\\n- **Total Exceptions**: 21 (E3)\\n- **Overall Exception Rate**: 7.5% (E4)\\n\\n## References\\n- E1: `metrics.csv` - Full column inspection and sample data.\\n- E2: Sum of `orders` column from `metrics.csv`.\\n- E3: Sum of `exceptions` column from `metrics.csv`.\\n- E4: Ratio calculation (E3 / E2 * 100).\\n\",\n        \"citations\": [\"E1\", \"E2\", \"E3\", \"E4\"]\n      }\n    }\n  ]\n}",
+        "tool_calls": [
+          {
+            "id": "json_6dcd4be41993405dbc026b7c77ca62f5",
+            "type": "function",
+            "function": {
+              "name": "artifact_draft",
+              "arguments": "{\"name\": \"report.md\", \"content\": \"# Metrics Analysis Report\\n\\n## Data Inspection\\n- **Source**: `metrics.csv` (E1)\\n- **Columns Found**: `week`, `orders`, `exceptions`\\n- **Rows Processed**: 2\\n\\n## Calculated Values\\n- **Total Orders**: 280 (E2)\\n- **Total Exceptions**: 21 (E3)\\n- **Overall Exception Rate**: 7.5% (E4)\\n\\n## References\\n- E1: `metrics.csv` - Full column inspection and sample data.\\n- E2: Sum of `orders` column from `metrics.csv`.\\n- E3: Sum of `exceptions` column from `metrics.csv`.\\n- E4: Ratio calculation (E3 / E2 * 100).\\n\", \"citations\": [\"E1\", \"E2\", \"E3\", \"E4\"]}"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 34,
+    "kind": "tool.requested",
+    "timestamp": "2026-11-01T04:40:37.371890+00:00",
+    "data": {
+      "call_id": "json_6dcd4be41993405dbc026b7c77ca62f5",
+      "tool": "artifact_draft",
+      "arguments": {
+        "name": "report.md",
+        "content": "# Metrics Analysis Report\n\n## Data Inspection\n- **Source**: `metrics.csv` (E1)\n- **Columns Found**: `week`, `orders`, `exceptions`\n- **Rows Processed**: 2\n\n## Calculated Values\n- **Total Orders**: 280 (E2)\n- **Total Exceptions**: 21 (E3)\n- **Overall Exception Rate**: 7.5% (E4)\n\n## References\n- E1: `metrics.csv` - Full column inspection and sample data.\n- E2: Sum of `orders` column from `metrics.csv`.\n- E3: Sum of `exceptions` column from `metrics.csv`.\n- E4: Ratio calculation (E3 / E2 * 100).\n",
+        "citations": [
+          "E1",
+          "E2",
+          "E3",
+          "E4"
+        ]
+      }
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 35,
+    "kind": "tool.dispatched",
+    "timestamp": "2026-11-01T04:40:37.379411+00:00",
+    "data": {
+      "call_id": "json_6dcd4be41993405dbc026b7c77ca62f5",
+      "tool": "artifact_draft",
+      "effect": "run_metadata",
+      "arguments": {
+        "name": "report.md",
+        "content": "# Metrics Analysis Report\n\n## Data Inspection\n- **Source**: `metrics.csv` (E1)\n- **Columns Found**: `week`, `orders`, `exceptions`\n- **Rows Processed**: 2\n\n## Calculated Values\n- **Total Orders**: 280 (E2)\n- **Total Exceptions**: 21 (E3)\n- **Overall Exception Rate**: 7.5% (E4)\n\n## References\n- E1: `metrics.csv` - Full column inspection and sample data.\n- E2: Sum of `orders` column from `metrics.csv`.\n- E3: Sum of `exceptions` column from `metrics.csv`.\n- E4: Ratio calculation (E3 / E2 * 100).\n\n\n## Verified tool evidence\n- [E1] metrics.csv:L2-L3 SHA-256 1405c39960d3bd5eb343cdfc167ccb589ffb99689548b497709bd6e8db516d9b\n- [E2] metrics.csv:L2-L3 SHA-256 1405c39960d3bd5eb343cdfc167ccb589ffb99689548b497709bd6e8db516d9b; sum(orders) = 280\n- [E3] metrics.csv:L2-L3 SHA-256 1405c39960d3bd5eb343cdfc167ccb589ffb99689548b497709bd6e8db516d9b; sum(exceptions) = 21\n- [E4] ratio_percent(E3, E2) = 7.500000\n"
+      },
+      "scope": {
+        "workspace": "C:\\path\\to\\agent-harness\\evaluation\\slice-09\\analysis-variant",
+        "artifact_directory": "C:\\path\\to\\agent-harness\\.private\\slice09-4b-receipt-quality-02\\artifacts",
+        "effect": "run_metadata",
+        "sources": [
+          {
+            "path": "metrics.csv",
+            "sha256": "1405c39960d3bd5eb343cdfc167ccb589ffb99689548b497709bd6e8db516d9b",
+            "bytes": 40
+          }
+        ]
+      },
+      "parameters_sha256": "1315f7e1e34f2c69ec773e5668f8ef296f32983cb55baebc2352f745615bdcf9"
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 36,
+    "kind": "tool.completed",
+    "timestamp": "2026-11-01T04:40:37.385696+00:00",
+    "data": {
+      "call_id": "json_6dcd4be41993405dbc026b7c77ca62f5",
+      "tool": "artifact_draft",
+      "result": {
+        "name": "report.md",
+        "content": "# Metrics Analysis Report\n\n## Data Inspection\n- **Source**: `metrics.csv` (E1)\n- **Columns Found**: `week`, `orders`, `exceptions`\n- **Rows Processed**: 2\n\n## Calculated Values\n- **Total Orders**: 280 (E2)\n- **Total Exceptions**: 21 (E3)\n- **Overall Exception Rate**: 7.5% (E4)\n\n## References\n- E1: `metrics.csv` - Full column inspection and sample data.\n- E2: Sum of `orders` column from `metrics.csv`.\n- E3: Sum of `exceptions` column from `metrics.csv`.\n- E4: Ratio calculation (E3 / E2 * 100).\n\n\n## Verified tool evidence\n- [E1] metrics.csv:L2-L3 SHA-256 1405c39960d3bd5eb343cdfc167ccb589ffb99689548b497709bd6e8db516d9b\n- [E2] metrics.csv:L2-L3 SHA-256 1405c39960d3bd5eb343cdfc167ccb589ffb99689548b497709bd6e8db516d9b; sum(orders) = 280\n- [E3] metrics.csv:L2-L3 SHA-256 1405c39960d3bd5eb343cdfc167ccb589ffb99689548b497709bd6e8db516d9b; sum(exceptions) = 21\n- [E4] ratio_percent(E3, E2) = 7.500000\n",
+        "sha256": "a31fb7fa64ba85f8834dc365c4dc8f7b319777fc55049d4659eb914cee31cef4",
+        "published": false
+      }
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 37,
+    "kind": "context.pruned",
+    "timestamp": "2026-11-01T04:40:37.394205+00:00",
+    "data": {
+      "step": 6,
+      "call_ids": [
+        "json_10f2cef0002a4401a82efaacc21f53b2"
+      ],
+      "reason": "acknowledged_evidence",
+      "retained_executor_state": {
+        "plan_saved": true,
+        "plan_steps": [
+          "檢查 metrics.csv 是否存在必要欄位（訂單數、異常數）以計算總數與比率。",
+          "若欄位缺失，記錄缺項並停止計算；若有數據，使用 table_aggregate 求和訂單數與異常數。",
+          "使用 number_calculate 計算整體異常率（異常數 / 訂單數 × 100）。",
+          "將結果、來源引用及缺項說明整合至 report.md。"
+        ],
+        "catalog_listed": false,
+        "selected_source_paths": [
+          "metrics.csv"
+        ],
+        "verified_evidence": {
+          "E1": {
+            "path": "metrics.csv",
+            "sha256": "1405c39960d3bd5eb343cdfc167ccb589ffb99689548b497709bd6e8db516d9b",
+            "columns": [
+              "week",
+              "orders",
+              "exceptions"
+            ],
+            "rows": 2,
+            "line_start": 2,
+            "line_end": 3,
+            "sample": [
+              [
+                "4",
+                "112",
+                "7"
+              ],
+              [
+                "5",
+                "168",
+                "14"
+              ]
+            ],
+            "aggregatable_columns": [
+              "week",
+              "orders",
+              "exceptions"
+            ],
+            "evidence_id": "E1"
+          },
+          "E2": {
+            "path": "metrics.csv",
+            "sha256": "1405c39960d3bd5eb343cdfc167ccb589ffb99689548b497709bd6e8db516d9b",
+            "columns": [
+              "week",
+              "orders",
+              "exceptions"
+            ],
+            "rows": 2,
+            "line_start": 2,
+            "line_end": 3,
+            "column": "orders",
+            "operation": "sum",
+            "value": "280",
+            "evidence_id": "E2"
+          },
+          "E3": {
+            "path": "metrics.csv",
+            "sha256": "1405c39960d3bd5eb343cdfc167ccb589ffb99689548b497709bd6e8db516d9b",
+            "columns": [
+              "week",
+              "orders",
+              "exceptions"
+            ],
+            "rows": 2,
+            "line_start": 2,
+            "line_end": 3,
+            "column": "exceptions",
+            "operation": "sum",
+            "value": "21",
+            "evidence_id": "E3"
+          },
+          "E4": {
+            "operation": "ratio_percent",
+            "inputs": [
+              "E3",
+              "E2"
+            ],
+            "value": "7.500000",
+            "evidence_id": "E4"
+          }
+        }
+      },
+      "method": "qwen35_rendered_byte_bpe_upper_bound",
+      "input_utf8_bytes": 10009,
+      "rendered_prompt_bytes_upper_bound": 8661,
+      "tool_preamble_bytes": 0,
+      "special_token_allowance": 64,
+      "output_token_reserve": 1024,
+      "upper_bound_tokens": 9749,
+      "capacity_tokens": 8192
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 38,
+    "kind": "context.pruned",
+    "timestamp": "2026-11-01T04:40:37.401209+00:00",
+    "data": {
+      "step": 6,
+      "reason": "tool_descriptions",
+      "method": "qwen35_rendered_byte_bpe_upper_bound",
+      "input_utf8_bytes": 9148,
+      "rendered_prompt_bytes_upper_bound": 7832,
+      "tool_preamble_bytes": 0,
+      "special_token_allowance": 64,
+      "output_token_reserve": 1024,
+      "upper_bound_tokens": 8920,
+      "capacity_tokens": 8192
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 39,
+    "kind": "context.pruned",
+    "timestamp": "2026-11-01T04:40:37.408238+00:00",
+    "data": {
+      "step": 6,
+      "reason": "draft_receipt_encoding",
+      "call_ids": [
+        "json_6dcd4be41993405dbc026b7c77ca62f5"
+      ],
+      "method": "qwen35_rendered_byte_bpe_upper_bound",
+      "input_utf8_bytes": 8511,
+      "rendered_prompt_bytes_upper_bound": 7196,
+      "tool_preamble_bytes": 0,
+      "special_token_allowance": 64,
+      "output_token_reserve": 1024,
+      "upper_bound_tokens": 8284,
+      "capacity_tokens": 8192
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 40,
+    "kind": "context.pruned",
+    "timestamp": "2026-11-01T04:40:37.415299+00:00",
+    "data": {
+      "step": 6,
+      "reason": "tool_schema_bounds",
+      "method": "qwen35_rendered_byte_bpe_upper_bound",
+      "input_utf8_bytes": 7850,
+      "rendered_prompt_bytes_upper_bound": 6627,
+      "tool_preamble_bytes": 0,
+      "special_token_allowance": 64,
+      "output_token_reserve": 1024,
+      "upper_bound_tokens": 7715,
+      "capacity_tokens": 8192
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 41,
+    "kind": "model.requested",
+    "timestamp": "2026-11-01T04:40:37.423299+00:00",
+    "data": {
+      "step": 6,
+      "context_budget": {
+        "method": "qwen35_rendered_byte_bpe_upper_bound",
+        "input_utf8_bytes": 7850,
+        "rendered_prompt_bytes_upper_bound": 6627,
+        "tool_preamble_bytes": 0,
+        "special_token_allowance": 64,
+        "output_token_reserve": 1024,
+        "upper_bound_tokens": 7715,
+        "capacity_tokens": 8192
+      }
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 42,
+    "kind": "model.responded",
+    "timestamp": "2026-11-01T04:40:40.334984+00:00",
+    "data": {
+      "step": 6,
+      "text": "",
+      "tool_count": 1,
+      "usage": {
+        "prompt_tokens": 1797,
+        "completion_tokens": 93,
+        "total_tokens": 1890
+      },
+      "message": {
+        "role": "assistant",
+        "content": null,
+        "decision_protocol": "json_tools",
+        "wire_content": "{\"calls\":[{\"name\":\"artifact_write\",\"arguments\":{\"name\":\"report.md\",\"draft_sha256\":\"a31fb7fa64ba85f8834dc365c4dc8f7b319777fc55049d4659eb914cee31cef4\",\"citations\":[\"E1\",\"E2\",\"E3\",\"E4\"]}}]}",
+        "tool_calls": [
+          {
+            "id": "json_1a8b988e69a84c6fb6400573cecabc6e",
+            "type": "function",
+            "function": {
+              "name": "artifact_write",
+              "arguments": "{\"name\": \"report.md\", \"draft_sha256\": \"a31fb7fa64ba85f8834dc365c4dc8f7b319777fc55049d4659eb914cee31cef4\", \"citations\": [\"E1\", \"E2\", \"E3\", \"E4\"]}"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 43,
+    "kind": "tool.requested",
+    "timestamp": "2026-11-01T04:40:40.343496+00:00",
+    "data": {
+      "call_id": "json_1a8b988e69a84c6fb6400573cecabc6e",
+      "tool": "artifact_write",
+      "arguments": {
+        "name": "report.md",
+        "draft_sha256": "a31fb7fa64ba85f8834dc365c4dc8f7b319777fc55049d4659eb914cee31cef4",
+        "citations": [
+          "E1",
+          "E2",
+          "E3",
+          "E4"
+        ]
+      }
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 44,
+    "kind": "tool.dispatched",
+    "timestamp": "2026-11-01T04:40:40.350732+00:00",
+    "data": {
+      "call_id": "json_1a8b988e69a84c6fb6400573cecabc6e",
+      "tool": "artifact_write",
+      "effect": "immutable_artifact",
+      "arguments": {
+        "name": "report.md",
+        "content": "# Metrics Analysis Report\n\n## Data Inspection\n- **Source**: `metrics.csv` (E1)\n- **Columns Found**: `week`, `orders`, `exceptions`\n- **Rows Processed**: 2\n\n## Calculated Values\n- **Total Orders**: 280 (E2)\n- **Total Exceptions**: 21 (E3)\n- **Overall Exception Rate**: 7.5% (E4)\n\n## References\n- E1: `metrics.csv` - Full column inspection and sample data.\n- E2: Sum of `orders` column from `metrics.csv`.\n- E3: Sum of `exceptions` column from `metrics.csv`.\n- E4: Ratio calculation (E3 / E2 * 100).\n\n\n## Verified tool evidence\n- [E1] metrics.csv:L2-L3 SHA-256 1405c39960d3bd5eb343cdfc167ccb589ffb99689548b497709bd6e8db516d9b\n- [E2] metrics.csv:L2-L3 SHA-256 1405c39960d3bd5eb343cdfc167ccb589ffb99689548b497709bd6e8db516d9b; sum(orders) = 280\n- [E3] metrics.csv:L2-L3 SHA-256 1405c39960d3bd5eb343cdfc167ccb589ffb99689548b497709bd6e8db516d9b; sum(exceptions) = 21\n- [E4] ratio_percent(E3, E2) = 7.500000\n"
+      },
+      "scope": {
+        "workspace": "C:\\path\\to\\agent-harness\\evaluation\\slice-09\\analysis-variant",
+        "artifact_directory": "C:\\path\\to\\agent-harness\\.private\\slice09-4b-receipt-quality-02\\artifacts",
+        "effect": "immutable_artifact",
+        "sources": [
+          {
+            "path": "metrics.csv",
+            "sha256": "1405c39960d3bd5eb343cdfc167ccb589ffb99689548b497709bd6e8db516d9b",
+            "bytes": 40
+          }
+        ]
+      },
+      "parameters_sha256": "d991507f45378f833a462d67cffb15c1c3fcef9135ab88de9252dc1b43aca036"
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 45,
+    "kind": "artifact.published",
+    "timestamp": "2026-11-01T04:40:40.360044+00:00",
+    "data": {
+      "id": "8c9cf3dbcd389b92a532978111f0691e",
+      "run_id": "ce2bb81035994b33bf16d762c0f95672",
+      "name": "report.md",
+      "sha256": "a31fb7fa64ba85f8834dc365c4dc8f7b319777fc55049d4659eb914cee31cef4",
+      "bytes": 901,
+      "parent_artifact_id": null,
+      "version": 1,
+      "call_id": "json_1a8b988e69a84c6fb6400573cecabc6e",
+      "download_url": "/api/runs/ce2bb81035994b33bf16d762c0f95672/artifacts/8c9cf3dbcd389b92a532978111f0691e"
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 46,
+    "kind": "tool.completed",
+    "timestamp": "2026-11-01T04:40:40.367557+00:00",
+    "data": {
+      "call_id": "json_1a8b988e69a84c6fb6400573cecabc6e",
+      "tool": "artifact_write",
+      "result": {
+        "id": "8c9cf3dbcd389b92a532978111f0691e",
+        "run_id": "ce2bb81035994b33bf16d762c0f95672",
+        "name": "report.md",
+        "sha256": "a31fb7fa64ba85f8834dc365c4dc8f7b319777fc55049d4659eb914cee31cef4",
+        "bytes": 901,
+        "parent_artifact_id": null,
+        "version": 1,
+        "call_id": "json_1a8b988e69a84c6fb6400573cecabc6e",
+        "download_url": "/api/runs/ce2bb81035994b33bf16d762c0f95672/artifacts/8c9cf3dbcd389b92a532978111f0691e"
+      }
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 47,
+    "kind": "context.pruned",
+    "timestamp": "2026-11-01T04:40:40.375599+00:00",
+    "data": {
+      "step": 7,
+      "call_ids": [
+        "json_6dcd4be41993405dbc026b7c77ca62f5"
+      ],
+      "reason": "published_draft",
+      "retained_executor_state": {
+        "plan_saved": true,
+        "plan_steps": [
+          "檢查 metrics.csv 是否存在必要欄位（訂單數、異常數）以計算總數與比率。",
+          "若欄位缺失，記錄缺項並停止計算；若有數據，使用 table_aggregate 求和訂單數與異常數。",
+          "使用 number_calculate 計算整體異常率（異常數 / 訂單數 × 100）。",
+          "將結果、來源引用及缺項說明整合至 report.md。"
+        ],
+        "catalog_listed": false,
+        "selected_source_paths": [
+          "metrics.csv"
+        ],
+        "verified_evidence": {
+          "E1": {
+            "path": "metrics.csv",
+            "sha256": "1405c39960d3bd5eb343cdfc167ccb589ffb99689548b497709bd6e8db516d9b",
+            "columns": [
+              "week",
+              "orders",
+              "exceptions"
+            ],
+            "rows": 2,
+            "line_start": 2,
+            "line_end": 3,
+            "sample": [
+              [
+                "4",
+                "112",
+                "7"
+              ],
+              [
+                "5",
+                "168",
+                "14"
+              ]
+            ],
+            "aggregatable_columns": [
+              "week",
+              "orders",
+              "exceptions"
+            ],
+            "evidence_id": "E1"
+          },
+          "E2": {
+            "path": "metrics.csv",
+            "sha256": "1405c39960d3bd5eb343cdfc167ccb589ffb99689548b497709bd6e8db516d9b",
+            "columns": [
+              "week",
+              "orders",
+              "exceptions"
+            ],
+            "rows": 2,
+            "line_start": 2,
+            "line_end": 3,
+            "column": "orders",
+            "operation": "sum",
+            "value": "280",
+            "evidence_id": "E2"
+          },
+          "E3": {
+            "path": "metrics.csv",
+            "sha256": "1405c39960d3bd5eb343cdfc167ccb589ffb99689548b497709bd6e8db516d9b",
+            "columns": [
+              "week",
+              "orders",
+              "exceptions"
+            ],
+            "rows": 2,
+            "line_start": 2,
+            "line_end": 3,
+            "column": "exceptions",
+            "operation": "sum",
+            "value": "21",
+            "evidence_id": "E3"
+          },
+          "E4": {
+            "operation": "ratio_percent",
+            "inputs": [
+              "E3",
+              "E2"
+            ],
+            "value": "7.500000",
+            "evidence_id": "E4"
+          }
+        }
+      },
+      "method": "qwen35_rendered_byte_bpe_upper_bound",
+      "input_utf8_bytes": 9032,
+      "rendered_prompt_bytes_upper_bound": 7424,
+      "tool_preamble_bytes": 0,
+      "special_token_allowance": 64,
+      "output_token_reserve": 1024,
+      "upper_bound_tokens": 8512,
+      "capacity_tokens": 8192
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 48,
+    "kind": "context.pruned",
+    "timestamp": "2026-11-01T04:40:40.383103+00:00",
+    "data": {
+      "step": 7,
+      "reason": "tool_descriptions",
+      "method": "qwen35_rendered_byte_bpe_upper_bound",
+      "input_utf8_bytes": 8147,
+      "rendered_prompt_bytes_upper_bound": 6571,
+      "tool_preamble_bytes": 0,
+      "special_token_allowance": 64,
+      "output_token_reserve": 1024,
+      "upper_bound_tokens": 7659,
+      "capacity_tokens": 8192
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 49,
+    "kind": "model.requested",
+    "timestamp": "2026-11-01T04:40:40.390112+00:00",
+    "data": {
+      "step": 7,
+      "context_budget": {
+        "method": "qwen35_rendered_byte_bpe_upper_bound",
+        "input_utf8_bytes": 8147,
+        "rendered_prompt_bytes_upper_bound": 6571,
+        "tool_preamble_bytes": 0,
+        "special_token_allowance": 64,
+        "output_token_reserve": 1024,
+        "upper_bound_tokens": 7659,
+        "capacity_tokens": 8192
+      }
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 50,
+    "kind": "model.responded",
+    "timestamp": "2026-11-01T04:40:42.176503+00:00",
+    "data": {
+      "step": 7,
+      "text": "",
+      "tool_count": 1,
+      "usage": {
+        "prompt_tokens": 1891,
+        "completion_tokens": 46,
+        "total_tokens": 1937
+      },
+      "message": {
+        "role": "assistant",
+        "content": null,
+        "decision_protocol": "json_tools",
+        "wire_content": "{\"calls\":[{\"name\":\"task_finish\",\"arguments\":{\"artifact_ids\":[\"8c9cf3dbcd389b92a532978111f0691e\"]}}]}",
+        "tool_calls": [
+          {
+            "id": "json_c9a347a429b441109bff7aab1caac176",
+            "type": "function",
+            "function": {
+              "name": "task_finish",
+              "arguments": "{\"artifact_ids\": [\"8c9cf3dbcd389b92a532978111f0691e\"]}"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 51,
+    "kind": "tool.requested",
+    "timestamp": "2026-11-01T04:40:42.184562+00:00",
+    "data": {
+      "call_id": "json_c9a347a429b441109bff7aab1caac176",
+      "tool": "task_finish",
+      "arguments": {
+        "artifact_ids": [
+          "8c9cf3dbcd389b92a532978111f0691e"
+        ]
+      }
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 52,
+    "kind": "tool.dispatched",
+    "timestamp": "2026-11-01T04:40:42.192567+00:00",
+    "data": {
+      "call_id": "json_c9a347a429b441109bff7aab1caac176",
+      "tool": "task_finish",
+      "effect": "run_metadata",
+      "arguments": {
+        "artifact_ids": [
+          "8c9cf3dbcd389b92a532978111f0691e"
+        ]
+      },
+      "scope": {
+        "workspace": "C:\\path\\to\\agent-harness\\evaluation\\slice-09\\analysis-variant",
+        "artifact_directory": "C:\\path\\to\\agent-harness\\.private\\slice09-4b-receipt-quality-02\\artifacts",
+        "effect": "run_metadata",
+        "sources": [
+          {
+            "path": "metrics.csv",
+            "sha256": "1405c39960d3bd5eb343cdfc167ccb589ffb99689548b497709bd6e8db516d9b",
+            "bytes": 40
+          }
+        ],
+        "completion_receipts": [
+          {
+            "id": "8c9cf3dbcd389b92a532978111f0691e",
+            "name": "report.md",
+            "sha256": "a31fb7fa64ba85f8834dc365c4dc8f7b319777fc55049d4659eb914cee31cef4"
+          }
+        ]
+      },
+      "parameters_sha256": "190bca9d6dc2c27fde532901be3f6aaad78ca16ffe4e34cf743257db016670e7"
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 53,
+    "kind": "tool.completed",
+    "timestamp": "2026-11-01T04:40:42.199717+00:00",
+    "data": {
+      "call_id": "json_c9a347a429b441109bff7aab1caac176",
+      "tool": "task_finish",
+      "result": {
+        "summary": "已發布：report.md。",
+        "artifact_ids": [
+          "8c9cf3dbcd389b92a532978111f0691e"
+        ],
+        "receipt": true
+      }
+    }
+  },
+  {
+    "run_id": "ce2bb81035994b33bf16d762c0f95672",
+    "sequence": 54,
+    "kind": "run.completed",
+    "timestamp": "2026-11-01T04:40:42.208829+00:00",
+    "data": {
+      "text": "已發布：report.md。"
+    }
+  }
+]

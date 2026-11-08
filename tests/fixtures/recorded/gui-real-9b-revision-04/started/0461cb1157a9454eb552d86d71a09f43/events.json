@@ -1,0 +1,1444 @@
+{
+  "events": [
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 1,
+      "kind": "run.accepted",
+      "timestamp": "2026-11-01T05:32:38.826966+00:00",
+      "data": {
+        "mode": "local",
+        "model": {
+          "mode": "local",
+          "name": "qwen3.5:9b-q4_K_M",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+          "stream": true,
+          "transport_fixture": false,
+          "decision_protocol": "json_tools",
+          "requires_tool_finish": true,
+          "context_capacity_tokens": 8192,
+          "context_capacity_source": "application_configuration",
+          "context_profile": "ollama-0.40.10-qwen35-gpt2",
+          "renderer_verification": {
+            "renderer": "qwen3.5",
+            "parser": "qwen3.5",
+            "template_source": "renderer_parser",
+            "implicit_messages": false,
+            "implicit_system": false,
+            "tokenizer_model": "gpt2",
+            "tokenizer_pre": "qwen35",
+            "add_bos_token": false
+          },
+          "digest": "56671c2ab9385f9cfcb404638e32cd62d88e3501d44822208363c010179a3c90",
+          "server_version": "0.40.10",
+          "capabilities": [
+            "completion",
+            "vision",
+            "tools",
+            "thinking"
+          ],
+          "reasoning_effort": "none"
+        },
+        "validation": {
+          "fault_once_source_read": false
+        },
+        "policy": {
+          "require_publish_approval": true,
+          "publication_workflow": "draft_review",
+          "completion_workflow": "artifact_receipt"
+        }
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 2,
+      "kind": "run.started",
+      "timestamp": "2026-11-01T05:32:38.839005+00:00",
+      "data": {}
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 3,
+      "kind": "context.selected",
+      "timestamp": "2026-11-01T05:32:38.846969+00:00",
+      "data": {
+        "source_excerpts": [],
+        "memories": [],
+        "memory_omitted": [],
+        "history_run_ids": [
+          "ba2622198f7d438d8888b871579b169e"
+        ],
+        "omitted": [],
+        "base_artifact_id": "e9a40ac96973a6df02f66d94dc0fe3ec"
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 4,
+      "kind": "context.memory_refreshed",
+      "timestamp": "2026-11-01T05:32:38.858453+00:00",
+      "data": {
+        "step": 1,
+        "memories": [],
+        "memory_omitted": []
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 5,
+      "kind": "context.pruned",
+      "timestamp": "2026-11-01T05:32:38.868965+00:00",
+      "data": {
+        "step": 1,
+        "history_run_id": "ba2622198f7d438d8888b871579b169e",
+        "reason": "request_budget",
+        "method": "qwen35_rendered_byte_bpe_upper_bound",
+        "input_utf8_bytes": 4482,
+        "rendered_prompt_bytes_upper_bound": 3847,
+        "tool_preamble_bytes": 0,
+        "special_token_allowance": 64,
+        "output_token_reserve": 1024,
+        "upper_bound_tokens": 4935,
+        "capacity_tokens": 8192
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 6,
+      "kind": "model.requested",
+      "timestamp": "2026-11-01T05:32:38.878221+00:00",
+      "data": {
+        "step": 1,
+        "context_budget": {
+          "method": "qwen35_rendered_byte_bpe_upper_bound",
+          "input_utf8_bytes": 4482,
+          "rendered_prompt_bytes_upper_bound": 3847,
+          "tool_preamble_bytes": 0,
+          "special_token_allowance": 64,
+          "output_token_reserve": 1024,
+          "upper_bound_tokens": 4935,
+          "capacity_tokens": 8192
+        }
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 7,
+      "kind": "model.responded",
+      "timestamp": "2026-11-01T05:33:00.460491+00:00",
+      "data": {
+        "step": 1,
+        "text": "",
+        "tool_count": 1,
+        "usage": {
+          "prompt_tokens": 1175,
+          "completion_tokens": 144,
+          "total_tokens": 1319
+        },
+        "message": {
+          "role": "assistant",
+          "content": null,
+          "decision_protocol": "json_tools",
+          "wire_content": "{\n  \"calls\": [\n    {\n      \"name\": \"plan_update\",\n      \"arguments\": {\n        \"steps\": [\n          \"讀取並驗證 metrics.csv 中的訂單總數、異常總數與異常率數據。\",\n          \"將已確認的數值整理成單一 Markdown 表格，包含欄位：項目、數值、來源引用。\",\n          \"更新 report.md 內容，替換原有計算結果區塊為新表格，保留資料來源清單。\",\n          \"使用 artifact_write 發布最終報告，確保無額外註記或前言。\"\n        ]\n      }\n    }\n  ]\n}",
+          "tool_calls": [
+            {
+              "id": "json_c51a4491902f446793ec7dc53239bc2d",
+              "type": "function",
+              "function": {
+                "name": "plan_update",
+                "arguments": "{\"steps\": [\"讀取並驗證 metrics.csv 中的訂單總數、異常總數與異常率數據。\", \"將已確認的數值整理成單一 Markdown 表格，包含欄位：項目、數值、來源引用。\", \"更新 report.md 內容，替換原有計算結果區塊為新表格，保留資料來源清單。\", \"使用 artifact_write 發布最終報告，確保無額外註記或前言。\"]}"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 8,
+      "kind": "tool.requested",
+      "timestamp": "2026-11-01T05:33:00.471760+00:00",
+      "data": {
+        "call_id": "json_c51a4491902f446793ec7dc53239bc2d",
+        "tool": "plan_update",
+        "arguments": {
+          "steps": [
+            "讀取並驗證 metrics.csv 中的訂單總數、異常總數與異常率數據。",
+            "將已確認的數值整理成單一 Markdown 表格，包含欄位：項目、數值、來源引用。",
+            "更新 report.md 內容，替換原有計算結果區塊為新表格，保留資料來源清單。",
+            "使用 artifact_write 發布最終報告，確保無額外註記或前言。"
+          ]
+        }
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 9,
+      "kind": "tool.dispatched",
+      "timestamp": "2026-11-01T05:33:00.483071+00:00",
+      "data": {
+        "call_id": "json_c51a4491902f446793ec7dc53239bc2d",
+        "tool": "plan_update",
+        "effect": "run_metadata",
+        "arguments": {
+          "steps": [
+            "讀取並驗證 metrics.csv 中的訂單總數、異常總數與異常率數據。",
+            "將已確認的數值整理成單一 Markdown 表格，包含欄位：項目、數值、來源引用。",
+            "更新 report.md 內容，替換原有計算結果區塊為新表格，保留資料來源清單。",
+            "使用 artifact_write 發布最終報告，確保無額外註記或前言。"
+          ]
+        },
+        "scope": {
+          "workspace": "C:\\path\\to\\agent-harness\\evaluation\\slice-09\\analysis-standard",
+          "artifact_directory": "C:\\path\\to\\agent-harness\\.private\\slice09-real-gui-9b-01\\artifacts",
+          "effect": "run_metadata",
+          "sources": [
+            {
+              "path": "metrics.csv",
+              "sha256": "c6def025fd7ec5096bc4aebfc7981026fd384f619748f724a0f5d0531f4b6698",
+              "bytes": 38
+            }
+          ]
+        },
+        "parameters_sha256": "c01ca7146d6262c954d27a023b7ce75071ba8c428b6449308c5c1a5459da8d1f"
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 10,
+      "kind": "plan.updated",
+      "timestamp": "2026-11-01T05:33:00.493591+00:00",
+      "data": {
+        "steps": [
+          "讀取並驗證 metrics.csv 中的訂單總數、異常總數與異常率數據。",
+          "將已確認的數值整理成單一 Markdown 表格，包含欄位：項目、數值、來源引用。",
+          "更新 report.md 內容，替換原有計算結果區塊為新表格，保留資料來源清單。",
+          "使用 artifact_write 發布最終報告，確保無額外註記或前言。"
+        ]
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 11,
+      "kind": "tool.completed",
+      "timestamp": "2026-11-01T05:33:00.503114+00:00",
+      "data": {
+        "call_id": "json_c51a4491902f446793ec7dc53239bc2d",
+        "tool": "plan_update",
+        "result": {
+          "saved": true,
+          "steps": [
+            "讀取並驗證 metrics.csv 中的訂單總數、異常總數與異常率數據。",
+            "將已確認的數值整理成單一 Markdown 表格，包含欄位：項目、數值、來源引用。",
+            "更新 report.md 內容，替換原有計算結果區塊為新表格，保留資料來源清單。",
+            "使用 artifact_write 發布最終報告，確保無額外註記或前言。"
+          ]
+        }
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 12,
+      "kind": "context.pruned",
+      "timestamp": "2026-11-01T05:33:00.516106+00:00",
+      "data": {
+        "step": 2,
+        "reason": "tool_descriptions",
+        "method": "qwen35_rendered_byte_bpe_upper_bound",
+        "input_utf8_bytes": 7385,
+        "rendered_prompt_bytes_upper_bound": 6286,
+        "tool_preamble_bytes": 0,
+        "special_token_allowance": 64,
+        "output_token_reserve": 1024,
+        "upper_bound_tokens": 7374,
+        "capacity_tokens": 8192
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 13,
+      "kind": "model.requested",
+      "timestamp": "2026-11-01T05:33:00.527628+00:00",
+      "data": {
+        "step": 2,
+        "context_budget": {
+          "method": "qwen35_rendered_byte_bpe_upper_bound",
+          "input_utf8_bytes": 7385,
+          "rendered_prompt_bytes_upper_bound": 6286,
+          "tool_preamble_bytes": 0,
+          "special_token_allowance": 64,
+          "output_token_reserve": 1024,
+          "upper_bound_tokens": 7374,
+          "capacity_tokens": 8192
+        }
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 14,
+      "kind": "model.responded",
+      "timestamp": "2026-11-01T05:33:08.381480+00:00",
+      "data": {
+        "step": 2,
+        "text": "",
+        "tool_count": 1,
+        "usage": {
+          "prompt_tokens": 1782,
+          "completion_tokens": 17,
+          "total_tokens": 1799
+        },
+        "message": {
+          "role": "assistant",
+          "content": null,
+          "decision_protocol": "json_tools",
+          "wire_content": "{\"calls\":[{\"name\":\"source_read\",\"arguments\":{\"path\":\"metrics.csv\"}}]}",
+          "tool_calls": [
+            {
+              "id": "json_bb01635f0bcf471784f96c9b993eb823",
+              "type": "function",
+              "function": {
+                "name": "source_read",
+                "arguments": "{\"path\": \"metrics.csv\"}"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 15,
+      "kind": "tool.requested",
+      "timestamp": "2026-11-01T05:33:08.392632+00:00",
+      "data": {
+        "call_id": "json_bb01635f0bcf471784f96c9b993eb823",
+        "tool": "source_read",
+        "arguments": {
+          "path": "metrics.csv"
+        }
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 16,
+      "kind": "tool.dispatched",
+      "timestamp": "2026-11-01T05:33:08.402759+00:00",
+      "data": {
+        "call_id": "json_bb01635f0bcf471784f96c9b993eb823",
+        "tool": "source_read",
+        "effect": "read_only",
+        "arguments": {
+          "path": "metrics.csv"
+        },
+        "scope": {
+          "workspace": "C:\\path\\to\\agent-harness\\evaluation\\slice-09\\analysis-standard",
+          "artifact_directory": "C:\\path\\to\\agent-harness\\.private\\slice09-real-gui-9b-01\\artifacts",
+          "effect": "read_only",
+          "sources": [
+            {
+              "path": "metrics.csv",
+              "sha256": "c6def025fd7ec5096bc4aebfc7981026fd384f619748f724a0f5d0531f4b6698",
+              "bytes": 38
+            }
+          ]
+        },
+        "parameters_sha256": "f8ffa05a2d498003406796eb1e1dcdc01ff22da21fb163ec6fca1cb2040416da"
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 17,
+      "kind": "tool.completed",
+      "timestamp": "2026-11-01T05:33:08.416280+00:00",
+      "data": {
+        "call_id": "json_bb01635f0bcf471784f96c9b993eb823",
+        "tool": "source_read",
+        "result": {
+          "path": "metrics.csv",
+          "text": "week,orders,exceptions\n1,90,9\n2,150,6\n",
+          "sha256": "c6def025fd7ec5096bc4aebfc7981026fd384f619748f724a0f5d0531f4b6698",
+          "bytes": 38,
+          "line_start": 1,
+          "line_end": 3,
+          "evidence_id": "E1"
+        }
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 18,
+      "kind": "context.pruned",
+      "timestamp": "2026-11-01T05:33:08.429888+00:00",
+      "data": {
+        "step": 3,
+        "call_ids": [
+          "json_c51a4491902f446793ec7dc53239bc2d"
+        ],
+        "reason": "completed_navigation",
+        "retained_executor_state": {
+          "plan_saved": true,
+          "plan_steps": [
+            "讀取並驗證 metrics.csv 中的訂單總數、異常總數與異常率數據。",
+            "將已確認的數值整理成單一 Markdown 表格，包含欄位：項目、數值、來源引用。",
+            "更新 report.md 內容，替換原有計算結果區塊為新表格，保留資料來源清單。",
+            "使用 artifact_write 發布最終報告，確保無額外註記或前言。"
+          ],
+          "catalog_listed": false,
+          "selected_source_paths": [
+            "metrics.csv"
+          ]
+        },
+        "method": "qwen35_rendered_byte_bpe_upper_bound",
+        "input_utf8_bytes": 8394,
+        "rendered_prompt_bytes_upper_bound": 7236,
+        "tool_preamble_bytes": 0,
+        "special_token_allowance": 64,
+        "output_token_reserve": 1024,
+        "upper_bound_tokens": 8324,
+        "capacity_tokens": 8192
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 19,
+      "kind": "context.pruned",
+      "timestamp": "2026-11-01T05:33:08.440802+00:00",
+      "data": {
+        "step": 3,
+        "reason": "tool_descriptions",
+        "method": "qwen35_rendered_byte_bpe_upper_bound",
+        "input_utf8_bytes": 7535,
+        "rendered_prompt_bytes_upper_bound": 6409,
+        "tool_preamble_bytes": 0,
+        "special_token_allowance": 64,
+        "output_token_reserve": 1024,
+        "upper_bound_tokens": 7497,
+        "capacity_tokens": 8192
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 20,
+      "kind": "model.requested",
+      "timestamp": "2026-11-01T05:33:08.449820+00:00",
+      "data": {
+        "step": 3,
+        "context_budget": {
+          "method": "qwen35_rendered_byte_bpe_upper_bound",
+          "input_utf8_bytes": 7535,
+          "rendered_prompt_bytes_upper_bound": 6409,
+          "tool_preamble_bytes": 0,
+          "special_token_allowance": 64,
+          "output_token_reserve": 1024,
+          "upper_bound_tokens": 7497,
+          "capacity_tokens": 8192
+        }
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 21,
+      "kind": "model.responded",
+      "timestamp": "2026-11-01T05:33:14.909696+00:00",
+      "data": {
+        "step": 3,
+        "text": "",
+        "tool_count": 2,
+        "usage": {
+          "prompt_tokens": 1863,
+          "completion_tokens": 48,
+          "total_tokens": 1911
+        },
+        "message": {
+          "role": "assistant",
+          "content": null,
+          "decision_protocol": "json_tools",
+          "wire_content": "{\"calls\":[{\"name\":\"table_aggregate\",\"arguments\":{\"path\":\"metrics.csv\",\"column\":\"orders\",\"operation\":\"sum\"}},{\"name\":\"table_aggregate\",\"arguments\":{\"path\":\"metrics.csv\",\"column\":\"exceptions\",\"operation\":\"sum\"}}]}",
+          "tool_calls": [
+            {
+              "id": "json_48d0ef49c3d14b039fc60fb889b844d4",
+              "type": "function",
+              "function": {
+                "name": "table_aggregate",
+                "arguments": "{\"path\": \"metrics.csv\", \"column\": \"orders\", \"operation\": \"sum\"}"
+              }
+            },
+            {
+              "id": "json_29e67f66d5604378a1e96ba1df89884c",
+              "type": "function",
+              "function": {
+                "name": "table_aggregate",
+                "arguments": "{\"path\": \"metrics.csv\", \"column\": \"exceptions\", \"operation\": \"sum\"}"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 22,
+      "kind": "tool.requested",
+      "timestamp": "2026-11-01T05:33:14.920709+00:00",
+      "data": {
+        "call_id": "json_48d0ef49c3d14b039fc60fb889b844d4",
+        "tool": "table_aggregate",
+        "arguments": {
+          "path": "metrics.csv",
+          "column": "orders",
+          "operation": "sum"
+        }
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 23,
+      "kind": "tool.dispatched",
+      "timestamp": "2026-11-01T05:33:14.931383+00:00",
+      "data": {
+        "call_id": "json_48d0ef49c3d14b039fc60fb889b844d4",
+        "tool": "table_aggregate",
+        "effect": "read_only",
+        "arguments": {
+          "path": "metrics.csv",
+          "column": "orders",
+          "operation": "sum"
+        },
+        "scope": {
+          "workspace": "C:\\path\\to\\agent-harness\\evaluation\\slice-09\\analysis-standard",
+          "artifact_directory": "C:\\path\\to\\agent-harness\\.private\\slice09-real-gui-9b-01\\artifacts",
+          "effect": "read_only",
+          "sources": [
+            {
+              "path": "metrics.csv",
+              "sha256": "c6def025fd7ec5096bc4aebfc7981026fd384f619748f724a0f5d0531f4b6698",
+              "bytes": 38
+            }
+          ]
+        },
+        "parameters_sha256": "599d6f5326294b463773566c3a733fa97a24072002ebf1f8b9d5151f4a268524"
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 24,
+      "kind": "tool.completed",
+      "timestamp": "2026-11-01T05:33:14.945937+00:00",
+      "data": {
+        "call_id": "json_48d0ef49c3d14b039fc60fb889b844d4",
+        "tool": "table_aggregate",
+        "result": {
+          "path": "metrics.csv",
+          "sha256": "c6def025fd7ec5096bc4aebfc7981026fd384f619748f724a0f5d0531f4b6698",
+          "columns": [
+            "week",
+            "orders",
+            "exceptions"
+          ],
+          "rows": 2,
+          "line_start": 2,
+          "line_end": 3,
+          "column": "orders",
+          "operation": "sum",
+          "value": "240",
+          "evidence_id": "E2"
+        }
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 25,
+      "kind": "tool.requested",
+      "timestamp": "2026-11-01T05:33:14.957455+00:00",
+      "data": {
+        "call_id": "json_29e67f66d5604378a1e96ba1df89884c",
+        "tool": "table_aggregate",
+        "arguments": {
+          "path": "metrics.csv",
+          "column": "exceptions",
+          "operation": "sum"
+        }
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 26,
+      "kind": "tool.dispatched",
+      "timestamp": "2026-11-01T05:33:14.967977+00:00",
+      "data": {
+        "call_id": "json_29e67f66d5604378a1e96ba1df89884c",
+        "tool": "table_aggregate",
+        "effect": "read_only",
+        "arguments": {
+          "path": "metrics.csv",
+          "column": "exceptions",
+          "operation": "sum"
+        },
+        "scope": {
+          "workspace": "C:\\path\\to\\agent-harness\\evaluation\\slice-09\\analysis-standard",
+          "artifact_directory": "C:\\path\\to\\agent-harness\\.private\\slice09-real-gui-9b-01\\artifacts",
+          "effect": "read_only",
+          "sources": [
+            {
+              "path": "metrics.csv",
+              "sha256": "c6def025fd7ec5096bc4aebfc7981026fd384f619748f724a0f5d0531f4b6698",
+              "bytes": 38
+            }
+          ]
+        },
+        "parameters_sha256": "80c1cedfac068b008171c0c5ac54935741128845fdb81b7cfedf8c9af5f6b4fd"
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 27,
+      "kind": "tool.completed",
+      "timestamp": "2026-11-01T05:33:14.979124+00:00",
+      "data": {
+        "call_id": "json_29e67f66d5604378a1e96ba1df89884c",
+        "tool": "table_aggregate",
+        "result": {
+          "path": "metrics.csv",
+          "sha256": "c6def025fd7ec5096bc4aebfc7981026fd384f619748f724a0f5d0531f4b6698",
+          "columns": [
+            "week",
+            "orders",
+            "exceptions"
+          ],
+          "rows": 2,
+          "line_start": 2,
+          "line_end": 3,
+          "column": "exceptions",
+          "operation": "sum",
+          "value": "15",
+          "evidence_id": "E3"
+        }
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 28,
+      "kind": "context.pruned",
+      "timestamp": "2026-11-01T05:33:14.992164+00:00",
+      "data": {
+        "step": 4,
+        "call_ids": [
+          "json_bb01635f0bcf471784f96c9b993eb823"
+        ],
+        "reason": "acknowledged_evidence",
+        "retained_executor_state": {
+          "plan_saved": true,
+          "plan_steps": [
+            "讀取並驗證 metrics.csv 中的訂單總數、異常總數與異常率數據。",
+            "將已確認的數值整理成單一 Markdown 表格，包含欄位：項目、數值、來源引用。",
+            "更新 report.md 內容，替換原有計算結果區塊為新表格，保留資料來源清單。",
+            "使用 artifact_write 發布最終報告，確保無額外註記或前言。"
+          ],
+          "catalog_listed": false,
+          "selected_source_paths": [
+            "metrics.csv"
+          ],
+          "verified_evidence": {
+            "E1": {
+              "path": "metrics.csv",
+              "text": "week,orders,exceptions\n1,90,9\n2,150,6\n",
+              "sha256": "c6def025fd7ec5096bc4aebfc7981026fd384f619748f724a0f5d0531f4b6698",
+              "bytes": 38,
+              "line_start": 1,
+              "line_end": 3,
+              "evidence_id": "E1"
+            }
+          }
+        },
+        "method": "qwen35_rendered_byte_bpe_upper_bound",
+        "input_utf8_bytes": 9266,
+        "rendered_prompt_bytes_upper_bound": 7991,
+        "tool_preamble_bytes": 0,
+        "special_token_allowance": 64,
+        "output_token_reserve": 1024,
+        "upper_bound_tokens": 9079,
+        "capacity_tokens": 8192
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 29,
+      "kind": "context.pruned",
+      "timestamp": "2026-11-01T05:33:15.002682+00:00",
+      "data": {
+        "step": 4,
+        "reason": "tool_descriptions",
+        "method": "qwen35_rendered_byte_bpe_upper_bound",
+        "input_utf8_bytes": 8407,
+        "rendered_prompt_bytes_upper_bound": 7164,
+        "tool_preamble_bytes": 0,
+        "special_token_allowance": 64,
+        "output_token_reserve": 1024,
+        "upper_bound_tokens": 8252,
+        "capacity_tokens": 8192
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 30,
+      "kind": "context.pruned",
+      "timestamp": "2026-11-01T05:33:15.012207+00:00",
+      "data": {
+        "step": 4,
+        "reason": "tool_schema_bounds",
+        "method": "qwen35_rendered_byte_bpe_upper_bound",
+        "input_utf8_bytes": 7942,
+        "rendered_prompt_bytes_upper_bound": 6761,
+        "tool_preamble_bytes": 0,
+        "special_token_allowance": 64,
+        "output_token_reserve": 1024,
+        "upper_bound_tokens": 7849,
+        "capacity_tokens": 8192
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 31,
+      "kind": "model.requested",
+      "timestamp": "2026-11-01T05:33:15.018726+00:00",
+      "data": {
+        "step": 4,
+        "context_budget": {
+          "method": "qwen35_rendered_byte_bpe_upper_bound",
+          "input_utf8_bytes": 7942,
+          "rendered_prompt_bytes_upper_bound": 6761,
+          "tool_preamble_bytes": 0,
+          "special_token_allowance": 64,
+          "output_token_reserve": 1024,
+          "upper_bound_tokens": 7849,
+          "capacity_tokens": 8192
+        }
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 32,
+      "kind": "model.responded",
+      "timestamp": "2026-11-01T05:33:24.859564+00:00",
+      "data": {
+        "step": 4,
+        "text": "",
+        "tool_count": 1,
+        "usage": {
+          "prompt_tokens": 1975,
+          "completion_tokens": 31,
+          "total_tokens": 2006
+        },
+        "message": {
+          "role": "assistant",
+          "content": null,
+          "decision_protocol": "json_tools",
+          "wire_content": "{\"calls\":[{\"name\":\"number_calculate\",\"arguments\":{\"operation\":\"ratio_percent\",\"numerator\":\"15\",\"denominator\":\"240\"}}]}",
+          "tool_calls": [
+            {
+              "id": "json_db51480bc918469aab801411562be188",
+              "type": "function",
+              "function": {
+                "name": "number_calculate",
+                "arguments": "{\"operation\": \"ratio_percent\", \"numerator\": \"15\", \"denominator\": \"240\"}"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 33,
+      "kind": "tool.requested",
+      "timestamp": "2026-11-01T05:33:24.869300+00:00",
+      "data": {
+        "call_id": "json_db51480bc918469aab801411562be188",
+        "tool": "number_calculate",
+        "arguments": {
+          "operation": "ratio_percent",
+          "numerator": "15",
+          "denominator": "240"
+        }
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 34,
+      "kind": "tool.rejected",
+      "timestamp": "2026-11-01T05:33:24.878824+00:00",
+      "data": {
+        "call_id": "json_db51480bc918469aab801411562be188",
+        "tool": "number_calculate",
+        "code": "invalid_arguments"
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 35,
+      "kind": "correction.available",
+      "timestamp": "2026-11-01T05:33:24.888868+00:00",
+      "data": {
+        "call_id": "json_db51480bc918469aab801411562be188",
+        "tool": "number_calculate",
+        "decision_step": 4,
+        "superseded_call_ids": [],
+        "ok": false,
+        "error": {
+          "code": "invalid_arguments",
+          "message": "Invalid tool input at $.numerator: pattern constraint.",
+          "retryable": true,
+          "remaining_corrections": 1,
+          "correctable_fields": [
+            "numerator"
+          ]
+        }
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 36,
+      "kind": "context.pruned",
+      "timestamp": "2026-11-01T05:33:24.902922+00:00",
+      "data": {
+        "step": 5,
+        "call_ids": [
+          "json_48d0ef49c3d14b039fc60fb889b844d4",
+          "json_29e67f66d5604378a1e96ba1df89884c"
+        ],
+        "reason": "acknowledged_evidence",
+        "retained_executor_state": {
+          "plan_saved": true,
+          "plan_steps": [
+            "讀取並驗證 metrics.csv 中的訂單總數、異常總數與異常率數據。",
+            "將已確認的數值整理成單一 Markdown 表格，包含欄位：項目、數值、來源引用。",
+            "更新 report.md 內容，替換原有計算結果區塊為新表格，保留資料來源清單。",
+            "使用 artifact_write 發布最終報告，確保無額外註記或前言。"
+          ],
+          "catalog_listed": false,
+          "selected_source_paths": [
+            "metrics.csv"
+          ],
+          "verified_evidence": {
+            "E1": {
+              "path": "metrics.csv",
+              "text": "week,orders,exceptions\n1,90,9\n2,150,6\n",
+              "sha256": "c6def025fd7ec5096bc4aebfc7981026fd384f619748f724a0f5d0531f4b6698",
+              "bytes": 38,
+              "line_start": 1,
+              "line_end": 3,
+              "evidence_id": "E1"
+            },
+            "E2": {
+              "path": "metrics.csv",
+              "sha256": "c6def025fd7ec5096bc4aebfc7981026fd384f619748f724a0f5d0531f4b6698",
+              "columns": [
+                "week",
+                "orders",
+                "exceptions"
+              ],
+              "rows": 2,
+              "line_start": 2,
+              "line_end": 3,
+              "column": "orders",
+              "operation": "sum",
+              "value": "240",
+              "evidence_id": "E2"
+            },
+            "E3": {
+              "path": "metrics.csv",
+              "sha256": "c6def025fd7ec5096bc4aebfc7981026fd384f619748f724a0f5d0531f4b6698",
+              "columns": [
+                "week",
+                "orders",
+                "exceptions"
+              ],
+              "rows": 2,
+              "line_start": 2,
+              "line_end": 3,
+              "column": "exceptions",
+              "operation": "sum",
+              "value": "15",
+              "evidence_id": "E3"
+            }
+          }
+        },
+        "method": "qwen35_rendered_byte_bpe_upper_bound",
+        "input_utf8_bytes": 9166,
+        "rendered_prompt_bytes_upper_bound": 7906,
+        "tool_preamble_bytes": 0,
+        "special_token_allowance": 64,
+        "output_token_reserve": 1024,
+        "upper_bound_tokens": 8994,
+        "capacity_tokens": 8192
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 37,
+      "kind": "context.pruned",
+      "timestamp": "2026-11-01T05:33:24.913222+00:00",
+      "data": {
+        "step": 5,
+        "reason": "tool_descriptions",
+        "method": "qwen35_rendered_byte_bpe_upper_bound",
+        "input_utf8_bytes": 8307,
+        "rendered_prompt_bytes_upper_bound": 7079,
+        "tool_preamble_bytes": 0,
+        "special_token_allowance": 64,
+        "output_token_reserve": 1024,
+        "upper_bound_tokens": 8167,
+        "capacity_tokens": 8192
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 38,
+      "kind": "model.requested",
+      "timestamp": "2026-11-01T05:33:24.922848+00:00",
+      "data": {
+        "step": 5,
+        "context_budget": {
+          "method": "qwen35_rendered_byte_bpe_upper_bound",
+          "input_utf8_bytes": 8307,
+          "rendered_prompt_bytes_upper_bound": 7079,
+          "tool_preamble_bytes": 0,
+          "special_token_allowance": 64,
+          "output_token_reserve": 1024,
+          "upper_bound_tokens": 8167,
+          "capacity_tokens": 8192
+        }
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 39,
+      "kind": "model.responded",
+      "timestamp": "2026-11-01T05:33:29.603969+00:00",
+      "data": {
+        "step": 5,
+        "text": "",
+        "tool_count": 1,
+        "usage": {
+          "prompt_tokens": 2085,
+          "completion_tokens": 18,
+          "total_tokens": 2103
+        },
+        "message": {
+          "role": "assistant",
+          "content": null,
+          "decision_protocol": "json_tools",
+          "wire_content": "{\"calls\":[{\"name\":\"table_inspect\",\"arguments\":{\"path\":\"metrics.csv\"}}]}",
+          "tool_calls": [
+            {
+              "id": "json_78ced46826db476e9fbd21da1fd3c1ed",
+              "type": "function",
+              "function": {
+                "name": "table_inspect",
+                "arguments": "{\"path\": \"metrics.csv\"}"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 40,
+      "kind": "tool.requested",
+      "timestamp": "2026-11-01T05:33:29.616005+00:00",
+      "data": {
+        "call_id": "json_78ced46826db476e9fbd21da1fd3c1ed",
+        "tool": "table_inspect",
+        "arguments": {
+          "path": "metrics.csv"
+        }
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 41,
+      "kind": "tool.dispatched",
+      "timestamp": "2026-11-01T05:33:29.628538+00:00",
+      "data": {
+        "call_id": "json_78ced46826db476e9fbd21da1fd3c1ed",
+        "tool": "table_inspect",
+        "effect": "read_only",
+        "arguments": {
+          "path": "metrics.csv"
+        },
+        "scope": {
+          "workspace": "C:\\path\\to\\agent-harness\\evaluation\\slice-09\\analysis-standard",
+          "artifact_directory": "C:\\path\\to\\agent-harness\\.private\\slice09-real-gui-9b-01\\artifacts",
+          "effect": "read_only",
+          "sources": [
+            {
+              "path": "metrics.csv",
+              "sha256": "c6def025fd7ec5096bc4aebfc7981026fd384f619748f724a0f5d0531f4b6698",
+              "bytes": 38
+            }
+          ]
+        },
+        "parameters_sha256": "6da23115e9f1dafd52c69922bea3824635abc17b4e8c448b22e1e5f626267d1a"
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 42,
+      "kind": "tool.completed",
+      "timestamp": "2026-11-01T05:33:29.642501+00:00",
+      "data": {
+        "call_id": "json_78ced46826db476e9fbd21da1fd3c1ed",
+        "tool": "table_inspect",
+        "result": {
+          "path": "metrics.csv",
+          "sha256": "c6def025fd7ec5096bc4aebfc7981026fd384f619748f724a0f5d0531f4b6698",
+          "columns": [
+            "week",
+            "orders",
+            "exceptions"
+          ],
+          "rows": 2,
+          "line_start": 2,
+          "line_end": 3,
+          "sample": [
+            [
+              "1",
+              "90",
+              "9"
+            ],
+            [
+              "2",
+              "150",
+              "6"
+            ]
+          ],
+          "aggregatable_columns": [
+            "week",
+            "orders",
+            "exceptions"
+          ],
+          "evidence_id": "E4"
+        }
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 43,
+      "kind": "context.pruned",
+      "timestamp": "2026-11-01T05:33:29.656029+00:00",
+      "data": {
+        "step": 6,
+        "reason": "tool_descriptions",
+        "method": "qwen35_rendered_byte_bpe_upper_bound",
+        "input_utf8_bytes": 8860,
+        "rendered_prompt_bytes_upper_bound": 7560,
+        "tool_preamble_bytes": 0,
+        "special_token_allowance": 64,
+        "output_token_reserve": 1024,
+        "upper_bound_tokens": 8648,
+        "capacity_tokens": 8192
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 44,
+      "kind": "context.pruned",
+      "timestamp": "2026-11-01T05:33:29.666499+00:00",
+      "data": {
+        "step": 6,
+        "reason": "tool_schema_bounds",
+        "method": "qwen35_rendered_byte_bpe_upper_bound",
+        "input_utf8_bytes": 8395,
+        "rendered_prompt_bytes_upper_bound": 7157,
+        "tool_preamble_bytes": 0,
+        "special_token_allowance": 64,
+        "output_token_reserve": 1024,
+        "upper_bound_tokens": 8245,
+        "capacity_tokens": 8192
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 45,
+      "kind": "context.pruned",
+      "timestamp": "2026-11-01T05:33:29.676032+00:00",
+      "data": {
+        "step": 6,
+        "reason": "inspection_capability_hints",
+        "omitted_result_views": 1,
+        "method": "qwen35_rendered_byte_bpe_upper_bound",
+        "input_utf8_bytes": 8333,
+        "rendered_prompt_bytes_upper_bound": 7103,
+        "tool_preamble_bytes": 0,
+        "special_token_allowance": 64,
+        "output_token_reserve": 1024,
+        "upper_bound_tokens": 8191,
+        "capacity_tokens": 8192
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 46,
+      "kind": "model.requested",
+      "timestamp": "2026-11-01T05:33:29.686544+00:00",
+      "data": {
+        "step": 6,
+        "context_budget": {
+          "method": "qwen35_rendered_byte_bpe_upper_bound",
+          "input_utf8_bytes": 8333,
+          "rendered_prompt_bytes_upper_bound": 7103,
+          "tool_preamble_bytes": 0,
+          "special_token_allowance": 64,
+          "output_token_reserve": 1024,
+          "upper_bound_tokens": 8191,
+          "capacity_tokens": 8192
+        }
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 47,
+      "kind": "model.responded",
+      "timestamp": "2026-11-01T05:33:36.746519+00:00",
+      "data": {
+        "step": 6,
+        "text": "",
+        "tool_count": 2,
+        "usage": {
+          "prompt_tokens": 2075,
+          "completion_tokens": 48,
+          "total_tokens": 2123
+        },
+        "message": {
+          "role": "assistant",
+          "content": null,
+          "decision_protocol": "json_tools",
+          "wire_content": "{\"calls\":[{\"name\":\"table_aggregate\",\"arguments\":{\"path\":\"metrics.csv\",\"column\":\"orders\",\"operation\":\"sum\"}},{\"name\":\"table_aggregate\",\"arguments\":{\"path\":\"metrics.csv\",\"column\":\"exceptions\",\"operation\":\"sum\"}}]}",
+          "tool_calls": [
+            {
+              "id": "json_d2132faf137645b88dbefabea1a4f2c2",
+              "type": "function",
+              "function": {
+                "name": "table_aggregate",
+                "arguments": "{\"path\": \"metrics.csv\", \"column\": \"orders\", \"operation\": \"sum\"}"
+              }
+            },
+            {
+              "id": "json_2df00e2415c04d88bee4dc477e24415a",
+              "type": "function",
+              "function": {
+                "name": "table_aggregate",
+                "arguments": "{\"path\": \"metrics.csv\", \"column\": \"exceptions\", \"operation\": \"sum\"}"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 48,
+      "kind": "tool.requested",
+      "timestamp": "2026-11-01T05:33:36.765287+00:00",
+      "data": {
+        "call_id": "json_d2132faf137645b88dbefabea1a4f2c2",
+        "tool": "table_aggregate",
+        "arguments": {
+          "path": "metrics.csv",
+          "column": "orders",
+          "operation": "sum"
+        }
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 49,
+      "kind": "tool.dispatched",
+      "timestamp": "2026-11-01T05:33:36.775178+00:00",
+      "data": {
+        "call_id": "json_d2132faf137645b88dbefabea1a4f2c2",
+        "tool": "table_aggregate",
+        "effect": "read_only",
+        "arguments": {
+          "path": "metrics.csv",
+          "column": "orders",
+          "operation": "sum"
+        },
+        "scope": {
+          "workspace": "C:\\path\\to\\agent-harness\\evaluation\\slice-09\\analysis-standard",
+          "artifact_directory": "C:\\path\\to\\agent-harness\\.private\\slice09-real-gui-9b-01\\artifacts",
+          "effect": "read_only",
+          "sources": [
+            {
+              "path": "metrics.csv",
+              "sha256": "c6def025fd7ec5096bc4aebfc7981026fd384f619748f724a0f5d0531f4b6698",
+              "bytes": 38
+            }
+          ]
+        },
+        "parameters_sha256": "9090d9ed4a0cffefc284d9ccd3b8b75434a879554b632338b1dd3aeaa51ac735"
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 50,
+      "kind": "tool.completed",
+      "timestamp": "2026-11-01T05:33:36.786710+00:00",
+      "data": {
+        "call_id": "json_d2132faf137645b88dbefabea1a4f2c2",
+        "tool": "table_aggregate",
+        "result": {
+          "path": "metrics.csv",
+          "sha256": "c6def025fd7ec5096bc4aebfc7981026fd384f619748f724a0f5d0531f4b6698",
+          "columns": [
+            "week",
+            "orders",
+            "exceptions"
+          ],
+          "rows": 2,
+          "line_start": 2,
+          "line_end": 3,
+          "column": "orders",
+          "operation": "sum",
+          "value": "240",
+          "evidence_id": "E5"
+        }
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 51,
+      "kind": "tool.requested",
+      "timestamp": "2026-11-01T05:33:36.796238+00:00",
+      "data": {
+        "call_id": "json_2df00e2415c04d88bee4dc477e24415a",
+        "tool": "table_aggregate",
+        "arguments": {
+          "path": "metrics.csv",
+          "column": "exceptions",
+          "operation": "sum"
+        }
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 52,
+      "kind": "tool.dispatched",
+      "timestamp": "2026-11-01T05:33:36.806451+00:00",
+      "data": {
+        "call_id": "json_2df00e2415c04d88bee4dc477e24415a",
+        "tool": "table_aggregate",
+        "effect": "read_only",
+        "arguments": {
+          "path": "metrics.csv",
+          "column": "exceptions",
+          "operation": "sum"
+        },
+        "scope": {
+          "workspace": "C:\\path\\to\\agent-harness\\evaluation\\slice-09\\analysis-standard",
+          "artifact_directory": "C:\\path\\to\\agent-harness\\.private\\slice09-real-gui-9b-01\\artifacts",
+          "effect": "read_only",
+          "sources": [
+            {
+              "path": "metrics.csv",
+              "sha256": "c6def025fd7ec5096bc4aebfc7981026fd384f619748f724a0f5d0531f4b6698",
+              "bytes": 38
+            }
+          ]
+        },
+        "parameters_sha256": "21a3879768e31f3644d13570c35e31654f84b93c37c78b9de183c94cd5d041a8"
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 53,
+      "kind": "tool.completed",
+      "timestamp": "2026-11-01T05:33:36.815973+00:00",
+      "data": {
+        "call_id": "json_2df00e2415c04d88bee4dc477e24415a",
+        "tool": "table_aggregate",
+        "result": {
+          "path": "metrics.csv",
+          "sha256": "c6def025fd7ec5096bc4aebfc7981026fd384f619748f724a0f5d0531f4b6698",
+          "columns": [
+            "week",
+            "orders",
+            "exceptions"
+          ],
+          "rows": 2,
+          "line_start": 2,
+          "line_end": 3,
+          "column": "exceptions",
+          "operation": "sum",
+          "value": "15",
+          "evidence_id": "E6"
+        }
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 54,
+      "kind": "context.pruned",
+      "timestamp": "2026-11-01T05:33:36.827491+00:00",
+      "data": {
+        "step": 7,
+        "call_ids": [
+          "json_78ced46826db476e9fbd21da1fd3c1ed"
+        ],
+        "reason": "acknowledged_evidence",
+        "retained_executor_state": {
+          "plan_saved": true,
+          "plan_steps": [
+            "讀取並驗證 metrics.csv 中的訂單總數、異常總數與異常率數據。",
+            "將已確認的數值整理成單一 Markdown 表格，包含欄位：項目、數值、來源引用。",
+            "更新 report.md 內容，替換原有計算結果區塊為新表格，保留資料來源清單。",
+            "使用 artifact_write 發布最終報告，確保無額外註記或前言。"
+          ],
+          "catalog_listed": false,
+          "selected_source_paths": [
+            "metrics.csv"
+          ],
+          "verified_evidence": {
+            "E1": {
+              "path": "metrics.csv",
+              "text": "week,orders,exceptions\n1,90,9\n2,150,6\n",
+              "sha256": "c6def025fd7ec5096bc4aebfc7981026fd384f619748f724a0f5d0531f4b6698",
+              "bytes": 38,
+              "line_start": 1,
+              "line_end": 3,
+              "evidence_id": "E1"
+            },
+            "E2": {
+              "path": "metrics.csv",
+              "sha256": "c6def025fd7ec5096bc4aebfc7981026fd384f619748f724a0f5d0531f4b6698",
+              "columns": [
+                "week",
+                "orders",
+                "exceptions"
+              ],
+              "rows": 2,
+              "line_start": 2,
+              "line_end": 3,
+              "column": "orders",
+              "operation": "sum",
+              "value": "240",
+              "evidence_id": "E2"
+            },
+            "E3": {
+              "path": "metrics.csv",
+              "sha256": "c6def025fd7ec5096bc4aebfc7981026fd384f619748f724a0f5d0531f4b6698",
+              "columns": [
+                "week",
+                "orders",
+                "exceptions"
+              ],
+              "rows": 2,
+              "line_start": 2,
+              "line_end": 3,
+              "column": "exceptions",
+              "operation": "sum",
+              "value": "15",
+              "evidence_id": "E3"
+            },
+            "E4": {
+              "path": "metrics.csv",
+              "sha256": "c6def025fd7ec5096bc4aebfc7981026fd384f619748f724a0f5d0531f4b6698",
+              "columns": [
+                "week",
+                "orders",
+                "exceptions"
+              ],
+              "rows": 2,
+              "line_start": 2,
+              "line_end": 3,
+              "sample": [
+                [
+                  "1",
+                  "90",
+                  "9"
+                ],
+                [
+                  "2",
+                  "150",
+                  "6"
+                ]
+              ],
+              "evidence_id": "E4"
+            }
+          }
+        },
+        "method": "qwen35_rendered_byte_bpe_upper_bound",
+        "input_utf8_bytes": 10326,
+        "rendered_prompt_bytes_upper_bound": 8905,
+        "tool_preamble_bytes": 0,
+        "special_token_allowance": 64,
+        "output_token_reserve": 1024,
+        "upper_bound_tokens": 9993,
+        "capacity_tokens": 8192
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 55,
+      "kind": "context.pruned",
+      "timestamp": "2026-11-01T05:33:36.836024+00:00",
+      "data": {
+        "step": 7,
+        "reason": "tool_descriptions",
+        "method": "qwen35_rendered_byte_bpe_upper_bound",
+        "input_utf8_bytes": 9467,
+        "rendered_prompt_bytes_upper_bound": 8078,
+        "tool_preamble_bytes": 0,
+        "special_token_allowance": 64,
+        "output_token_reserve": 1024,
+        "upper_bound_tokens": 9166,
+        "capacity_tokens": 8192
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 56,
+      "kind": "context.pruned",
+      "timestamp": "2026-11-01T05:33:36.844707+00:00",
+      "data": {
+        "step": 7,
+        "reason": "tool_schema_bounds",
+        "method": "qwen35_rendered_byte_bpe_upper_bound",
+        "input_utf8_bytes": 9002,
+        "rendered_prompt_bytes_upper_bound": 7675,
+        "tool_preamble_bytes": 0,
+        "special_token_allowance": 64,
+        "output_token_reserve": 1024,
+        "upper_bound_tokens": 8763,
+        "capacity_tokens": 8192
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 57,
+      "kind": "context.limited",
+      "timestamp": "2026-11-01T05:33:36.853226+00:00",
+      "data": {
+        "step": 7,
+        "method": "qwen35_rendered_byte_bpe_upper_bound",
+        "input_utf8_bytes": 9002,
+        "rendered_prompt_bytes_upper_bound": 7675,
+        "tool_preamble_bytes": 0,
+        "special_token_allowance": 64,
+        "output_token_reserve": 1024,
+        "upper_bound_tokens": 8763,
+        "capacity_tokens": 8192
+      }
+    },
+    {
+      "run_id": "0461cb1157a9454eb552d86d71a09f43",
+      "sequence": 58,
+      "kind": "run.failed",
+      "timestamp": "2026-11-01T05:33:36.861232+00:00",
+      "data": {
+        "code": "context_limit_exceeded",
+        "message": "The complete request exceeds the configured conservative context envelope."
+      }
+    }
+  ]
+}

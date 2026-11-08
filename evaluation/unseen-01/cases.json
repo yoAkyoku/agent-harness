@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "model": "qwen3.5:9b-q4_K_M",
+  "purpose": "Two tasks the runtime was never developed against (spec 2026-11-08): different columns, an extra mean, different document labels, a missing field and a distractor role. Truth was fixed before any model run.",
+  "limits": {
+    "max_steps": 12,
+    "max_tool_calls": 20,
+    "max_corrections": 2,
+    "timeout_seconds": 180,
+    "max_output_tokens": 1024
+  },
+  "cases": [
+    {
+      "id": "analysis-tickets",
+      "kind": "analysis",
+      "task": "請分析 tickets.csv，計算工單總數、已解決工單總數、整體解決率（已解決 / 工單 × 100），以及各團隊的平均處理時數（hours 欄的平均），保存為 summary.md，附可追溯來源。只計算有證據的數值，不能猜測。",
+      "sources": ["tickets.csv"],
+      "truth": {
+        "expected_values": {"工單總數": "120", "已解決工單總數": "96", "整體解決率": "80", "平均處理時數": "8"},
+        "numeric_results": ["120", "96", "80.000000", "8"],
+        "required_tools": ["table_aggregate", "number_calculate"],
+        "missing": []
+      }
+    },
+    {
+      "id": "documents-meetings",
+      "kind": "documents",
+      "task": "請整理所選會議紀錄，每份列出會議名稱、日期、決議與行動負責人，保存為 meetings.md 並附來源。缺少的資訊明確標示未提供，不可猜測或用其他角色代替。",
+      "sources": ["planning.md", "retro.md"],
+      "truth": {
+        "facts": {
+          "planning.md": ["Q3 planning", "2026-07-14", "ship the export feature first", "Priya"],
+          "retro.md": ["Sprint retro", "2026-07-21", "Leo"]
+        },
+        "missing": ["retro.md decision"],
+        "forbidden_associations": {"retro.md": ["Mina as decision", "Mina as action owner"]}
+      }
+    }
+  ]
+}

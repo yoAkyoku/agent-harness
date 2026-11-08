@@ -1,0 +1,20 @@
+{
+  "accepted": false,
+  "case_id": "documents-standard",
+  "reviewed_at": "2026-11-08",
+  "batch_mode": "quality_observation",
+  "run_id": "2798e0c58c5444b2a7d5289a8a197d5e",
+  "candidate_source_sha256": "872f7912770f848a3abd6544eaee596d0f87292a165330c9843ae4fde65913d8",
+  "source_sha256": {
+    "release.md": "3bc249192bdae0dd0a082cca658ad4a4205a91f26a64a9671ef79a726bb0ebaf",
+    "handoff.md": "bdf1ce54996bb3137a4a99b824aeac755b7c406eff8714c740b7e0c5702100ad"
+  },
+  "review": {
+    "source_values": "release.md: Release checklist, owner Nina, release gate 'all smoke tests pass'. handoff.md: Support handoff, owner Owen, incident escalation contact Iris, no window.",
+    "citations": "Each section cites its own source EID; source SHAs match the Run.",
+    "completeness_and_language": "Artifact identical to batch 01 (same SHA).",
+    "defects": "Rejected for the same artifact defect as batch 01: the task parenthetical is read as an extra field, so release.md lists its release gate and then marks '發布條件或事件升級窗口: 未提供'.",
+    "completion_reply": "The reply now restates the artifact faithfully, including the contradiction, so the completion check correctly passes it. The check guarantees reply-artifact agreement; it cannot repair an artifact that disagrees with its source.",
+    "runtime": "Automatic checks passed in 31.75 seconds with 5 model calls and 6 tool calls; no corrections; GPU shared with Unreal Editor."
+  }
+}

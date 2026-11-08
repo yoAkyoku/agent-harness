@@ -1,0 +1,175 @@
+{
+  "base_task": "請整理所選文件的索引，每份列出主題、負責人與關鍵事項（發布條件或事件升級窗口），保存為 index.md 並附來源。缺少的必要資訊明確標示未提供，不猜測人名或日期。",
+  "base_limits": {
+    "context_window_tokens": null,
+    "max_output_tokens": 1024,
+    "max_excerpt_bytes": 512,
+    "max_memory_bytes": 1024,
+    "max_history_bytes": 16384,
+    "max_steps": 12,
+    "max_tool_calls": 20,
+    "max_corrections": 2,
+    "timeout_seconds": 180,
+    "approval_timeout_seconds": 120
+  },
+  "revision_task": "請修改 index.md：將兩份文件的主題、負責人與關鍵事項整理成一個 Markdown 表格，保留有據事實與來源引用，不新增日期或其他主張。",
+  "revision_limits": {
+    "context_window_tokens": null,
+    "max_output_tokens": 1024,
+    "max_excerpt_bytes": 512,
+    "max_memory_bytes": 1024,
+    "max_history_bytes": 16384,
+    "max_steps": 12,
+    "max_tool_calls": 20,
+    "max_corrections": 2,
+    "timeout_seconds": 180,
+    "approval_timeout_seconds": 120
+  },
+  "base_text": "# 文件索引\n\n## Support handoff\n- **主題**: Support handoff\n- **負責人**: Owen\n- **關鍵事項**: Incident escalation contact: Iris.\n- [來源 E1](handoff.md)\n\n## Release checklist\n- **主題**: Release checklist\n- **負責人**: Nina\n- **關鍵事項**: Release gate: all smoke tests pass.\n- [來源 E2](release.md)\n\n## Verified tool evidence\n- [E1] handoff.md:L1-L3 SHA-256 bdf1ce54996bb3137a4a99b824aeac755b7c406eff8714c740b7e0c5702100ad\n- [E2] release.md:L1-L3 SHA-256 3bc249192bdae0dd0a082cca658ad4a4205a91f26a64a9671ef79a726bb0ebaf\n",
+  "base_messages": [
+    {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+        {
+          "id": "call_ebhk8x6u",
+          "type": "function",
+          "function": {
+            "name": "plan_update",
+            "arguments": "{\"steps\":[\"確認已選文件清單與對應欄位結構\",\"逐份檢查文件內容，提取主題、負責人、關鍵事項資訊\",\"標記缺少的必要資訊為未提供\",\"生成 index.md 並附來源引用\",\"發布完成後一句簡短回報\"]}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+        {
+          "id": "call_d1coxf89",
+          "type": "function",
+          "function": {
+            "name": "workspace_list",
+            "arguments": "{}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+        {
+          "id": "call_dller7fq",
+          "type": "function",
+          "function": {
+            "name": "source_read",
+            "arguments": "{\"path\":\"handoff.md\"}"
+          }
+        },
+        {
+          "id": "call_r3akjhod",
+          "type": "function",
+          "function": {
+            "name": "source_read",
+            "arguments": "{\"path\":\"release.md\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+        {
+          "id": "call_ow0g1fdt",
+          "type": "function",
+          "function": {
+            "name": "artifact_write",
+            "arguments": "{\"name\":\"index.md\",\"content\":\"# 文件索引\\n\\n## Support handoff\\n- **主題**: Support handoff\\n- **負責人**: Owen\\n- **關鍵事項**: Incident escalation contact: Iris.\\n- [來源 E1](handoff.md)\\n\\n## Release checklist\\n- **主題**: Release checklist\\n- **負責人**: Nina\\n- **關鍵事項**: Release gate: all smoke tests pass.\\n- [來源 E2](release.md)\",\"citations\":[\"E1\",\"E2\"]}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+        {
+          "id": "call_sdkg2975",
+          "type": "function",
+          "function": {
+            "name": "task_finish",
+            "arguments": "{\"summary\":\"已發布 index.md，整合 handoff.md 與 release.md 的主題、負責人與關鍵事項，所有資訊皆有來源引用。\"}"
+          }
+        }
+      ]
+    }
+  ],
+  "revision_messages": [
+    {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+        {
+          "id": "call_j1sx7zjz",
+          "type": "function",
+          "function": {
+            "name": "plan_update",
+            "arguments": "{\"steps\":[\"1. 讀取當前 index.md (EID: e91ca64677bf3818f4d2603d4bfb8e77) 了解現有內容與上下文\",\"2. 識別需要整理的兩份文件（需從 index.md 或相關資訊中確認檔案名稱/EID）\",\"3. 使用 base_artifact_read 讀取這兩份文件的內容\",\"4. 提取每份文件的：主題、負責人、關鍵事項\",\"5. 整理成 Markdown 表格，保留有據事實與來源引用\",\"6. 使用 artifact_write 更新 index.md\"]}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+        {
+          "id": "call_nbaaowq8",
+          "type": "function",
+          "function": {
+            "name": "base_artifact_read",
+            "arguments": "{}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+        {
+          "id": "call_69u0ech9",
+          "type": "function",
+          "function": {
+            "name": "source_read",
+            "arguments": "{\"path\":\"handoff.md\"}"
+          }
+        },
+        {
+          "id": "call_iqiaw3op",
+          "type": "function",
+          "function": {
+            "name": "source_read",
+            "arguments": "{\"path\":\"release.md\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+        {
+          "id": "call_vp1ir6n3",
+          "type": "function",
+          "function": {
+            "name": "artifact_write",
+            "arguments": "{\"name\":\"index.md\",\"content\":\"# 文件索引\\n\\n## 主題、負責人與關鍵事項\\n\\n| 主題 | 負責人 | 關鍵事項 | 來源 |\\n|------|--------|----------|------|\\n| Support handoff | Owen | Incident escalation contact: Iris. | [E2](handoff.md) |\\n| Release checklist | Nina | Release gate: all smoke tests pass. | [E3](release.md) |\\n\",\"citations\":[\"E2\",\"E3\"]}"
+          }
+        }
+      ]
+    }
+  ]
+}

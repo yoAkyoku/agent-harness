@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install dependencies
+        run: uv sync --locked
+      - name: Type-check
+        run: uv run mypy
+      - name: Check workbench JavaScript
+        run: node --check src/agent_harness_demo/static/app.js
+      - name: Run tests
+        # Every model is replaced at its HTTP transport; no API key or model is needed.
+        run: uv run pytest -q
+
+  docker:
+    name: Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: docker build -t agent-harness .
+      - name: Smoke test the fixture workbench
+        run: |
+          docker run -d --name harness -p 127.0.0.1:8787:8787 agent-harness
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8787/api/config > config.json; then break; fi
+            sleep 1
+          done
+          grep -q '"mode":"fixture"' config.json
+          docker rm -f harness

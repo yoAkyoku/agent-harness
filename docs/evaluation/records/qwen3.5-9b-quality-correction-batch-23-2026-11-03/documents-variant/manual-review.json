@@ -1,0 +1,17 @@
+{
+  "accepted": true,
+  "case_id": "documents-variant",
+  "reviewed_at": "2026-11-03",
+  "run_id": "36f3c745a69041768e048538c2e65e4e",
+  "candidate_source_sha256": "93c32f29efda4627afd2501f70241f5d62f81d4dec5692b18a103723a6618600",
+  "source_sha256": {
+    "migration.md": "af3bbd7e3935ab94b8fb55f1a64dfcd7bc4fe7823e4dbe2ae363a4fdcb7c95dc",
+    "support.md": "829c700af5074fcdd086042420b957fbcad4671124b9bffbd656178649b09a7b"
+  },
+  "review": {
+    "source_values": "migration.md: Database migration, owner Tao, release gate backup restore verified. support.md: Migration support, owner Rina, incident escalation contact Ken; escalation window is absent and the artifact marks it 未提供.",
+    "citations": "The body cites E1 on the migration fact and E2 on the support facts; the appendix maps each to the correct path, lines, and matching SHA-256.",
+    "completeness_and_language": "Both selected documents are included with correct owner and key fact. No dates, contacts, or escalation windows were invented. Chinese headings and omission wording are clear; the sourced release-gate phrase remains faithful to its English source.",
+    "runtime": "Run completed with a visible plan, one missing_body_citation rejection followed by a corrected successful artifact_write, then task_finish. Final reply accurately reports publication and missing information; all automatic checks passed. Elapsed 48.37 seconds, 6 model calls, 9 tool calls."
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "accepted": true,
+  "case_id": "documents-meetings",
+  "reviewed_at": "2026-11-08",
+  "batch_mode": "quality_observation",
+  "run_id": "8350c5178f524f82bc8f62faa8d58ab4",
+  "candidate_source_sha256": "3eb2d10122350712106415b5b39d19255dfd19b7959193ff9e2cb22bb1561207",
+  "source_sha256": {
+    "planning.md": "2067333e9330322b9a7bba1a7b72cd2e561ab2aa4c52398ce0733275473c09fb",
+    "retro.md": "4e0bb73d1c4eb9fad3ef1e4edc75e31f4adadf3896e1b6c1a5c9aa95abfc8d7e"
+  },
+  "review": {
+    "source_values": "planning.md: Q3 planning, 2026-07-14, decision 'ship the export feature first.', action owner Priya. retro.md: Sprint retro, 2026-07-21, facilitator Mina, action owner Leo, no decision.",
+    "correct_parts": "Every required fact is present and correctly associated; retro.md's decision is explicitly 未提供; the distractor Facilitator Mina is not placed in any field.",
+    "automatic_check_note": "missing_field_values_explicit failed because the recorder expects the source filename on the same line as the missing marker, while this artifact uses the meeting names as section headings. The missing decision is explicit in the artifact; this is a grader limitation, not an artifact defect.",
+    "defects": "Minor: two confusing footnotes ('未提供「會議名稱」以外的標題資訊…'). The final completion reply paraphrases them as 'Q3 planning 缺少標題資訊' and drops planning.md's decision.",
+    "harness_defect": "False rejection by completion_summary: the first reply correctly stated planning.md's decision, but because the label 決議 is marked missing for retro.md, every clause mentioning 決議 was required to state a missing item. The correction made the reply less accurate. The check should not flag a label that the artifact also gives a present value for elsewhere.",
+    "runtime": "Completed in 76.94 seconds with 6 model calls and 7 tool calls; one completion correction (the false rejection above); GPU shared with Unreal Editor."
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "accepted": true,
+  "case_id": "analysis-missing",
+  "reviewed_at": "2026-11-03",
+  "run_id": "afe4637be90e42f09ade810031e5bf35",
+  "candidate_source_sha256": "93c32f29efda4627afd2501f70241f5d62f81d4dec5692b18a103723a6618600",
+  "source_sha256": "c0c04b429bc6bcfeac5c5f0eac8d4ee604b151bd2ad872680afc5a59d3d920e8",
+  "review": {
+    "source_values": "Fixed evaluation metrics.csv header is week,orders; rows contain 60 and 90, so orders total 150. The source has no exceptions column.",
+    "citations": "Orders 150 cites E2. The explicit missing-field statement names exceptions and cites table_inspect E1; both missing exception count and unavailable rate cite E1. Source SHA256 matches the Run.",
+    "completeness_and_language": "The report includes the available total, explicitly identifies the missing field, and withholds unsupported exception totals and rate. The visible plan field observation matches E1. No guessed columns, dates or substitute values. One artifact was published and the completion reply matches.",
+    "runtime": "Automatic checks passed in 51.08 seconds with 9 model calls and 10 tool calls; two artifact corrections were observed and one report was published."
+  }
+}

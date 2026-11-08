@@ -1,0 +1,17 @@
+{
+  "run_id": "f9d824bc455e4c30885ba55ab63dc41b",
+  "failure_step": 7,
+  "conservative_upper_bound": 9035,
+  "capacity": 8192,
+  "candidate_argument_utf8_bytes": 621,
+  "normalized_draft_utf8_bytes": 1024,
+  "candidate_preserved_as_prefix": true,
+  "normalized_draft_sha256": "a49e93c8c055725f429e9cf38fd356360ef1176bb0859edcfdaea948236c54d5",
+  "experiment": {
+    "kind": "temporary model-catalog bound omission; full server validation unchanged",
+    "transport": "replay of recorded first six responses plus proposed publication/finish fixture; no live model calls",
+    "result": "still context_limit_exceeded at step7, upper bound8637",
+    "retained": false
+  },
+  "next_design_question": "How to carry the complete effective draft for review without repeating its body in both call arguments and tool acknowledgment, while preserving durable audit and original context ceiling?"
+}

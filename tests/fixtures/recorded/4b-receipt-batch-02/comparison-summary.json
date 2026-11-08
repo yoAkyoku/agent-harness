@@ -1,0 +1,77 @@
+{
+  "candidate_revision": "2aced43812db0a17119da2987f3e35e6ccfbf154",
+  "model": "qwen3.5:4b-q4_K_M",
+  "decision_protocol": "json_tools",
+  "publication_workflow": "draft_review",
+  "completion_workflow": "artifact_receipt",
+  "thinking": false,
+  "accepted_cases": 2,
+  "attempted_cases": 3,
+  "all_six_accepted": false,
+  "attempts": [
+    {
+      "case": "analysis-standard",
+      "run_id": "6f38ed7c9f5b4402ab2cd7a31ebbf47f",
+      "status": "completed",
+      "error": null,
+      "usage": {
+        "model_calls": 8,
+        "tool_calls": 9
+      },
+      "elapsed_seconds": 21.83,
+      "manual_accepted": true,
+      "artifact_manifest": [
+        {
+          "id": "793c465bcec2594390d1f070fe0f1098",
+          "name": "report.md",
+          "sha256": "cc1a05235b29ef6831b57be2e34dcec144898f99d0ef36044f915138b372527c",
+          "bytes": 901,
+          "export_path": "artifacts/793c465bcec2594390d1f070fe0f1098/report.md"
+        }
+      ]
+    },
+    {
+      "case": "analysis-variant",
+      "run_id": "ce2bb81035994b33bf16d762c0f95672",
+      "status": "completed",
+      "error": null,
+      "usage": {
+        "model_calls": 7,
+        "tool_calls": 8
+      },
+      "elapsed_seconds": 17.71,
+      "manual_accepted": true,
+      "artifact_manifest": [
+        {
+          "id": "8c9cf3dbcd389b92a532978111f0691e",
+          "name": "report.md",
+          "sha256": "a31fb7fa64ba85f8834dc365c4dc8f7b319777fc55049d4659eb914cee31cef4",
+          "bytes": 901,
+          "export_path": "artifacts/8c9cf3dbcd389b92a532978111f0691e/report.md"
+        }
+      ]
+    },
+    {
+      "case": "analysis-missing",
+      "run_id": "2e77d12952884645a459f96ef0434d72",
+      "status": "failed",
+      "error": {
+        "code": "context_limit_exceeded",
+        "message": "The complete request exceeds the configured conservative context envelope."
+      },
+      "usage": {
+        "model_calls": 4,
+        "tool_calls": 6
+      },
+      "elapsed_seconds": 11.7,
+      "manual_accepted": false,
+      "artifact_manifest": []
+    }
+  ],
+  "unrun_cases": [
+    "documents-standard",
+    "documents-variant",
+    "documents-missing"
+  ],
+  "diagnosis": "First two accepted. Missing case now explicitly computes150, but unreviewed candidate invents mandatory abnormal_orders and2023-10-27 generation date, then mixed inspection/draft context exceeds8192 before publication. Independent content and runtime failures; no acceptance or regrade after a context-only fix."
+}

@@ -1,0 +1,14 @@
+{
+  "accepted": true,
+  "case_id": "analysis-standard",
+  "reviewed_at": "2026-11-03",
+  "run_id": "4cd4039f1b434c7a9c469bbb6fc50317",
+  "candidate_source_sha256": "93c32f29efda4627afd2501f70241f5d62f81d4dec5692b18a103723a6618600",
+  "source_sha256": "c6def025fd7ec5096bc4aebfc7981026fd384f619748f724a0f5d0531f4b6698",
+  "review": {
+    "source_values": "Fixed evaluation metrics.csv has orders 90 and 150 (240 total) and exceptions 9 and 6 (15 total); 15 / 240 * 100 = 6.25%.",
+    "citations": "E2 is adjacent to 240, E3 to 15, and number_calculate E4 to 6.25%. Tool evidence traces E2/E3 to source rows 2-3 and E4 to ratio_percent(E3,E2); the source SHA256 matches the Run.",
+    "completeness_and_language": "All requested metrics are present and correctly labeled; the two-week note matches the source. No unsupported dates or missing-data claims. Published report, final visible plan step and completion reply agree.",
+    "runtime": "Automatic checks passed in 39.64 seconds with 6 model calls and 9 tool calls; no corrections and one published artifact."
+  }
+}

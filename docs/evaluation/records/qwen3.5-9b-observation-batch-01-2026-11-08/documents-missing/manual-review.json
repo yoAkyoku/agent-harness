@@ -1,0 +1,20 @@
+{
+  "accepted": false,
+  "case_id": "documents-missing",
+  "reviewed_at": "2026-11-08",
+  "batch_mode": "quality_observation",
+  "run_id": "b2bcf7c14a214273837b8f65d5f280f4",
+  "candidate_source_sha256": "efdd734e5628fd1b3f9ebea211d7dbe97e7b36ac49e15c9dbea68ab9d4e9b4bd",
+  "source_sha256": {
+    "release.md": "89f63157eb841fe39461fac5749bf54d2ec74df1c41cd648429aa655a7de3aec",
+    "handoff.md": "2cf803047b9d95089dfcf154c7fe722de7bed7987e89204f69e25d84da7e03e9"
+  },
+  "review": {
+    "source_values": "release.md: topic Release checklist, owner Sora, release gate 'passing regression tests'. handoff.md: topic Support handoff, incident escalation contact Mika, no owner line.",
+    "citations": "Each document section cites its own source EID; source SHAs match the Run.",
+    "completeness_and_language": "release.md is correct. handoff.md topic is correct.",
+    "defects": "Rejected (automatic check missing_field_values_explicit also failed): handoff.md has no owner, but the model filled 負責人 with Mika, who is the incident escalation contact, so it invented an owner from another role. Its 關鍵事項 then shows only the label 'Incident escalation contact.' without the name. The footnote claims fields were marked 未提供 although none are. The completion reply repeats that missing information was marked.",
+    "harness_note": "This role substitution is what the removed case-specific owner rule (_document_owner_issues) used to block. A generic evidence verifier cannot tell that 'Mika' is cited for the wrong role without knowing the task's fields; recorded as a model-quality failure.",
+    "runtime": "Run completed in 22.74 seconds with 5 model calls and 7 tool calls; no corrections; one published artifact; the model also re-saved its plan after publishing."
+  }
+}

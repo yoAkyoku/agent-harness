@@ -1,0 +1,20 @@
+{
+  "accepted": true,
+  "case_id": "documents-variant",
+  "reviewed_at": "2026-11-08",
+  "batch_mode": "quality_observation",
+  "run_id": "5a82d979e887435ebbd58fcd97f76241",
+  "candidate_source_sha256": "efdd734e5628fd1b3f9ebea211d7dbe97e7b36ac49e15c9dbea68ab9d4e9b4bd",
+  "source_sha256": {
+    "migration.md": "af3bbd7e3935ab94b8fb55f1a64dfcd7bc4fe7823e4dbe2ae363a4fdcb7c95dc",
+    "support.md": "829c700af5074fcdd086042420b957fbcad4671124b9bffbd656178649b09a7b"
+  },
+  "review": {
+    "source_values": "migration.md: topic Database migration, owner Tao, release gate 'backup restore verified'. support.md: topic Migration support, owner Rina, incident escalation contact Ken, no escalation window.",
+    "citations": "The first artifact_write was rejected with missing_body_citation because the body did not link each of the two sources; after that feedback the model added per-document EIDs and the republished body cites E1 and E2 next to their sections. Source SHAs match the Run.",
+    "completeness_and_language": "Topics, owners and key facts are present and correctly associated. The release gate is correctly given for migration.md and the footnote states that the escalation window is not provided.",
+    "defects": "Minor: support.md files the contact under a label reading '事件升級窗口', although the value itself says it is a contact and the footnote says the window is missing, so nothing false is stated. The footnote also mentions dates, which the task did not ask about.",
+    "harness_note": "Natural (not injected) self-correction: rejection, feedback with the missing source versions, new model decision, successful publication within the correction budget.",
+    "runtime": "Automatic checks passed in 22.34 seconds with 6 model calls and 7 tool calls; one correction; one published artifact."
+  }
+}

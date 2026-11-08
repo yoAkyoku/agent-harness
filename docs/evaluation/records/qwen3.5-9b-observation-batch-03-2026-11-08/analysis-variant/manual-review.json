@@ -1,0 +1,23 @@
+{
+  "accepted": true,
+  "case_id": "analysis-variant",
+  "reviewed_at": "2026-11-08",
+  "batch_mode": "quality_observation",
+  "run_id": "e5067eb9ec9e4f3d96c36177f8acec6c",
+  "candidate_source_sha256": "01630ac8685937ef2a13657fba61951530667d260557bbb47e8054797b2f02d4",
+  "source_sha256": {
+    "metrics.csv": "1405c39960d3bd5eb343cdfc167ccb589ffb99689548b497709bd6e8db516d9b"
+  },
+  "review": {
+    "comparison": "Artifact SHA and completion reply are identical to batch 02 (32fd17d0066e43bab7347cb53b0bf8fb); the batch-02 review applies unchanged.",
+    "batch_02_review": {
+      "source_values": "metrics.csv has orders 112 and 168 (280 total) and exceptions 7 and 14 (21 total); 21 / 280 * 100 = 7.5%.",
+      "citations": "280 cites E2, 21 cites E3, 7.5% cites E4; source SHA matches the Run.",
+      "completeness_and_language": "Artifact identical to batch 01 (same SHA).",
+      "completion_reply": "Accurate: states 280, 21 and 7.5% and that all required columns exist, matching the artifact's field-check section.",
+      "runtime": "Automatic checks passed in 38.73 seconds with 7 model calls and 8 tool calls; no corrections; GPU shared with Unreal Editor."
+    },
+    "corrections": [],
+    "runtime": "Automatic checks passed in 24.48 seconds with 7 model calls and 8 tool calls; GPU shared with Unreal Editor."
+  }
+}

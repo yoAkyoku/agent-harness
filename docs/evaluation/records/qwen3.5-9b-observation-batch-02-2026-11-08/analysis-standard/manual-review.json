@@ -1,0 +1,18 @@
+{
+  "accepted": true,
+  "case_id": "analysis-standard",
+  "reviewed_at": "2026-11-08",
+  "batch_mode": "quality_observation",
+  "run_id": "ecc81ffe4fbd48aba7234b0a1c7a18ea",
+  "candidate_source_sha256": "872f7912770f848a3abd6544eaee596d0f87292a165330c9843ae4fde65913d8",
+  "source_sha256": {
+    "metrics.csv": "c6def025fd7ec5096bc4aebfc7981026fd384f619748f724a0f5d0531f4b6698"
+  },
+  "review": {
+    "source_values": "metrics.csv has orders 90 and 150 (240 total) and exceptions 9 and 6 (15 total); 15 / 240 * 100 = 6.25%.",
+    "citations": "240 cites E2 sum(orders), 15 cites E3 sum(exceptions), 6.25% cites E4 ratio_percent(E3, E2); source SHA matches the Run.",
+    "completeness_and_language": "Artifact identical to batch 01 (same SHA). All metrics correctly labelled.",
+    "completion_reply": "Now describes this artifact: states 240, 15 and 6.25%, and correctly says no missing items are marked. The batch-01 conditional clause about missing fields is gone.",
+    "runtime": "Automatic checks passed in 57.1 seconds with 7 model calls and 8 tool calls; no corrections. The GPU was shared with a running Unreal Editor (about 3.6 GB free before loading) but the model still reported 5.45 GB in VRAM; elapsed time is not comparable with batch 01."
+  }
+}

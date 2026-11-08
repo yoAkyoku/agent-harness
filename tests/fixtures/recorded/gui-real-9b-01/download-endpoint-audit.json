@@ -1,0 +1,10 @@
+{
+  "scope": "Read-only public download endpoint after the actual GUI link click; does not verify a physical browser-saved file.",
+  "url": "/api/runs/ba2622198f7d438d8888b871579b169e/artifacts/e9a40ac96973a6df02f66d94dc0fe3ec",
+  "status": 200,
+  "content_type": "text/plain; charset=utf-8",
+  "content_disposition": "attachment; filename*=UTF-8''report.md",
+  "bytes": 607,
+  "sha256": "6c0ae6cec490cab714b1503f5e74202d5fb855cd868d28ac4bb9dfd2b059bd96",
+  "original_unchanged_after_failed_revision": true
+}

@@ -1,0 +1,17 @@
+{
+  "accepted": true,
+  "case_id": "documents-standard",
+  "reviewed_at": "2026-11-03",
+  "run_id": "89c580f7a7b34e82a9a5831570998939",
+  "candidate_source_sha256": "93c32f29efda4627afd2501f70241f5d62f81d4dec5692b18a103723a6618600",
+  "source_sha256": {
+    "release.md": "3bc249192bdae0dd0a082cca658ad4a4205a91f26a64a9671ef79a726bb0ebaf",
+    "handoff.md": "bdf1ce54996bb3137a4a99b824aeac755b7c406eff8714c740b7e0c5702100ad"
+  },
+  "review": {
+    "source_values": "release.md: topic Release checklist, owner Nina, gate all smoke tests pass. handoff.md: topic Support handoff, owner Owen, contact Iris; neither source names an escalation window, and the artifact marks it 未提供.",
+    "citations": "Body rows cite E1 and E2; the evidence appendix maps both labels to the correct source paths, lines, and SHA-256 values, which match the current files.",
+    "completeness_and_language": "Both selected documents are represented with the requested owner and key fact. No unsupported names, dates, or escalation window were added. Chinese wording is clear and concise.",
+    "runtime": "Run completed with a visible plan, one rejected artifact_write for missing_body_citation followed by a corrected successful publication, and a final reply that accurately reports index.md publication. Automatic checks all passed; elapsed 64.12 seconds, 6 model calls, 9 tool calls."
+  }
+}

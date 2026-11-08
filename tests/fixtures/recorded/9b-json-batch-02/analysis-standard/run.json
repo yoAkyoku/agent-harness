@@ -1,0 +1,114 @@
+{
+  "id": "d1b6a9c42a944f2480e83b35300d79ec",
+  "session_id": "a53005aff1bc4ca39ffe63f55ea0b6c9",
+  "task": "請分析 metrics.csv，計算訂單總數、異常總數及整體異常率（異常數 / 訂單數 × 100），保存為 report.md，附可追溯來源。若缺少必要欄位，明確指出缺少什麼；只計算有證據的數值，不能補零或猜測異常率。",
+  "status": "failed",
+  "mode": "local",
+  "result": "",
+  "created_at": "2026-10-31T11:21:52.697442+00:00",
+  "sources": [
+    {
+      "path": "metrics.csv",
+      "sha256": "c6def025fd7ec5096bc4aebfc7981026fd384f619748f724a0f5d0531f4b6698",
+      "bytes": 38
+    }
+  ],
+  "limits": {
+    "context_window_tokens": null,
+    "max_output_tokens": 1024,
+    "max_excerpt_bytes": 512,
+    "max_memory_bytes": 1024,
+    "max_history_bytes": 16384,
+    "max_steps": 12,
+    "max_tool_calls": 20,
+    "max_corrections": 2,
+    "timeout_seconds": 180.0,
+    "approval_timeout_seconds": 120
+  },
+  "model": {
+    "mode": "local",
+    "name": "qwen3.5:9b-q4_K_M",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+    "stream": true,
+    "transport_fixture": false,
+    "decision_protocol": "json_tools",
+    "requires_tool_finish": true,
+    "context_capacity_tokens": 8192,
+    "context_capacity_source": "application_configuration",
+    "context_profile": "ollama-0.40.10-qwen35-gpt2",
+    "renderer_verification": {
+      "renderer": "qwen3.5",
+      "parser": "qwen3.5",
+      "template_source": "renderer_parser",
+      "implicit_messages": false,
+      "implicit_system": false,
+      "tokenizer_model": "gpt2",
+      "tokenizer_pre": "qwen35",
+      "add_bos_token": false
+    },
+    "digest": "56671c2ab9385f9cfcb404638e32cd62d88e3501d44822208363c010179a3c90",
+    "server_version": "0.40.10",
+    "capabilities": [
+      "completion",
+      "vision",
+      "tools",
+      "thinking"
+    ],
+    "reasoning_effort": "none"
+  },
+  "validation": {
+    "fault_once_source_read": false
+  },
+  "policy": {
+    "require_publish_approval": false,
+    "publication_workflow": "draft_review"
+  },
+  "context": {
+    "turns": [],
+    "history": [],
+    "history_run_ids": [],
+    "omitted": [],
+    "source_excerpts": [],
+    "memories": [],
+    "memory_omitted": []
+  },
+  "base_artifact": null,
+  "resume_checkpoint": null,
+  "recovery": null,
+  "cancellation": null,
+  "error": {
+    "code": "context_limit_exceeded",
+    "message": "The complete request exceeds the configured conservative context envelope."
+  },
+  "usage": {
+    "model_calls": 9,
+    "tool_calls": 10
+  },
+  "artifacts": [
+    {
+      "id": "0cab9011acb7843e7d8dcc00c028d525",
+      "run_id": "d1b6a9c42a944f2480e83b35300d79ec",
+      "name": "report.md",
+      "sha256": "0089c843be2dfc98eef07b5e8d72ea9b613e0348fa7ef70a285d1138072aceab",
+      "bytes": 645,
+      "parent_artifact_id": null,
+      "version": 1,
+      "call_id": "json_8608c3d0b0dd4b2784a6b00187296929",
+      "download_url": "/api/runs/d1b6a9c42a944f2480e83b35300d79ec/artifacts/0cab9011acb7843e7d8dcc00c028d525"
+    },
+    {
+      "id": "f464a5877d2a7ee8497fbe66ccd26e06",
+      "run_id": "d1b6a9c42a944f2480e83b35300d79ec",
+      "name": "report.md",
+      "sha256": "c3564e43b9edb8cda4c8d2e93e27b44a5de05a1b5144d716b6f827b395662607",
+      "bytes": 662,
+      "parent_artifact_id": null,
+      "version": 1,
+      "call_id": "json_40b417fdf35e49d9a3d17a8df9af7953",
+      "download_url": "/api/runs/d1b6a9c42a944f2480e83b35300d79ec/artifacts/f464a5877d2a7ee8497fbe66ccd26e06"
+    }
+  ],
+  "inherited_artifacts": [],
+  "approvals": [],
+  "last_sequence": 74
+}

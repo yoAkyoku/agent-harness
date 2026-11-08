@@ -1,0 +1,14 @@
+{
+  "accepted": true,
+  "reviewed_at": "2026-11-08",
+  "run_id": "c4ec3780b5af495b80a97aa822d99659",
+  "git_revision": "72a4bf8be53b92bdfd6f2f9680cfc69469cbcd3b",
+  "implementation": {
+    "algorithm": "package-files-sha256-v1",
+    "source_sha256": "c9999fa90eb04d46ac53e28793695a440daa2cc47dba3d37d62f32002a3665f4"
+  },
+  "harness_behaviour": "The first source_read (call json_fefe7a…) was failed by the labelled pre-read fault before any filesystem access; source_unavailable was returned as a retryable correction. A new model decision issued a new call (json_910d59…) for the same path, which succeeded and was recorded as correction.observed. No executor retry or fallback.",
+  "content": "Owner Mei, release gate 'passing regression tests' and incident escalation contact Bo are correct, labelled with their source roles and cited to E1.",
+  "defects": "Minor: the task asked for the escalation window; the source has only a contact, and the artifact does not say the window is missing. The completion reply describes the contact correctly.",
+  "runtime": "Completed with usage {'model_calls': 5, 'tool_calls': 5}; GPU shared with the user's Unreal Editor."
+}

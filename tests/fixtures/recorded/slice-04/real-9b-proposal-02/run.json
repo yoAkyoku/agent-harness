@@ -1,0 +1,90 @@
+{
+  "id": "8ba909de3b914811946352c024f79c22",
+  "session_id": "2a22d7f483da40c1a383ac8c72406dba",
+  "task": "請整理 brief.md 的目標、本次範圍與已知風險，逐項引用來源，保存為 brief-summary.md。只整理來源事實，不新增日期、佔位符或推論。",
+  "status": "completed",
+  "mode": "local",
+  "result": "已完成 brief-summary.md 的撰寫，內容包含：\n- **目標**：讓客服在同一頁查看訂單進度、配送節點與異常紀錄 [E1]\n- **本次範圍**：整理現有需求，保留資料來源，再將待確認事項交給團隊討論 [E1]\n- **已知風險**：舊系統的配送狀態命名不一致；尚未核對所有歷史欄位 [E1]\n\n檔案已保存為 brief-summary.md，並引用來源 brief.md (sha256: 052b349403397ce33e71bb4eb861f51777312cceba2be98730712c4ae2d0fe57)。",
+  "created_at": "2026-10-30T12:26:34.688953+00:00",
+  "sources": [
+    {
+      "path": "brief.md",
+      "sha256": "052b349403397ce33e71bb4eb861f51777312cceba2be98730712c4ae2d0fe57",
+      "bytes": 297
+    }
+  ],
+  "limits": {
+    "max_steps": 12,
+    "max_tool_calls": 20,
+    "max_corrections": 2,
+    "timeout_seconds": 180,
+    "approval_timeout_seconds": 120
+  },
+  "model": {
+    "mode": "local",
+    "name": "qwen3.5:9b-q4_K_M",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+    "stream": true,
+    "transport_fixture": false,
+    "digest": "56671c2ab9385f9cfcb404638e32cd62d88e3501d44822208363c010179a3c90",
+    "server_version": "0.40.10",
+    "capabilities": [
+      "completion",
+      "vision",
+      "tools",
+      "thinking"
+    ],
+    "reasoning_effort": "none"
+  },
+  "validation": {
+    "fault_once_source_read": false
+  },
+  "policy": {
+    "require_publish_approval": true
+  },
+  "cancellation": null,
+  "error": null,
+  "usage": {
+    "model_calls": 5,
+    "tool_calls": 4
+  },
+  "artifacts": [
+    {
+      "id": "14edfb5e43c547c6ad5a03fd4d09d5b3",
+      "run_id": "8ba909de3b914811946352c024f79c22",
+      "name": "brief-summary.md",
+      "sha256": "a7f11798a5105cb2118e305d5ea69dbd825773fc5ad9c6d8893095121ee40bbc",
+      "bytes": 539,
+      "download_url": "/api/runs/8ba909de3b914811946352c024f79c22/artifacts/14edfb5e43c547c6ad5a03fd4d09d5b3"
+    }
+  ],
+  "approvals": [
+    {
+      "id": "c3302e63dc9b4cf1a591bb1f129cee7f",
+      "run_id": "8ba909de3b914811946352c024f79c22",
+      "call_id": "call_zejlbzhn",
+      "tool": "artifact_write",
+      "parameters_sha256": "9384657f1281cd5b1135bc8a499973f6cdf6d68d0e424c6d41dc27de381c2b55",
+      "status": "consumed",
+      "created_at": "2026-10-30T12:26:55.971053+00:00",
+      "expires_at": "2026-10-30T12:28:55.971053+00:00",
+      "arguments": {
+        "name": "brief-summary.md",
+        "content": "# brief-summary.md\n\n## 目標\n讓客服在同一頁查看訂單進度、配送節點與異常紀錄。 [E1]\n\n## 本次範圍\n整理現有需求，保留資料來源，再將待確認事項交給團隊討論。 [E1]\n\n## 已知風險\n- 舊系統的配送狀態命名不一致 [E1]\n- 尚未核對所有歷史欄位 [E1]\n\n---\n*來源：brief.md (sha256: 052b349403397ce33e71bb4eb861f51777312cceba2be98730712c4ae2d0fe57)*\n\n## Verified tool evidence\n- [E1] brief.md:L1-L7 SHA-256 052b349403397ce33e71bb4eb861f51777312cceba2be98730712c4ae2d0fe57\n"
+      },
+      "scope": {
+        "workspace": "C:\\path\\to\\agent-harness\\src\\agent_harness_demo\\demo_sources",
+        "artifact_directory": "C:\\path\\to\\agent-harness\\.private\\slice02\\artifacts",
+        "effect": "immutable_artifact",
+        "sources": [
+          {
+            "path": "brief.md",
+            "sha256": "052b349403397ce33e71bb4eb861f51777312cceba2be98730712c4ae2d0fe57",
+            "bytes": 297
+          }
+        ]
+      }
+    }
+  ],
+  "last_sequence": 188
+}

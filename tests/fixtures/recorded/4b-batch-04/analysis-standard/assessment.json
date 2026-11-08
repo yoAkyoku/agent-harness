@@ -1,0 +1,32 @@
+{
+  "checks": {
+    "completed": false,
+    "artifact": false,
+    "visible_plan": true,
+    "all_selected_sources_cited": false,
+    "source_versions": true,
+    "source_reads": true,
+    "citations": false,
+    "numeric_tool_oracle": true,
+    "orders_body": false,
+    "calculation_path": true,
+    "exceptions_body": false,
+    "rate_body": false
+  },
+  "tool_path": [
+    "plan_update",
+    "table_inspect",
+    "table_aggregate",
+    "table_aggregate",
+    "number_calculate",
+    "artifact_draft"
+  ],
+  "elapsed_seconds": 18.96,
+  "usage": {
+    "model_calls": 5,
+    "tool_calls": 6
+  },
+  "manual_review_required": true,
+  "quality_accepted": false,
+  "manual_rubric": "Review model-written body, final reply, plan and every visible text against source truth; verify labels, numeric relations, omissions, owner/topic/fact associations and absence of fabricated dates or missing-data substitutes. Tool appendix and lexical checks alone never prove quality."
+}

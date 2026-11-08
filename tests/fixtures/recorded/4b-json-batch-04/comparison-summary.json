@@ -1,0 +1,60 @@
+{
+  "candidate_revision": "34af0ee3a04d433442b71db0e27301a1d7133e74",
+  "model": "qwen3.5:4b-q4_K_M",
+  "decision_protocol": "json_tools",
+  "publication_workflow": "draft_review",
+  "thinking": false,
+  "accepted_cases": 0,
+  "attempted_cases": 1,
+  "all_six_accepted": false,
+  "attempts": [
+    {
+      "case": "analysis-standard",
+      "run_id": "beab297ffdd046869f1c2ba4f40924c2",
+      "status": "failed",
+      "error": {
+        "code": "correction_limit_exceeded",
+        "message": "This Run exhausted its recoverable tool correction budget."
+      },
+      "usage": {
+        "model_calls": 8,
+        "tool_calls": 9
+      },
+      "artifacts": 0,
+      "elapsed_seconds": 20.14,
+      "manual_accepted": false,
+      "numeric_tool_oracle": true,
+      "draft_accepted": false,
+      "reference_publication_reached": false,
+      "correction_feedback": [
+        {
+          "code": "invalid_arguments",
+          "message": "Invalid tool input at $.citations[0]: pattern constraint.",
+          "retryable": true,
+          "remaining_corrections": 1,
+          "correctable_fields": [
+            "citations"
+          ]
+        },
+        {
+          "code": "invalid_arguments",
+          "message": "Invalid tool input at $.citations[0]: pattern constraint.",
+          "retryable": true,
+          "remaining_corrections": 0,
+          "correctable_fields": [
+            "citations"
+          ]
+        }
+      ]
+    }
+  ],
+  "unrun_cases": [
+    "analysis-variant",
+    "analysis-missing",
+    "documents-standard",
+    "documents-variant",
+    "documents-missing"
+  ],
+  "diagnosis": "S1 source_ref alias repeatedly used as citation; vague pattern feedback did not repair it. Reference-publication stage not reached. Keep ID validator and two-correction budget.",
+  "next_step": "Test an actionable citation correction hint that states the actual allowed evidence keys and distinguishes provenance aliases; do not silently remap S1 or accept it."
+}

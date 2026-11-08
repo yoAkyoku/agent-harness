@@ -1,0 +1,30 @@
+{
+  "run_id": "e446754b6cb648bd8cfcf383ba749283",
+  "failure_step": 6,
+  "model_calls": 5,
+  "tool_calls": 6,
+  "candidate_argument_utf8_bytes": 646,
+  "normalized_draft_utf8_bytes": 1049,
+  "normalized_draft_sha256": "7a9520c765b8b529179b7726cd32c930c555643b97ec1262b7c0f83f252bbd8d",
+  "projection_trace": [
+    {
+      "reason": "acknowledged_evidence",
+      "upper_bound_tokens": 9799
+    },
+    {
+      "reason": "tool_descriptions",
+      "upper_bound_tokens": 9016
+    },
+    {
+      "reason": "draft_receipt_encoding",
+      "upper_bound_tokens": 8361
+    },
+    {
+      "reason": "tool_schema_bounds",
+      "upper_bound_tokens": 8209
+    }
+  ],
+  "capacity": 8192,
+  "conservative_upper_bound": 8209,
+  "interpretation": "Lossless representation is active; actual output variation still exceeds the fixed envelope. Prior recorded-case fixture success is narrower than stable real-model acceptance."
+}

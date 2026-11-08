@@ -1,0 +1,110 @@
+{
+  "task": "請分析 metrics.csv，計算訂單總數、異常總數及整體異常率（異常數 / 訂單數 × 100），保存為 report.md，附可追溯來源。若缺少必要欄位，明確指出缺少什麼；只計算有證據的數值，不能補零或猜測異常率。",
+  "source": "week,orders,exceptions\n1,90,9\n2,150,6\n",
+  "messages": [
+    {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+        {
+          "id": "call_oqpcq8it",
+          "type": "function",
+          "function": {
+            "name": "plan_update",
+            "arguments": "{\"steps\":[\"列出選定來源\",\"檢查 metrics.csv 欄位與資料\",\"若有必要欄位則計算訂單總數、異常總數及異常率\",\"若缺少欄位則指出缺失項目\",\"撰寫 report.md 並引用證據\"]}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+        {
+          "id": "call_xi4dvntm",
+          "type": "function",
+          "function": {
+            "name": "workspace_list",
+            "arguments": "{}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+        {
+          "id": "call_oyml4a7r",
+          "type": "function",
+          "function": {
+            "name": "table_inspect",
+            "arguments": "{\"path\":\"metrics.csv\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": "資料結構清晰，包含 `orders`（訂單數）與 `exceptions`（異常數）。現在計算兩週的總訂單數、總異常數及整體異常率。",
+      "tool_calls": [
+        {
+          "id": "call_hxcpbsj3",
+          "type": "function",
+          "function": {
+            "name": "table_aggregate",
+            "arguments": "{\"path\":\"metrics.csv\",\"column\":\"orders\",\"operation\":\"sum\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+        {
+          "id": "call_bb0lxsfe",
+          "type": "function",
+          "function": {
+            "name": "table_aggregate",
+            "arguments": "{\"path\":\"metrics.csv\",\"column\":\"exceptions\",\"operation\":\"sum\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+        {
+          "id": "call_jnmg5z3t",
+          "type": "function",
+          "function": {
+            "name": "number_calculate",
+            "arguments": "{\"operation\":\"ratio_percent\",\"numerator\":\"E3\",\"denominator\":\"E2\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+        {
+          "id": "call_500ggtem",
+          "type": "function",
+          "function": {
+            "name": "artifact_write",
+            "arguments": "{\"name\":\"report.md\",\"content\":\"# 訂單與異常分析報告\\n\\n## 資料來源\\n- `metrics.csv` (SHA256: c6def025fd7ec5096bc4aebfc7981026fd384f619748f724a0f5d0531f4b6698)\\n\\n## 欄位檢查\\n- ✅ `week` (週數)\\n- ✅ `orders` (訂單數)\\n- ✅ `exceptions` (異常數)\\n\\n所有必要欄位皆存在，無需補零或猜測。\\n\\n## 計算結果\\n\\n| 項目 | 數值 | 證據 ID |\\n|------|------|---------|\\n| 訂單總數 | 240 | E2 |\\n| 異常總數 | 15 | E3 |\\n| 整體異常率 | 6.25% | E4 |\\n\\n## 計算公式\\n```\\n異常率 = (異常總數 / 訂單總數) × 100\\n       = (15 / 240) × 100\\n       = 6.25%\\n```\\n\\n## 結論\\n根據 `metrics.csv` 資料，整體異常率為 **6.25%**。\",\"citations\":[\"E1\",\"E2\",\"E3\",\"E4\"]}"
+          }
+        }
+      ]
+    }
+  ],
+  "oracle": {
+    "orders": "240",
+    "exceptions": "15",
+    "rate": "6.25",
+    "last_evidence_id": "E4"
+  }
+}

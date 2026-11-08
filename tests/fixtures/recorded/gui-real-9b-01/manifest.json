@@ -1,0 +1,81 @@
+{
+  "scope": "Independent real-model browser workflow verification, not a member or pooled grade of a fixed six-case quality batch. UI actions create/control Runs; public HTTP is read-only evidence export.",
+  "revision": "1e05f2e3401a57d9a0e840b6d0aa8b4dc1858c09",
+  "config": {
+    "mode": "local",
+    "model": {
+      "mode": "local",
+      "name": "qwen3.5:9b-q4_K_M",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+      "stream": true,
+      "transport_fixture": false,
+      "decision_protocol": "json_tools",
+      "requires_tool_finish": true,
+      "context_capacity_tokens": 8192,
+      "context_capacity_source": "application_configuration",
+      "context_profile": "ollama-0.40.10-qwen35-gpt2",
+      "renderer_verification": {
+        "renderer": "qwen3.5",
+        "parser": "qwen3.5",
+        "template_source": "renderer_parser",
+        "implicit_messages": false,
+        "implicit_system": false,
+        "tokenizer_model": "gpt2",
+        "tokenizer_pre": "qwen35",
+        "add_bos_token": false
+      },
+      "digest": "56671c2ab9385f9cfcb404638e32cd62d88e3501d44822208363c010179a3c90",
+      "server_version": "0.40.10",
+      "capabilities": [
+        "completion",
+        "vision",
+        "tools",
+        "thinking"
+      ],
+      "reasoning_effort": "none"
+    },
+    "demo_path": "C:\\path\\to\\agent-harness\\src\\agent_harness_demo\\demo_sources",
+    "validation": {
+      "fault_once_source_read": false
+    },
+    "implementation": {
+      "algorithm": "package-files-sha256-v1",
+      "source_sha256": "31156638182441ada59d5082f19fe1a183adc0e8093316a15a497e892de71489"
+    }
+  },
+  "source_case": {
+    "id": "analysis-standard",
+    "kind": "analysis",
+    "task": "請分析 metrics.csv，計算訂單總數、異常總數及整體異常率（異常數 / 訂單數 × 100），保存為 report.md，附可追溯來源。若缺少必要欄位，明確指出缺少什麼；只計算有證據的數值，不能補零或猜測異常率。",
+    "sources": [
+      "metrics.csv"
+    ],
+    "truth": {
+      "orders": "240",
+      "exceptions": "15",
+      "rate": "6.25",
+      "numeric_results": [
+        "240",
+        "15",
+        "6.250000"
+      ],
+      "missing": []
+    }
+  },
+  "suite_limits": {
+    "max_steps": 12,
+    "max_tool_calls": 20,
+    "max_corrections": 2,
+    "timeout_seconds": 180,
+    "max_output_tokens": 1024
+  },
+  "expected_numbers": {
+    "orders": 240,
+    "exceptions": 15,
+    "rate_percent": 6.25
+  },
+  "selected_source_sha256": "c6def025fd7ec5096bc4aebfc7981026fd384f619748f724a0f5d0531f4b6698",
+  "backend_store": ".private/slice09-real-gui-9b-01",
+  "base_url": "http://127.0.0.1:8806",
+  "browser_download_status": "not_yet_exercised"
+}

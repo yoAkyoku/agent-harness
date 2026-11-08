@@ -1,0 +1,112 @@
+{
+  "id": "8106d8d068ba4d6eb2270e8b8db66122",
+  "session_id": "e3069e63100b44b99bf429166430f3c4",
+  "task": "請分析 metrics.csv，計算訂單總數、異常總數及整體異常率（異常數 / 訂單數 × 100），保存為 report.md，附可追溯來源。若缺少必要欄位，明確指出缺少什麼；只計算有證據的數值，不能補零或猜測異常率。",
+  "status": "failed",
+  "mode": "local",
+  "result": "",
+  "created_at": "2026-10-31T06:30:42.104494+00:00",
+  "sources": [
+    {
+      "path": "metrics.csv",
+      "sha256": "c6def025fd7ec5096bc4aebfc7981026fd384f619748f724a0f5d0531f4b6698",
+      "bytes": 38
+    }
+  ],
+  "limits": {
+    "context_window_tokens": null,
+    "max_output_tokens": 1024,
+    "max_excerpt_bytes": 512,
+    "max_memory_bytes": 1024,
+    "max_history_bytes": 16384,
+    "max_steps": 12,
+    "max_tool_calls": 20,
+    "max_corrections": 2,
+    "timeout_seconds": 180.0,
+    "approval_timeout_seconds": 120
+  },
+  "model": {
+    "mode": "local",
+    "name": "qwen3.5:9b-q4_K_M",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+    "stream": true,
+    "transport_fixture": false,
+    "context_capacity_tokens": 8192,
+    "context_capacity_source": "application_configuration",
+    "context_profile": "ollama-0.40.10-qwen35-gpt2-thinking",
+    "renderer_verification": {
+      "renderer": "qwen3.5",
+      "parser": "qwen3.5",
+      "template_source": "renderer_parser",
+      "implicit_messages": false,
+      "implicit_system": false,
+      "tokenizer_model": "gpt2",
+      "tokenizer_pre": "qwen35",
+      "add_bos_token": false
+    },
+    "digest": "56671c2ab9385f9cfcb404638e32cd62d88e3501d44822208363c010179a3c90",
+    "server_version": "0.40.10",
+    "capabilities": [
+      "completion",
+      "vision",
+      "tools",
+      "thinking"
+    ],
+    "reasoning_effort": "low"
+  },
+  "validation": {
+    "fault_once_source_read": false
+  },
+  "policy": {
+    "require_publish_approval": false
+  },
+  "context": {
+    "turns": [],
+    "history": [],
+    "history_run_ids": [],
+    "omitted": [],
+    "source_excerpts": [],
+    "memories": [],
+    "memory_omitted": []
+  },
+  "base_artifact": null,
+  "resume_checkpoint": null,
+  "recovery": null,
+  "cancellation": null,
+  "error": {
+    "code": "model_protocol_error",
+    "message": "The model response has an invalid tool or message format.",
+    "diagnostics": {
+      "reason": "empty_response",
+      "finish_reason": "stop",
+      "visible_text_characters": 0,
+      "tool_calls_count": 0,
+      "reasoning_observed": true,
+      "usage": {
+        "prompt_tokens": 1981,
+        "completion_tokens": 5,
+        "total_tokens": 1986
+      }
+    }
+  },
+  "usage": {
+    "model_calls": 7,
+    "tool_calls": 7
+  },
+  "artifacts": [
+    {
+      "id": "5bac8eb9ecc4ad18f3513e14d2d29a11",
+      "run_id": "8106d8d068ba4d6eb2270e8b8db66122",
+      "name": "report.md",
+      "sha256": "a520488201129d0bc5f3af413ee8b2fac7f2ff70128d435fac93c568130bc464",
+      "bytes": 457,
+      "parent_artifact_id": null,
+      "version": 1,
+      "call_id": "call_ffdh6zko",
+      "download_url": "/api/runs/8106d8d068ba4d6eb2270e8b8db66122/artifacts/5bac8eb9ecc4ad18f3513e14d2d29a11"
+    }
+  ],
+  "inherited_artifacts": [],
+  "approvals": [],
+  "last_sequence": 45
+}

@@ -1,0 +1,19 @@
+{
+  "checks": {
+    "completed": true,
+    "visible_plan": true,
+    "one_labelled_fault": true,
+    "error_returned": true,
+    "correction_observed": true,
+    "same_source_retry": true,
+    "read_recovered": true,
+    "body_owners": true,
+    "body_gate": true,
+    "artifact": true,
+    "new_model_decision_before_retry": true,
+    "new_call_identity": true
+  },
+  "manual_review_required": true,
+  "quality_accepted": false,
+  "run_elapsed_seconds": 37.58
+}

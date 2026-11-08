@@ -1,0 +1,19 @@
+{
+  "accepted": false,
+  "case_id": "analysis-missing",
+  "reviewed_at": "2026-11-08",
+  "batch_mode": "quality_observation",
+  "run_id": "54f345e3500f4e74a1a81c85364da60f",
+  "candidate_source_sha256": "efdd734e5628fd1b3f9ebea211d7dbe97e7b36ac49e15c9dbea68ab9d4e9b4bd",
+  "source_sha256": {
+    "metrics.csv": "c0c04b429bc6bcfeac5c5f0eac8d4ee604b151bd2ad872680afc5a59d3d920e8"
+  },
+  "review": {
+    "source_values": "metrics.csv has only week and orders; orders 60 and 90 (150 total). No exceptions column, so exception total and rate cannot be computed.",
+    "citations": "150 cites E2 sum(orders); source SHA matches the Run. Missing items are explained in the same rows.",
+    "completeness_and_language": "The artifact is correct: orders total present, exception total marked 未提供, rate marked 無法計算, no invented rate. It suggests example column names for a future source, which is advice rather than a claim about this source.",
+    "defects": "Rejected because the completion reply contradicts the artifact: it says the report contains the exception total and overall rate, which were not computed. The reply text is identical to the two previous cases, so the model appears to reuse a fixed summary instead of describing this artifact. The model also ran an unrequested mean(orders) = 75 (E3) that it did not publish.",
+    "harness_note": "No runtime check compares the completion reply with the artifact. Before 2026-11-08 the runtime overwrote the reply with a fixed 'published X' line; that hid this defect rather than detecting it. The artifact_receipt completion mode avoids free-form summary claims.",
+    "runtime": "Automatic checks passed in 22.25 seconds with 6 model calls and 7 tool calls; no corrections; one published artifact."
+  }
+}

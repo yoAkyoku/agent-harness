@@ -1,0 +1,17 @@
+{
+  "task": "請分析 metrics.csv，計算訂單總數、異常總數及整體異常率（異常數 / 訂單數 × 100），保存為 report.md，附可追溯來源。若缺少必要欄位，明確指出缺少什麼；只計算有證據的數值，不能補零或猜測異常率。",
+  "sources": [
+    "metrics.csv"
+  ],
+  "limits": {
+    "max_steps": 12,
+    "max_tool_calls": 20,
+    "max_corrections": 2,
+    "timeout_seconds": 180,
+    "max_output_tokens": 1024
+  },
+  "require_publish_approval": false,
+  "publication_workflow": "direct",
+  "submission_key": "4406deeb-e84c-4e36-82c3-f9f5a4c60916",
+  "completion_workflow": "artifact_receipt"
+}

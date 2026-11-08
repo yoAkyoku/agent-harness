@@ -1,0 +1,77 @@
+{
+  "scope": "Independent same-task real-model GUI comparison after numeric operand feedback fix, not a six-case quality batch.",
+  "config": {
+    "mode": "local",
+    "model": {
+      "mode": "local",
+      "name": "qwen3.5:9b-q4_K_M",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+      "stream": true,
+      "transport_fixture": false,
+      "decision_protocol": "json_tools",
+      "requires_tool_finish": true,
+      "context_capacity_tokens": 8192,
+      "context_capacity_source": "application_configuration",
+      "context_profile": "ollama-0.40.10-qwen35-gpt2",
+      "renderer_verification": {
+        "renderer": "qwen3.5",
+        "parser": "qwen3.5",
+        "template_source": "renderer_parser",
+        "implicit_messages": false,
+        "implicit_system": false,
+        "tokenizer_model": "gpt2",
+        "tokenizer_pre": "qwen35",
+        "add_bos_token": false
+      },
+      "digest": "56671c2ab9385f9cfcb404638e32cd62d88e3501d44822208363c010179a3c90",
+      "server_version": "0.40.10",
+      "capabilities": [
+        "completion",
+        "vision",
+        "tools",
+        "thinking"
+      ],
+      "reasoning_effort": "none"
+    },
+    "demo_path": "C:\\path\\to\\agent-harness\\src\\agent_harness_demo\\demo_sources",
+    "validation": {
+      "fault_once_source_read": false
+    },
+    "implementation": {
+      "algorithm": "package-files-sha256-v1",
+      "source_sha256": "4798684d2b47f1adc114e0b0f1cb1e4b2d5a24501fa1935bae4ca189bde20268"
+    }
+  },
+  "base": {
+    "id": "e9a40ac96973a6df02f66d94dc0fe3ec",
+    "run_id": "ba2622198f7d438d8888b871579b169e",
+    "name": "report.md",
+    "sha256": "6c0ae6cec490cab714b1503f5e74202d5fb855cd868d28ac4bb9dfd2b059bd96",
+    "bytes": 607,
+    "parent_artifact_id": null,
+    "version": 1,
+    "call_id": "json_8ce0b5d7f50549d3b203716df8322a07",
+    "download_url": "/api/runs/ba2622198f7d438d8888b871579b169e/artifacts/e9a40ac96973a6df02f66d94dc0fe3ec"
+  },
+  "base_bytes": 607,
+  "prior_failed_run": "0461cb1157a9454eb552d86d71a09f43",
+  "task": "請修改 report.md：將已確認的訂單總數、異常總數與異常率整理成一個 Markdown 表格，保留有據數值與來源引用，保存為 report.md；不要新增日期或其他主張。",
+  "limits": {
+    "context_window_tokens": null,
+    "max_output_tokens": 1024,
+    "max_excerpt_bytes": 512,
+    "max_memory_bytes": 1024,
+    "max_history_bytes": 16384,
+    "max_steps": 12,
+    "max_tool_calls": 20,
+    "max_corrections": 2,
+    "timeout_seconds": 180,
+    "approval_timeout_seconds": 120
+  },
+  "transport_fixture": false,
+  "revision": "8079814af37b89fc926ac86fd369fd112f73d02c",
+  "review_before_submission": {
+    "standards_findings": 0,
+    "spec_findings": 0
+  }
+}
