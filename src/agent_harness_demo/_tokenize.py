@@ -28,6 +28,8 @@ def main() -> None:
     text = json.loads(data)["prompt"].encode("utf-8")
     if len(text) > 1048576:
         raise ValueError("Oversized prompt.")
+    if sys.platform != "win32":
+        raise ValueError("The pinned tokenizer library is Windows-only.")
     directory = os.add_dll_directory(str(library.parent))
     lib = C.CDLL(str(library))
     lib.llama_model_default_params.restype = Params

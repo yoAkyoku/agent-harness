@@ -81,10 +81,13 @@ class ExactCounter:
     async def budget(self, body: dict[str, Any], capacity: int, reserve: int) -> dict[str, Any]:
         try:
             prompt = await asyncio.to_thread(self._prompt, body)
+            creationflags = 0
+            if sys.platform == "win32":
+                creationflags = subprocess.CREATE_NO_WINDOW
             process = await asyncio.create_subprocess_exec(sys.executable, str(Path(__file__).with_name("_tokenize.py")),
                 str(self.library), str(self.model), stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
-                creationflags=subprocess.CREATE_NO_WINDOW)
+                creationflags=creationflags)
             try:
                 async with asyncio.timeout(15):
                     stdout, _ = await process.communicate(json.dumps({"prompt":prompt}).encode())
