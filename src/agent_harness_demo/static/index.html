@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' ws://127.0.0.1:* ws://localhost:*; img-src 'self' data:; object-src 'none'; base-uri 'none'">
   <title>Agent Harness Demo</title>
-  <link rel="stylesheet" href="/assets/styles.css?v=9.0">
-  <script type="module" src="/assets/app.js?v=11.3"></script>
+  <link rel="stylesheet" href="/assets/styles.css?v=9.0.1">
+  <script type="module" src="/assets/app.js?v=11.4"></script>
 </head>
 <body>
   <div class="workbench">
@@ -77,6 +77,10 @@
         <div id="error" class="error-message" role="alert" hidden></div>
         <section id="execution" class="execution" aria-labelledby="execution-heading" hidden>
           <div class="execution-header"><div><h2 id="execution-heading">執行過程</h2><p id="run-caption"></p></div><div class="execution-actions"><span id="run-status" class="run-status">等待執行</span><button id="cancel-run" class="subtle-button" type="button" hidden>取消執行</button></div></div>
+          <form id="add-message" class="add-message" hidden>
+            <label for="add-message-text">執行中補充指示（會在模型的下一步送出）</label>
+            <div class="add-message-row"><input id="add-message-text" maxlength="4000" autocomplete="off" placeholder="例如：也請列出營收數字"><button id="add-message-send" class="subtle-button" type="submit">送出補充</button></div>
+          </form>
           <div id="usage" class="usage"></div>
           <section id="recovery-card" class="fixture-note" aria-labelledby="recovery-heading" hidden>
             <h3 id="recovery-heading">檢查中斷後的工作</h3>

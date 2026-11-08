@@ -115,3 +115,37 @@ def test_claude_unsupported_text_ending_is_corrected_through_task_finish(
     assert retry["messages"][-1]["role"] == "user"
     roles = [message["role"] for message in retry["messages"]]
     assert all(a != b for a, b in zip(roles, roles[1:]))
+
+
+def test_rejected_plain_text_ending_is_not_replayed_in_history(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TEST_PROVIDER_KEY", "test-key-not-real")
+    replies = [
+        tool_reply("plan_update", {"steps": ["Read the source", "Publish"]}, "plan"),
+        tool_reply("source_read", {"path": "facts.md", "labels": []}, "read"),
+        tool_reply("artifact_write", {"name": "snapshot.md", "content": REPORT, "citations": ["E1"]}, "write"),
+        text_reply(UNSUPPORTED),
+        tool_reply("task_finish", {"summary": GROUNDED}, "finish"),
+        tool_reply("plan_update", {"steps": ["Revise"]}, "revision-plan"),
+        text_reply("No changes."),  # the revision itself does not matter here
+    ]
+    requests: list[dict] = []
+
+    async def provider(request: httpx.Request) -> httpx.Response:
+        requests.append(json.loads(request.content))
+        return replies[min(len(requests), len(replies)) - 1]
+
+    settings = ModelSettings.openai_compatible("example-model", base_url="https://llm.example.test/v1",
+                                               api_key_env="TEST_PROVIDER_KEY")
+    with TestClient(create_app(tmp_path / "store", model_settings=settings,
+                               model_transport=httpx.MockTransport(provider))) as client:
+        run, _ = finish(client, create_task(client, _source(tmp_path)))
+        assert run["status"] == "completed", run["error"]
+        revision = client.post(f"/api/sessions/{run['session_id']}/runs", json={
+            "task": "Revise it.", "sources": ["facts.md"],
+            "base_artifact": {"run_id": run["id"], "artifact_id": run["artifacts"][0]["id"]},
+        }).json()
+        finish(client, revision)
+
+    history = requests[5]["messages"]
+    assert any(message.get("content") == GROUNDED or GROUNDED in str(message.get("content")) for message in history)
+    assert not any(UNSUPPORTED in str(message.get("content")) for message in history)

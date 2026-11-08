@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal, TypeVar
 
-from .context import compact_tool_catalog, completed_tool_group, encode_draft_receipts, encode_duplicate_plan, executor_state_message, omit_inspection_hints, omit_runtime_guidance, prune_resolved_tool_failures, publication_finalization_prefix, published_draft_group
+from .context import added_message, compact_tool_catalog, completed_tool_group, encode_draft_receipts, encode_duplicate_plan, executor_state_message, omit_inspection_hints, omit_runtime_guidance, prune_resolved_tool_failures, publication_finalization_prefix, published_draft_group
 from .contracts import Decision, PendingCorrection, RunCancelled, RunFailure, RunLimits, ToolCall, canonical_tool_arguments
 from .model import DecisionModel, ModelResponseError
 from .storage import Record, Store
@@ -431,6 +431,11 @@ class Runtime:
                 memory_snapshot = (selected_memories, omitted_memories)
                 await self._record(identity, "context.memory_refreshed", {"step": step, "memories": selected_memories,
                                                                           "memory_omitted": omitted_memories})
+            if not (publication_finalization_pending or publication_recovery_pending or completion_recovery_pending):
+                # Steps that offer a single recovery tool keep added messages queued; they cannot act on them.
+                for queued in await self.store.queued_messages(identity):
+                    messages.append(added_message(queued["text"]))
+                    await self._record(identity, "message.delivered", {"message_id": queued["message_id"], "step": step})
             finish_available = False
             published_this_run = False
             if ((receipt_mode or self.model.settings.thinking or self.model.info.get("requires_tool_finish") is True

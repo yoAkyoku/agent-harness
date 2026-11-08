@@ -66,6 +66,10 @@ StoreLease在SQLite開啟前取得OS排他鎖；程序死亡會釋放kernel鎖�
 - storage.py／ownership.py／checkpoints.py：交易、不可變成果、OS所有權、unknown及續做依據。
 - event_stream.py／static/run-stream.js：持久序列、ACK、補讀及去重。
 
+## Run 執行中追加訊息
+
+在 Run 仍能做決策時（排隊、執行中或等待批准），`POST /api/runs/{id}/messages` 以用戶端產生的 `message_id` 追加訊息。重送相同 ID 與內容會拿回原本的受理結果；同一 ID 換成其他內容視為衝突。Runtime 在每一步開始時，把排隊中的訊息以使用者回合接在最新工具結果之後送出，因此不會改動正在生成的那次請求。只開放單一修正工具的步驟（發布、完成或收尾修正）會讓訊息繼續排隊，因為模型在該步無法據以行動。受理與送達都是事件（`message.queued`、`message.delivered`）；`history_turn` 會重播已送達的訊息，版本修改與 checkpoint 都看得到。Run 結束時仍在排隊的訊息，會在終止事件之前以一個 `message.undelivered` 事件回報。
+
 ## 本機存取
 
 服務只回應loopback主機名稱（防DNS rebinding），並拒絕外來Origin。命令列啟動時另需每次啟動的存取權杖：瀏覽器第一次以 `/?token=…` 開啟後換成以權杖命名的HttpOnly、SameSite=Strict cookie（不同埠的工作台不會互相覆蓋）；腳本送 `Authorization: Bearer <token>`。所有回應都禁止被嵌入框架，也不送出referrer。

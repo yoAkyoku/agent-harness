@@ -96,6 +96,13 @@ class ApprovalInput(BaseModel):
     parameters_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
 
 
+class MessageInput(BaseModel):
+    """A message the user adds to a running Run; `message_id` makes re-sending idempotent."""
+    model_config = ConfigDict(extra="forbid")
+    message_id: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
+    text: str = Field(min_length=1, max_length=4000)
+
+
 def create_app(
     store_directory: Path, *, model_transport: httpx.AsyncBaseTransport | None = None,
     model_settings: ModelSettings | None = None,
@@ -398,6 +405,19 @@ def create_app(
             raise HTTPException(409, str(error)) from None
         if result is None:
             raise HTTPException(404, "Approval not found.")
+        await runtime.notify()
+        return result
+
+    @app.post("/api/runs/{run_id}/messages", status_code=202)
+    async def add_message(run_id: str, body: MessageInput) -> dict[str, Any]:
+        if not body.text.strip():
+            raise HTTPException(422, "The message is empty.")
+        try:
+            result = await storage.add_message(run_id, body.message_id, body.text)
+        except KeyError:
+            raise HTTPException(404, "Run not found.") from None
+        except ValueError as error:
+            raise HTTPException(409, str(error)) from None
         await runtime.notify()
         return result
 

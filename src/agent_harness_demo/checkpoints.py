@@ -84,6 +84,9 @@ def checkpoint_payload(run: Record, events: list[Record], artifacts: list[Record
     while index < len(raw):
         assistant = raw[index]
         index += 1
+        if assistant["role"] == "user":  # a message the user added while the Run was working
+            messages.append(assistant)
+            continue
         if assistant["role"] != "assistant":
             continue
         results: dict[str, Record] = {}

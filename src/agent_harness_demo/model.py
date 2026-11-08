@@ -13,7 +13,7 @@ import httpx
 
 from .contracts import Decision, RunFailure, ToolCall
 from .json_tools import decode_calls, project_request, strict_json_loads
-from .context import request_budget
+from .context import ADDED_MESSAGE_PREFIX, request_budget
 from .exact_context import ExactCounter, LIBRARY_SHA, MODEL_SHA, MODEL_DIGEST, PROFILE
 from .streaming import MAX_RESPONSE_BYTES, TextSink, read_chat_stream, token_usage
 
@@ -341,7 +341,9 @@ class FixtureTransport:
 
     async def __call__(self, request: httpx.Request) -> httpx.Response:
         messages = json.loads(request.content)["messages"]
-        current = max(index for index, message in enumerate(messages) if message["role"] == "user")
+        # The current task is the last user turn that is not a message added during the Run.
+        current = max(index for index, message in enumerate(messages) if message["role"] == "user"
+                      and not str(message.get("content") or "").startswith(ADDED_MESSAGE_PREFIX))
         results = [json.loads(item["content"]) for item in messages[current+1:] if item["role"] == "tool"]
         if not results:
             # Only plan_update is offered until a plan is saved.

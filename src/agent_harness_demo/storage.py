@@ -20,6 +20,9 @@ from .contracts import PreparedCall, RunFailure
 T = TypeVar("T")
 Record = dict[str, Any]
 TERMINAL = {"completed", "failed", "interrupted", "cancelled"}
+# A user message can be added while the Run can still make another model decision.
+ACCEPTS_MESSAGES = {"queued", "running", "waiting_approval"}
+MAX_RUN_MESSAGES = 20
 
 
 def now() -> str:
@@ -190,6 +193,7 @@ class Store:
                 error = {"code": "executor_lost", "message": "The previous service stopped before this Run completed."}
                 connection.execute("UPDATE runs SET status='interrupted', recovery_json=?, error_json=? WHERE id=?",
                                    (json.dumps(recovery), json.dumps(error), run["id"]))
+                self._close_messages(connection, run["id"], "interrupted")
                 self._event(connection, run["id"], "run.interrupted" if run["status"] != "interrupted" else "recovery.detected", recovery)
         await self._run(recover)
 
@@ -524,6 +528,7 @@ class Store:
                 for approval in connection.execute("SELECT * FROM approvals WHERE run_id=? AND status IN ('pending','approved')", (identity,)).fetchall():
                     connection.execute("UPDATE approvals SET status='expired' WHERE id=?", (approval["id"],))
                     self._event(connection, identity, "approval.expired", {"id": approval["id"], "reason": status})
+                self._close_messages(connection, identity, status)
             self._event(connection, identity, kind, data)
 
         await self._run(save)
@@ -558,8 +563,60 @@ class Store:
             for attempt in uncertain.values():
                 self._event(connection, identity, "tool.unknown", {**attempt, "reason": "cancelled_before_result_acknowledgement"})
             connection.execute("UPDATE runs SET status='cancelled', cancellation_json=? WHERE id=?", (json.dumps(result), identity))
+            self._close_messages(connection, identity, "cancelled")
             self._event(connection, identity, "run.cancelled", result)
         await self._run(save)
+
+    @staticmethod
+    def _messages(connection: sqlite3.Connection, identity: str) -> tuple[list[Record], set[str]]:
+        """Messages admitted to a Run, and the IDs already delivered or reported undelivered."""
+        admitted: list[Record] = []
+        settled: set[str] = set()
+        for row in connection.execute(
+                "SELECT kind, data_json FROM events WHERE run_id=? AND kind IN "
+                "('message.queued','message.delivered','message.undelivered') ORDER BY sequence", (identity,)):
+            data = json.loads(row["data_json"])
+            if row["kind"] == "message.queued":
+                admitted.append(data)
+            elif row["kind"] == "message.delivered":
+                settled.add(data["message_id"])
+            else:
+                settled.update(data["message_ids"])
+        return admitted, settled
+
+    def _close_messages(self, connection: sqlite3.Connection, identity: str, reason: str) -> None:
+        admitted, settled = self._messages(connection, identity)
+        waiting = [message["message_id"] for message in admitted if message["message_id"] not in settled]
+        if waiting:
+            self._event(connection, identity, "message.undelivered", {"message_ids": waiting, "reason": reason})
+
+    async def add_message(self, identity: str, message_id: str, text: str) -> Record:
+        """Queue a user message for the Run's next decision; re-sending the same ID is idempotent."""
+        def save(connection: sqlite3.Connection) -> Record:
+            run = connection.execute("SELECT status FROM runs WHERE id=?", (identity,)).fetchone()
+            if run is None:
+                raise KeyError(identity)
+            admitted, settled = self._messages(connection, identity)
+            existing = next((message for message in admitted if message["message_id"] == message_id), None)
+            if existing is not None:
+                if existing["text"] != text:
+                    raise ValueError("This message ID was already used for different text.")
+                return {"message_id": message_id, "status": "settled" if message_id in settled else "queued"}
+            if run["status"] not in ACCEPTS_MESSAGES:
+                raise ValueError("This Run no longer accepts messages.")
+            if len(admitted) >= MAX_RUN_MESSAGES:
+                raise ValueError(f"A Run accepts at most {MAX_RUN_MESSAGES} added messages.")
+            self._event(connection, identity, "message.queued", {"message_id": message_id, "text": text})
+            return {"message_id": message_id, "status": "queued"}
+
+        return await self._run(save)
+
+    async def queued_messages(self, identity: str) -> list[Record]:
+        def get(connection: sqlite3.Connection) -> list[Record]:
+            admitted, settled = self._messages(connection, identity)
+            return [message for message in admitted if message["message_id"] not in settled]
+
+        return await self._run(get)
 
     async def events(self, identity: str, after: int = 0, *, limit: int | None = None) -> list[Record]:
         def get(connection: sqlite3.Connection) -> list[Record]:

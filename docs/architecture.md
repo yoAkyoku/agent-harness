@@ -70,6 +70,10 @@ Remote context budgets use a labelled UTF-8 byte upper bound, because those toke
 
 Current Claude models always think and bind each thinking block to the exact conversation prefix that produced it, while this harness deliberately rewrites history (pruning, executor-state snapshots, publication finalization). Replaying a block after such an edit is rejected, so the Claude adapter never replays thinking blocks: each turn is answered without the model's previous private reasoning. This is a documented trade-off, not an oversight.
 
+## Adding a message to a running Run
+
+`POST /api/runs/{id}/messages` with a client-chosen `message_id` queues a message while the Run can still decide (queued, running or waiting for approval). Re-sending the same ID and text returns the original admission; the same ID with other text is a conflict. At the start of each step the runtime delivers queued messages as user turns after the latest tool results, so the request already being generated is never changed. Steps that offer a single recovery tool (publication, completion or finalization) keep messages queued, because the model could not act on them. Every admission and delivery is an event (`message.queued`, `message.delivered`); `history_turn` replays delivered messages, so revisions and checkpoints see them. Messages still queued when the Run ends are reported in one `message.undelivered` event written before the terminal event.
+
 ## Local access
 
 The app answers only to loopback host names (DNS-rebinding defence) and refuses foreign `Origin` headers. The command-line entry point also requires a per-launch access token: a browser presents `/?token=…` once and receives an HttpOnly, SameSite=Strict cookie named after the token, so workbenches on other ports never share it; scripts send `Authorization: Bearer <token>`. Every response refuses framing and sends no referrer.

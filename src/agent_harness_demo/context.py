@@ -9,13 +9,31 @@ from typing import Any
 Record = dict[str, Any]
 
 
+ADDED_MESSAGE_PREFIX = "Message the user added while this Run was working (it updates the task):\n"
+
+
+def added_message(text: str) -> Record:
+    """The user turn that delivers a message added to a running Run."""
+    return {"role": "user", "content": ADDED_MESSAGE_PREFIX + text}
+
+
 def history_turn(run_id: str, task: str, events: list[Record]) -> list[Record]:
+    """Rebuild what the model saw during a Run from its events (used for history and checkpoints)."""
     messages: list[Record] = [{"role": "user", "content": task}]
     assistant: Record | None = None
     recover_calls = False
+    added: dict[str, str] = {}
     for event in events:
         kind, data = event["kind"], event["data"]
-        if kind == "model.responded":
+        if kind == "message.queued":
+            added[data["message_id"]] = data["text"]
+        elif kind == "message.delivered" and data["message_id"] in added:
+            messages.append(added_message(added[data["message_id"]]))
+        elif (kind == "completion.recovery_requested" and data.get("reason") == "unsupported_completion_claim"
+              and messages[-1]["role"] == "assistant" and not messages[-1].get("tool_calls")):
+            # The rejected plain-text completion was never part of a later request.
+            messages.pop()
+        elif kind == "model.responded":
             # Old events predate saving the full provider message; calls are recovered
             # from the subsequent durable tool.requested events in that decision.
             recover_calls = "message" not in data
