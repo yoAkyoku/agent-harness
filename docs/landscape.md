@@ -1,0 +1,106 @@
+# How this harness compares with production agent products
+
+[繁體中文](landscape.zh-TW.md)
+
+This note compares the harness with agent products whose operation flows are publicly documented: OpenAI Codex, Claude Code (and the Claude Agent SDK / Managed Agents), opencode, DeepSeek Harness (DSH), and agentic browsers. It was checked against first-party documentation and source on 2026-11-08; product details change quickly, so the [sources](#sources) list exactly what was read.
+
+The point is not feature parity. Those products are coding agents or browsers with shells, file edits and network access. This harness is deliberately narrower: it answers questions **from selected local sources** and publishes **cited artifacts**. The comparison asks which of their control and safety mechanisms apply to that shape, which ones the harness already has, and which are worth adding.
+
+## Operation flow
+
+| Stage | Codex | Claude Code | opencode | DSH | Agentic browsers | This harness |
+|---|---|---|---|---|---|---|
+| Give a task | Thread → turn; IDE, CLI, app, SDK and an App Server protocol | Interactive session, headless `-p` with stream-JSON, Agent SDK | TUI, `opencode run --format json`, shared local server, ACP | Web, headless, SDK and ACP profiles over one plugin tree | Side panel or task tab, often with a "plan first" step | HTTP API / workbench: task + selected sources; idempotent submission key |
+| Show the plan | Plan items in the turn stream | Plan mode (read-only until approved) | `plan` agent (edits denied except plan files) | Plan mode is "soft guidance"; `exit_plan_mode` shows a plan | Plan approval defines the scope of later actions | A plan must be saved before any other tool is offered; the plan is public in the event stream |
+| Approve risky actions | Typed approval requests: accept, accept for session, decline, cancel | Permission modes; deny → ask → allow rules; hooks | `ask` replies once / always / reject | Fail-closed outcomes: allowed-once, rejected, cancelled, unavailable | Per-site / per-action-class grants; take over for sensitive steps | Optional single-use publication approval bound to a parameter digest |
+| Steer or interrupt | Steer, queue, interrupt mid-turn | Interrupt; queue follow-ups | Enter steers, queue, Esc interrupts; idempotent prompt IDs | Inbox `steer` / `followup` / `cancel(keepInbox)` | Pause, take over, resume | Cancel only (no mid-Run steering) |
+| Review and undo | Turn diffs; thread revert vs file revert | Checkpoints and rewind | Git snapshots per step, staged `/undo` | Review view; no file undo documented | Drafts instead of commits (e.g. compose but don't send) | Immutable, hashed artifacts; optional draft → publish review mode; revisions are new Runs on a base artifact |
+| Finish | Turn completed item | Result message with subtypes (e.g. max turns) | `run` waits for background jobs | `turn/end` with abort cause | Summary of actions taken | A `task_finish` summary (where offered) is checked against the published artifact; a Run cannot complete with an unresolved tool error or unpublished draft; terminal states cannot be reopened |
+| Resume after a crash | Persisted threads | Resume sessions | SQLite sessions; live-only event bus | Append-only JSONL; open turn kept, repaired under write ownership | Usually none | Intent persisted before dispatch; explicit resume reuses confirmed results and never re-runs unknown effects |
+
+## Mechanisms
+
+| Mechanism | What the products do | This harness |
+|---|---|---|
+| Event log and streaming | Codex App Server streams thread/turn/item events; DSH separates live chunks from durable settlements and repairs gaps on reconnect; opencode's client bus is live-only | Events are written to SQLite before they are pushed; WebSocket resumes from a cursor with ACKs |
+| Isolation | Codex and Claude Code sandbox shells and file writes; opencode and DSH say plainly that permissions are not isolation and recommend a VM or container | No shell and no workspace writes: sources are read-only, the only effect is publishing an artifact into the store |
+| Untrusted content | Browsers treat page content as tainted, use an isolated critic, keep secrets out of model context | Source text, memory and excerpts are labelled as untrusted data; API keys are read from the environment and never enter a request |
+| Context management | Rolling summaries and compaction near the limit (opencode, DSH, Claude Code) | Every request is measured first; lossless moves, then labelled lossy omissions, then a stop — never silent truncation or summarisation |
+| Instructions and memory | `AGENTS.md` / `CLAUDE.md` chains | User-saved, versioned memories with optimistic concurrency |
+| Extensibility | Hooks, plugins, MCP, subagents | Fixed tool set; providers behind one `DecisionModel` protocol |
+| Verification | Mostly left to the user or an auto-reviewer model | Evidence-only verifiers that never see the task text |
+
+## Where the harness is intentionally different
+
+- **Capabilities instead of permissions.** The products grant a general agent broad tools and then gate them. Here the tool set itself is the boundary: read selected sources, compute over them, publish a cited artifact. That makes the approval surface small enough to bind every approval to an exact parameter digest.
+- **Verification instead of trust.** An artifact must cite the evidence that produced each computed value, and a `task_finish` reply must agree with what was published. None of the compared products documents a check of its output against tool evidence.
+- **Honest stopping.** Over budget, the harness stops rather than summarising history the user cannot inspect.
+
+## Gaps found in this pass
+
+The products' mechanisms were used as a checklist against the code. Each item records what was wrong and what changed; every fix has a regression test.
+
+| # | Gap | Reference pattern | Change |
+|---|---|---|---|
+| 1 | The tool catalogue offered at a step was not enforced for native tool calls: a model could, for example, read a source while only `plan_update` was offered. (The `json_tools` protocol already refused unknown names while decoding.) | DSH resolves tools once per proposed step; Codex and Claude Code refuse tools outside the active permission set | After the existing guards (which keep their specific errors), a call outside the offered catalogue is refused before dispatch with a retryable `tool_not_offered` that names the allowed tools. It costs a correction but does not oblige the model to retry that tool. The scripted fixture now saves a plan first, as a real model must. |
+| 2 | Publication finalization replaced the conversation with *system + task + published body*, but memory, excerpt and history bookkeeping still pointed at the dropped messages. A memory edited during publication crashed the Run (`execution_error`); a budget overflow could have deleted the task message. | DSH keeps an open turn intact and repairs only under write ownership | Finalization clears that bookkeeping and the finalization context stays fixed: memory refreshes do not apply to it. |
+| 3 | The API trusted any request with a loopback `Host` header and no foreign `Origin`. Any local process or other OS user, or anything that reached a wrongly published container port, could register a directory and read files through a Run. | opencode warns when its server runs without a password; notebook servers use a per-launch token | The launched workbench requires a per-launch access token (generated, or `AGENT_HARNESS_TOKEN`). A browser exchanges `/?token=…` for an HttpOnly, SameSite=Strict cookie; scripts send `Authorization: Bearer`. The test-only `testserver` host is no longer accepted by the shipped app. |
+| 4 | Pages could be framed, so an approval button could be clickjacked. | Standard clickjacking defence | Every response sends `X-Frame-Options: DENY`, `frame-ancestors 'none'`, `nosniff` and `Referrer-Policy: no-referrer` (the first URL carries the token). |
+| 5 | `model.requested` recorded the context budget but not what was sent, so a request could not be tied to its catalogue after the fact. | DSH: "model-visible means logged" | Each `model.requested` event records the offered tool names and a SHA-256 of the exact request body. |
+| 6 | The citation preview and publication used different rules to find the server-generated evidence appendix, so a model-written heading could hide body text from one check but not the other. | — | Both use the same detector. |
+
+## Already in place
+
+- **Fail-closed approvals.** An approval is single-use and bound to a parameter digest, and it ends as approved, denied, expired (timeout or restart) or cancelled (the Run was cancelled). That is the same closed set DSH documents, and it is stricter than "always allow" scopes: there is no session-wide grant.
+- **Durable, replayable streaming.** opencode's client bus is live-only; here a client can reconnect from any cursor.
+- **Crash semantics.** Intent is persisted before dispatch, so an interrupted effect is reported as uncertain rather than retried, like DSH's rule of keeping an interrupted turn instead of truncating it.
+
+## Open gap found while fixing #1
+
+Enforcing the catalogue showed that native, non-thinking models — which includes the Claude and OpenAI-compatible adapters — are never offered `task_finish`; they finish with plain text. The completion-reply check (`completion_summary`) and publication finalization therefore run only for local JSON-tools or thinking runs, not for the remote providers. Closing it means offering `task_finish` after publication for those providers and treating a plain-text ending after publication as a correctable completion error. It changes remote behaviour that so far has only mock-transport tests, so it is left for a change of its own.
+
+## Backlog, by value for this harness
+
+1. **Grounded completion for remote providers.** See the open gap above.
+2. **Steer or queue at step boundaries.** Let the user add a message to a running Run, delivered before the next model decision with an idempotent message ID (Codex steer/queue, opencode `delivery`, DSH inbox).
+3. **Headless mode.** A CLI that submits a task and prints the event log as NDJSON, with exit codes per terminal state (Claude Code `-p --output-format stream-json`, `opencode run --format json`).
+4. **Tool hooks.** Pre- and post-execution hooks recorded as events, with deny taking precedence (Claude Code, Codex, opencode). Verifiers must stay independent of hooks.
+5. **Read-only MCP sources.** Treat an MCP resource as another selected source with its own evidence IDs.
+6. **Column-aware citations.** A value that cites a table sample should sit under the column its label names.
+7. **A real Claude batch.** The adapter is covered by mock-transport tests only; a recorded run needs an API key and consent to spend.
+
+## Sources
+
+OpenAI Codex
+- App Server: https://developers.openai.com/codex/app-server and https://github.com/openai/codex/blob/main/codex-rs/app-server/README.md
+- Approvals and security: https://learn.chatgpt.com/docs/agent-approvals-security
+- Sandboxing and auto-review: https://learn.chatgpt.com/docs/sandboxing, https://learn.chatgpt.com/docs/sandboxing/auto-review
+- Hooks: https://learn.chatgpt.com/docs/hooks
+- SDK: https://learn.chatgpt.com/docs/codex-sdk
+
+Claude Code and the Claude platform
+- How Claude Code works: https://code.claude.com/docs/en/how-claude-code-works.md
+- Permission modes and rules: https://code.claude.com/docs/en/permission-modes.md, https://code.claude.com/docs/en/permissions.md
+- Hooks: https://code.claude.com/docs/en/hooks.md
+- Checkpointing: https://code.claude.com/docs/en/checkpointing.md
+- Headless mode: https://code.claude.com/docs/en/headless.md
+- Agent SDK loop: https://code.claude.com/docs/en/agent-sdk/agent-loop.md
+- Managed Agents events and permission policies: https://platform.claude.com/docs/en/managed-agents/events-and-streaming.md, https://platform.claude.com/docs/en/managed-agents/permission-policies.md
+
+opencode (v2.2.6, `github.com/anomalyco/opencode`)
+- Security policy: https://github.com/anomalyco/opencode/blob/v2.2.6/SECURITY.md
+- Permissions: https://opencode.ai/docs/permissions
+- Docs source (snapshots, compaction, client events): https://github.com/anomalyco/opencode/tree/v2.2.6/services/site/src/docs/content
+
+DeepSeek Harness (dsh-v0.2.2-rc.1)
+- Safety: https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.2-rc.1/SAFETY.md
+- Architecture and subsystems: https://github.com/deepseek-ai/deepseek-harness/tree/dsh-v0.2.2-rc.1/docs
+
+Agentic browsers
+- Claude in Chrome: https://support.claude.com/en/articles/12902428-use-claude-in-chrome-safely, https://support.claude.com/en/articles/12902446-claude-in-chrome-permissions-guide
+- ChatGPT built-in browser (Atlas retirement): https://help.openai.com/en/articles/20001371-chatgpt-atlas-retirement, https://help.openai.com/en/articles/20001277-using-the-built-in-browser-in-the-chatgpt-desktop-app
+- Perplexity Comet: https://www.perplexity.ai/hub/blog/mitigating-prompt-injection-in-comet, https://www.perplexity.ai/help-center/en/articles/13531023-managing-comet-assistant-permissions
+- Chrome (Gemini): https://blog.google/security/architecting-security-for-agentic/
+- Microsoft Edge Copilot Mode: https://support.microsoft.com/en-us/topic/copilot-actions-in-edge-5ed5e17e-42df-40a3-984a-20420eba86e2
+- Opera Neon: https://www.operaneon.com/faq
+- Brave's analysis of indirect prompt injection: https://brave.com/blog/comet-prompt-injection/
