@@ -12,18 +12,23 @@ import re
 
 from .contracts import RunFailure
 from .storage import Record
-from .tools import body_evidence_ids
+from .tools import body_evidence_ids, evidence_section_starts
 
 Verifier = Callable[[str, dict[str, Record]], RunFailure | None]
 
-EVIDENCE_APPENDIX = "## Verified tool evidence"
 CALCULATION_OPERATIONS = frozenset({"sum", "mean", "ratio_percent"})
 _NUMBER = re.compile(r"(?<![A-Za-z0-9_.])(?:[+-]?(?:\d{1,3}(?:,\d{3})+|\d+|\.\d+)(?:\.\d+)?)(?:%)?")
 
 
 def artifact_body(content: str) -> str:
-    """Model-written body, excluding the server-generated evidence appendix."""
-    return content.split(EVIDENCE_APPENDIX, 1)[0]
+    """Model-written body, excluding the server-generated evidence appendix.
+
+    Uses the same detector as publication, which ignores fenced, quoted or
+    indented copies of the heading, so a copy inside the body cannot hide the
+    text after it from the verifiers.
+    """
+    starts = evidence_section_starts(content)
+    return content[:starts[0]] if starts else content
 
 
 def _decimal(text: str) -> Decimal | None:

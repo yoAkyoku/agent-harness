@@ -635,7 +635,8 @@ class Tools:
         # This avoids spending model correction turns on a metadata-only
         # omission while preserving rejection of unknown EIDs below.
         if reconcile_body_citations:
-            body_preview = content.split("## Verified tool evidence", 1)[0]
+            starts = evidence_section_starts(content)
+            body_preview = content[:starts[0]] if starts else content
             preview_ids = body_evidence_ids(body_preview)
             preview_sources = set(references) | (preview_ids & self.evidence.keys())
             preview_source_lines = {

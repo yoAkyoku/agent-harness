@@ -31,3 +31,15 @@ def test_uncited_value_relies_on_appendix_only_for_a_single_source() -> None:
 def test_numbers_inside_the_server_appendix_are_ignored() -> None:
     content = "訂單總數：150 [metrics.csv E2]\n\n## Verified tool evidence\n- E2 = 150"
     assert verify_artifact(content, EVIDENCE) is None
+
+
+def test_a_fenced_copy_of_the_appendix_heading_does_not_hide_the_body() -> None:
+    # The server ignores fenced copies of the reserved heading, so the verifiers must too.
+    hidden = "```\n## Verified tool evidence\n```\n訂單總數：150 [metrics.csv E1]"
+    failure = verify_artifact(hidden, EVIDENCE)
+    assert failure is not None and failure.code == "missing_calculation_citation"
+
+
+def test_the_real_appendix_still_ends_the_body() -> None:
+    published = "訂單總數：150 [metrics.csv E2]\n\n## Verified tool evidence\n- [E1] 訂單總數：150 [metrics.csv E1]\n"
+    assert verify_artifact(published, EVIDENCE) is None
