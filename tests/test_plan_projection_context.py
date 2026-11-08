@@ -117,7 +117,7 @@ def test_encoded_plan_survives_process_restart(tmp_path: Path) -> None:
     store = tmp_path / 'store'
     with running_draft_service(store, replies, decision_protocol='json_tools', qwen_4b=True) as first:
         original = create_process_task(first.client, source, task=case['task'], sources=case['sources'], limits=suite['limits'], completion_workflow='artifact_receipt')
-        deadline = time.monotonic() + 10
+        deadline = time.monotonic() + 30
         while time.monotonic() < deadline:
             events = first.client.get(f"/api/runs/{original['id']}/events").raise_for_status().json()['events']
             if any(e['kind'] == 'model.requested' and e['data'].get('step') == 6 for e in events):

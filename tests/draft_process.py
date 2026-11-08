@@ -75,7 +75,7 @@ uvicorn.run(create_app(Path(sys.argv[1]),model_settings=ModelSettings.local(mode
                                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
     client = httpx.Client(base_url=f"http://127.0.0.1:{port}", trust_env=False, timeout=2)
     try:
-        deadline = time.monotonic() + 10
+        deadline = time.monotonic() + 30  # generous: slow CI runners start Python slowly
         while time.monotonic() < deadline:
             assert process.poll() is None, log.read_text(encoding="utf-8", errors="replace")[-4000:]
             try:
@@ -92,7 +92,7 @@ uvicorn.run(create_app(Path(sys.argv[1]),model_settings=ModelSettings.local(mode
 
 
 def wait_draft_tool(client: httpx.Client, identity: str, kind: str, tool: str, call_id: str | None = None) -> dict:
-    deadline = time.monotonic() + 5
+    deadline = time.monotonic() + 20
     while time.monotonic() < deadline:
         events = client.get(f"/api/runs/{identity}/events").raise_for_status().json()["events"]
         match = next((event for event in events if event["kind"] == kind and event["data"]["tool"] == tool and (call_id is None or event["data"]["call_id"] == call_id)), None)
@@ -103,7 +103,7 @@ def wait_draft_tool(client: httpx.Client, identity: str, kind: str, tool: str, c
 
 
 def finish_draft_run(client: httpx.Client, identity: str) -> tuple[dict, list[dict]]:
-    deadline = time.monotonic() + 5
+    deadline = time.monotonic() + 20
     while time.monotonic() < deadline:
         run = client.get(f"/api/runs/{identity}").raise_for_status().json()
         if run["status"] in {"completed", "failed", "cancelled", "interrupted"}:

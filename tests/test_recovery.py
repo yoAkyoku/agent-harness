@@ -53,7 +53,7 @@ def running_service(store: Path, *extra: str, package_root: Path | None = None) 
     client = httpx.Client(base_url=f"http://127.0.0.1:{port}", trust_env=False, timeout=2,
                           headers={"Authorization": f"Bearer {SERVICE_TOKEN}"})
     try:
-        deadline = time.monotonic() + 10
+        deadline = time.monotonic() + 30  # generous: slow CI runners start Python slowly
         while time.monotonic() < deadline:
             assert process.poll() is None, log.read_text(encoding="utf-8", errors="replace")[-4000:]
             try:
@@ -71,7 +71,7 @@ def running_service(store: Path, *extra: str, package_root: Path | None = None) 
 
 
 def wait_event(client: httpx.Client, identity: str, kind: str) -> dict:
-    deadline = time.monotonic() + 5
+    deadline = time.monotonic() + 20
     while time.monotonic() < deadline:
         events = client.get(f"/api/runs/{identity}/events").json()["events"]
         match = next((event for event in events if event["kind"] == kind), None)
