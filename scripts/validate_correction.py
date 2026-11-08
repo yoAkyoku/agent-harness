@@ -11,7 +11,7 @@ import time
 import httpx
 
 from agent_harness_demo.implementation import source_identity
-from validate_local_model import save
+from validate_local_model import save, workbench_headers
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -31,7 +31,7 @@ def main() -> None:
     sources = directory / "sources"
     sources.mkdir()
     (sources / "handoff.md").write_bytes(b"# Release handoff\nOwner: Mei\nRelease gate: passing regression tests\nIncident escalation contact: Bo\n")
-    with httpx.Client(base_url=f"http://127.0.0.1:{args.port}", trust_env=False, timeout=15,
+    with httpx.Client(base_url=f"http://127.0.0.1:{args.port}", trust_env=False, timeout=15, headers=workbench_headers(),
                       limits=httpx.Limits(max_keepalive_connections=0)) as client:
         config = client.get("/api/config").raise_for_status().json()
         assert config.get("implementation") == source_identity(ROOT / "src" / "agent_harness_demo"), "Service implementation differs or is unidentified; restart this checkout before admitting a validation Run."

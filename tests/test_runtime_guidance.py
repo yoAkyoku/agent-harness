@@ -44,7 +44,7 @@ def test_guidance_remains_attributed_in_checkpoint_and_resume(tmp_path: Path) ->
     source.mkdir()
     (source / 'facts.md').write_bytes(b'Owner: Lin\n')
     store = tmp_path / 'store'
-    settings = ModelSettings.local('contract-model', stream=False)
+    settings = ModelSettings.local('contract-model', stream=False, thinking=True)
     peer = CompletionPeer([
         tool_reply('plan_update', {'steps': ['Read and save']}, 'plan'),
         tool_reply('source_read', {'path': 'facts.md'}, 'read'),

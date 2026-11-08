@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from agent_harness_demo.model import ModelSettings
 from agent_harness_demo.web import create_app
+from scripted import planning
 from test_completion import CompletionPeer
 from test_json_decisions import json_reply
 from test_workbench import create_task, finish, tool_reply
@@ -77,7 +78,7 @@ def test_copied_snapshot_appendix_feedback_identifies_current_artifact_citation(
             httpx.Response(200,json={"choices":[{"message":{"role":"assistant","content":"Seeded."}}]})]
     async def seed_transport(request: httpx.Request) -> httpx.Response:
         return seed.pop(0)
-    with TestClient(create_app(store,model_transport=httpx.MockTransport(seed_transport))) as client:
+    with TestClient(create_app(store,model_transport=httpx.MockTransport(planning(seed_transport)))) as client:
         original,_ = finish(client,create_task(client,source))
         base = original["artifacts"][0]
         old_bytes = client.get(base["download_url"]).content

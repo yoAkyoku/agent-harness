@@ -13,7 +13,7 @@ from uuid import uuid4
 import httpx
 
 from agent_harness_demo.implementation import source_identity
-from validate_local_model import save
+from validate_local_model import save, workbench_headers
 
 ROOT = Path(__file__).resolve().parents[1]
 INSTALLED_MODEL_DIGESTS = {
@@ -111,7 +111,8 @@ def main() -> None:
         parser.error('Commit implementation/input changes before starting a fixed quality batch, or opt into a fingerprinted local candidate.')
     suite_hash = hashlib.sha256(suite_path.read_bytes()).hexdigest()
     input_sources = {item['id']: {name: (suite_directory/item['id']/name).read_text(encoding='utf-8') for name in item['sources']} for item in suite['cases']}
-    with httpx.Client(base_url=args.base_url, trust_env=False, timeout=15, limits=httpx.Limits(max_keepalive_connections=0)) as client:
+    with httpx.Client(base_url=args.base_url, trust_env=False, timeout=15, headers=workbench_headers(),
+                      limits=httpx.Limits(max_keepalive_connections=0)) as client:
         config = client.get('/api/config').raise_for_status().json()
         assert config.get('implementation') == source_identity(ROOT / 'src' / 'agent_harness_demo'), 'Service implementation differs or is unidentified; restart this checkout before admitting a validation Run.'
         assert config['model']['name'] == selected_model and config['model']['transport_fixture'] is False, 'Service does not match the explicitly selected model.'

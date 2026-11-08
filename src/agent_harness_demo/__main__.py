@@ -1,8 +1,11 @@
 import argparse
+import os
 from pathlib import Path
+import secrets
 
 import uvicorn
 
+from .local import MIN_TOKEN_LENGTH, TOKEN_ENV
 from .web import create_app
 from .model import ModelSettings
 
@@ -16,7 +19,8 @@ def parser() -> argparse.ArgumentParser:
     parser.add_argument("--port", type=int, default=8787)
     parser.add_argument("--host", choices=("127.0.0.1", "0.0.0.0"), default="127.0.0.1",
                         help="Bind address. Use 0.0.0.0 only inside a container whose port is published to the host's "
-                             "loopback (docker run -p 127.0.0.1:8787:8787); requests must still use a localhost Host header.")
+                             "loopback (docker run -p 127.0.0.1:8787:8787); requests still need a localhost Host header "
+                             "and the access token.")
     parser.add_argument("--provider", choices=("ollama", "openai", "anthropic"), default="ollama",
                         help="ollama: a local Ollama model; openai: any OpenAI-compatible Chat Completions endpoint; "
                              "anthropic: Claude through the official SDK.")
@@ -87,9 +91,16 @@ def main() -> None:
         settings = build_settings(arguments)
     except ValueError as error:
         cli.error(str(error))
-    uvicorn.run(create_app(arguments.store.resolve(), model_settings=settings, fault_once_source_read=arguments.fault_once_source_read,
-                           hold_first_tool=arguments.hold_first_tool),
-                host=arguments.host, port=arguments.port, access_log=False)
+    configured = os.environ.get(TOKEN_ENV)
+    if configured is not None and len(configured) < MIN_TOKEN_LENGTH:
+        cli.error(f"{TOKEN_ENV} must have at least {MIN_TOKEN_LENGTH} characters.")
+    token = configured or secrets.token_urlsafe(32)
+    app = create_app(arguments.store.resolve(), model_settings=settings, fault_once_source_read=arguments.fault_once_source_read,
+                     hold_first_tool=arguments.hold_first_tool, access_token=token)
+    shown = "<the value of " + TOKEN_ENV + ">" if configured else token
+    print(f"Open the workbench at http://127.0.0.1:{arguments.port}/?token={shown}", flush=True)
+    print("Scripts: send the same token as 'Authorization: Bearer <token>'.", flush=True)
+    uvicorn.run(app, host=arguments.host, port=arguments.port, access_log=False)
 
 
 if __name__ == "__main__":

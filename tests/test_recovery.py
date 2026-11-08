@@ -14,6 +14,8 @@ from uuid import uuid4
 import httpx
 import pytest
 
+from scripted import SERVICE_TOKEN, planning
+
 
 @dataclass
 class RunningService:
@@ -48,7 +50,8 @@ def stop(process: subprocess.Popen) -> None:
 @contextmanager
 def running_service(store: Path, *extra: str, package_root: Path | None = None) -> Iterator[RunningService]:
     process, log, port = launch(store, *extra, package_root=package_root)
-    client = httpx.Client(base_url=f"http://127.0.0.1:{port}", trust_env=False, timeout=2)
+    client = httpx.Client(base_url=f"http://127.0.0.1:{port}", trust_env=False, timeout=2,
+                          headers={"Authorization": f"Bearer {SERVICE_TOKEN}"})
     try:
         deadline = time.monotonic() + 10
         while time.monotonic() < deadline:
@@ -205,7 +208,7 @@ def test_published_artifact_keeps_call_identity_and_bytes_across_process_death(t
         assert reconciled[0]["data"]["result"] == artifact
         assert recovered["recovery"]["uncertain_attempts"] == []
         checkpoint = replacement.client.get(f"/api/runs/{run['id']}/checkpoint").json()
-        assert [call["tool"] for call in checkpoint["confirmed"]] == ["workspace_list", "source_read", "artifact_write"]
+        assert [call["tool"] for call in checkpoint["confirmed"]] == ["plan_update", "workspace_list", "source_read", "artifact_write"]
         assert checkpoint["pending"] == [] and checkpoint["blockers"] == []
 
 def test_restart_checkpoint_contains_only_paired_confirmed_tool_history(tmp_path: Path) -> None:
@@ -224,11 +227,11 @@ def test_restart_checkpoint_contains_only_paired_confirmed_tool_history(tmp_path
         assert checkpoint["source_run_id"] == run["id"]
         assert checkpoint["task"] == run["task"]
         assert len(checkpoint["sha256"]) == 64
-        assert [call["tool"] for call in checkpoint["confirmed"]] == ["workspace_list"]
+        assert [call["tool"] for call in checkpoint["confirmed"]] == ["plan_update", "workspace_list"]
         assert [(call["tool"], call["status"]) for call in checkpoint["pending"]] == [("source_read", "unknown")]
         calls = [call["id"] for message in checkpoint["messages"] for call in message.get("tool_calls", [])]
         results = [message["tool_call_id"] for message in checkpoint["messages"] if message["role"] == "tool"]
-        assert calls == results and len(calls) == 1
+        assert calls == results and len(calls) == 2
         assert checkpoint["artifacts"] == [] and checkpoint["blockers"] == []
         recovered = replacement.client.get(f"/api/runs/{run['id']}").json()
         assert recovered["recovery"]["checkpoint_sha256"] == checkpoint["sha256"]
@@ -306,16 +309,16 @@ def test_checkpoint_retains_calls_not_yet_reached_in_a_partial_model_batch(tmp_p
             "tool_calls": [{"id": identity, "type": "function", "function": {"name": name, "arguments": json.dumps(arguments)}}
                            for identity, name, arguments in calls]}}]})
     store = tmp_path / "store"
-    with TestClient(create_app(store, model_transport=httpx.MockTransport(peer), hold_first_tool="source_read")) as first:
+    with TestClient(create_app(store, model_transport=httpx.MockTransport(planning(peer)), hold_first_tool="source_read")) as first:
         run = create_task(first, source)
         wait_event(first, run["id"], "validation.tool_held")
     with TestClient(create_app(store)) as replacement:
         checkpoint = replacement.get(f"/api/runs/{run['id']}/checkpoint").json()
         assert [(call["call_id"], call["status"]) for call in checkpoint["pending"]] == [("read", "unknown"), ("publish", "not_dispatched")]
-        assert [call["tool"] for call in checkpoint["confirmed"]] == ["workspace_list"]
+        assert [call["tool"] for call in checkpoint["confirmed"]] == ["plan_update", "workspace_list"]
         calls = [call["id"] for message in checkpoint["messages"] for call in message.get("tool_calls", [])]
         results = [message["tool_call_id"] for message in checkpoint["messages"] if message["role"] == "tool"]
-        assert calls == results and len(calls) == 1
+        assert calls == results and len(calls) == 2
 
 def test_failed_store_initialization_releases_database_handle_before_ownership(tmp_path: Path) -> None:
     import sqlite3
@@ -402,7 +405,7 @@ def test_resume_restores_cited_evidence_but_requires_a_new_publish_approval(tmp_
         messages = peer.report.requests[0]["messages"]
         calls = [call["id"] for message in messages for call in message.get("tool_calls", [])]
         results = [message["tool_call_id"] for message in messages if message["role"] == "tool"]
-        assert calls == results and len(calls) == 2
+        assert calls == results and len(calls) == 3
 
 def test_resume_reuses_a_confirmed_tool_result_without_dispatching_it_again(tmp_path: Path) -> None:
     import json
@@ -544,7 +547,7 @@ def test_resume_preserves_ancestors_across_a_second_process_interruption(tmp_pat
         stop(second.process)
     with running_service(store) as third:
         checkpoint = third.client.get(f"/api/runs/{middle['id']}/checkpoint").json()
-        assert [call["tool"] for call in checkpoint["confirmed"]] == ["workspace_list", "source_read", "artifact_write"]
+        assert [call["tool"] for call in checkpoint["confirmed"]] == ["plan_update", "workspace_list", "source_read", "artifact_write"]
         response = third.client.post(f"/api/runs/{middle['id']}/resume", json={"checkpoint_sha256": checkpoint["sha256"], "submission_key": "resume-chain-second"})
         assert response.status_code == 202, response.text
         resumed = response.json()
@@ -576,7 +579,7 @@ def test_resume_cannot_hide_an_unresolved_correction_behind_an_inherited_artifac
         await asyncio.Event().wait()
         raise AssertionError("unreachable")
     store = tmp_path / "store"
-    with TestClient(create_app(store, model_transport=httpx.MockTransport(interrupted_peer))) as first:
+    with TestClient(create_app(store, model_transport=httpx.MockTransport(planning(interrupted_peer)))) as first:
         original = create_task(first, source)
         wait_event(first, original["id"], "correction.available")
     async def claims_success(request: httpx.Request) -> httpx.Response:
@@ -609,13 +612,13 @@ def test_checkpoint_does_not_resurrect_an_already_corrected_error(tmp_path: Path
             return tool_reply("source_read", {"path": "facts.md"}, "fixed")
         return tool_reply("artifact_write", {"name": "report.md", "content": "Report", "citations": ["E1"]}, "publish")
     store = tmp_path / "store"
-    with TestClient(create_app(store, model_transport=httpx.MockTransport(correcting), hold_first_tool="artifact_write")) as first:
+    with TestClient(create_app(store, model_transport=httpx.MockTransport(planning(correcting)), hold_first_tool="artifact_write")) as first:
         original = create_task(first, source)
         wait_event(first, original["id"], "validation.tool_held")
     with TestClient(create_app(store)) as replacement:
         checkpoint = replacement.get(f"/api/runs/{original['id']}/checkpoint").json()
         assert checkpoint["pending"] == []
-        assert [call["tool"] for call in checkpoint["confirmed"]] == ["source_read", "artifact_write"]
+        assert [call["tool"] for call in checkpoint["confirmed"]] == ["plan_update", "source_read", "artifact_write"]
 
 
 def test_resume_rejects_a_different_model_without_starting_generation(tmp_path: Path) -> None:
@@ -659,7 +662,7 @@ def test_resume_interrupted_before_new_model_reply_retains_unreached_work(tmp_pa
         await asyncio.Event().wait()
         raise AssertionError("unreachable")
     store = tmp_path / "store"
-    with TestClient(create_app(store,model_transport=httpx.MockTransport(batch),hold_first_tool="source_read")) as first:
+    with TestClient(create_app(store,model_transport=httpx.MockTransport(planning(batch)),hold_first_tool="source_read")) as first:
         original = create_task(first,source)
         wait_event(first,original["id"],"validation.tool_held")
     with TestClient(create_app(store,model_transport=httpx.MockTransport(waiting))) as second:

@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from agent_harness_demo.model import ModelSettings
+from scripted import planning
 from agent_harness_demo.web import create_app
 from test_approval import pending_approval
 from test_local_model import LocalPeer, qwen_thinking_metadata
@@ -101,12 +102,12 @@ def test_completion_cannot_replace_a_missing_artifact(tmp_path: Path) -> None:
     (source / "facts.md").write_bytes(b"Revenue was 42.\n")
     peer = CompletionPeer([tool_reply("task_finish", {"summary": "Done."}, "premature")])
     with TestClient(create_app(tmp_path / "store", model_settings=ModelSettings.local("contract-model", stream=False, thinking=True),
-                               model_transport=httpx.MockTransport(peer))) as client:
+                               model_transport=httpx.MockTransport(planning(peer)))) as client:
         run, events = finish(client, create_task(client, source))
         assert run["status"] == "failed" and run["error"]["code"] == "missing_artifact"
-        assert run["usage"]["tool_calls"] == 1
+        assert run["usage"]["tool_calls"] == 2  # the plan, then the premature finish
         assert not run["artifacts"]
-        assert not any(event["kind"] == "tool.dispatched" for event in events)
+        assert not any(event["kind"] == "tool.dispatched" and event["data"]["tool"] != "plan_update" for event in events)
 
 
 def test_completion_cannot_be_preplanned_in_the_publication_decision(tmp_path: Path) -> None:
@@ -118,7 +119,7 @@ def test_completion_cannot_be_preplanned_in_the_publication_decision(tmp_path: P
     batch["choices"][0]["message"]["tool_calls"] += tool_reply("task_finish", {"summary": "Done."}, "premature").json()["choices"][0]["message"]["tool_calls"]
     peer = CompletionPeer(replies + [httpx.Response(200, json=batch)])
     with TestClient(create_app(tmp_path / "store", model_settings=ModelSettings.local("contract-model", stream=False, thinking=True),
-                               model_transport=httpx.MockTransport(peer))) as client:
+                               model_transport=httpx.MockTransport(planning(peer)))) as client:
         run, events = finish(client, create_task(client, source))
         assert run["status"] == "failed" and run["error"]["code"] == "invalid_completion"
         assert len(run["artifacts"]) == 1
@@ -205,10 +206,10 @@ def test_completion_requires_a_nonblank_public_summary(tmp_path: Path) -> None:
     (source / "facts.md").write_bytes(b"Revenue was 42.\n")
     peer = CompletionPeer([tool_reply("task_finish", {"summary": " \n\t"}, "empty")])
     with TestClient(create_app(tmp_path / "store", model_settings=ModelSettings.local("contract-model", stream=False, thinking=True),
-                               model_transport=httpx.MockTransport(peer))) as client:
+                               model_transport=httpx.MockTransport(planning(peer)))) as client:
         run, events = finish(client, create_task(client, source, limits={"max_corrections": 0}))
         assert run["status"] == "failed" and run["error"]["code"] == "invalid_arguments"
-        assert not any(event["kind"] == "tool.dispatched" for event in events)
+        assert not any(event["kind"] == "tool.dispatched" and event["data"]["tool"] != "plan_update" for event in events)
 
 
 def test_completion_can_correct_its_own_summary_after_publication(tmp_path: Path) -> None:
@@ -268,7 +269,7 @@ def test_completion_cannot_clear_an_unresolved_read_error(tmp_path: Path) -> Non
     ]
     peer = CompletionPeer(replies)
     with TestClient(create_app(tmp_path / "store", model_settings=ModelSettings.local("contract-model", stream=False, thinking=True),
-                               model_transport=httpx.MockTransport(peer), fault_once_source_read=True)) as client:
+                               model_transport=httpx.MockTransport(planning(peer)), fault_once_source_read=True)) as client:
         run, events = finish(client, create_task(client, source, sources=["facts.md", "extra.md"]))
         assert run["status"] == "failed" and run["error"]["code"] == "unresolved_tool_error"
         assert len(run["artifacts"]) == 1

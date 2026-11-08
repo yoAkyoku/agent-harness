@@ -22,7 +22,8 @@ def test_tool_catalog_does_not_depend_on_task_wording(tmp_path: Path, task: str)
         tool_reply("artifact_write", {
             "name": "report.md", "content": "訂單總數：150 [metrics.csv E2]", "citations": ["E1", "E2"],
         }, "write"),
-        tool_reply("task_finish", {"summary": "已保存 report.md。"}, "finish"),
+        # Native non-thinking models are never offered task_finish; they finish with text.
+        httpx.Response(200, json={"choices": [{"message": {"role": "assistant", "content": "已保存 report.md。"}}]}),
     ])
     settings = ModelSettings.local("contract-model", stream=False, server_controlled_initial_plan=True)
 

@@ -5,6 +5,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+from scripted import planning
 from agent_harness_demo.web import create_app
 from test_workbench import create_task, finish, tool_reply
 
@@ -97,7 +98,7 @@ def test_artifact_and_replan_do_not_hide_an_unresolved_tool_error(tmp_path: Path
             return tool_reply("plan_update", {"steps": ["Pretend the report is complete"]}, "plan")
         return httpx.Response(200, json={"choices": [{"message": {"content": "Everything succeeded!"}}]})
 
-    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(claims_success))) as client:
+    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(planning(claims_success)))) as client:
         run, events = finish(client, create_task(client, source, sources=["facts.csv"]))
         assert run["status"] == "failed" and run["error"]["code"] == "unresolved_tool_error"
         assert client.get(run["artifacts"][0]["download_url"]).text == "Partial report"
@@ -127,12 +128,12 @@ def test_controlled_read_failure_is_labelled_and_model_retries_after_feedback(tm
         return httpx.Response(200, json={"choices": [{"message": {"content": "Saved."}}]})
 
     store = tmp_path / "store"
-    with TestClient(create_app(store, model_transport=httpx.MockTransport(retry_read), fault_once_source_read=True)) as client:
+    with TestClient(create_app(store, model_transport=httpx.MockTransport(planning(retry_read)), fault_once_source_read=True)) as client:
         assert client.get("/api/config").json()["validation"] == {"fault_once_source_read": True}
         run, events = finish(client, create_task(client, source))
         assert run["status"] == "completed", run["error"]
         assert run["validation"] == {"fault_once_source_read": True}
-        assert run["usage"] == {"model_calls": 4, "tool_calls": 3}
+        assert run["usage"] == {"model_calls": 5, "tool_calls": 4}
         faults = [event for event in events if event["kind"] == "tool.fault_injected"]
         assert len(faults) == 1 and faults[0]["data"]["call_id"] == "read-1"
         assert len([event for event in events if event["kind"] == "correction.available"]) == 1
@@ -164,7 +165,7 @@ def test_unrelated_source_cannot_clear_a_failed_calculation(tmp_path: Path, tool
             return tool_reply(tool, arguments, "unrelated")
         return httpx.Response(200, json={"choices": [{"message": {"content": "Done."}}]})
 
-    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(unrelated))) as client:
+    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(planning(unrelated)))) as client:
         run, events = finish(client, create_task(client, source, sources=["facts.csv", "other.csv", "notes.md"]))
         assert run["status"] == "failed" and run["error"]["code"] == "unresolved_tool_error"
         assert not any(event["kind"] == "correction.observed" for event in events)
@@ -188,7 +189,7 @@ def test_preplanned_success_in_same_model_response_is_not_a_correction(tmp_path:
             return httpx.Response(200, json={"choices": [{"message": first}]})
         return httpx.Response(200, json={"choices": [{"message": {"content": "Done."}}]})
 
-    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(preplanned), fault_once_source_read=True)) as client:
+    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(planning(preplanned)), fault_once_source_read=True)) as client:
         run, events = finish(client, create_task(client, source))
         assert run["status"] == "failed" and run["error"]["code"] == "unresolved_tool_error"
         assert any(event["kind"] == "tool.completed" and event["data"]["call_id"] == "second" for event in events)
@@ -231,11 +232,11 @@ def test_artifact_execution_failure_is_not_returned_to_model_for_retry(tmp_path:
         (store / "artifacts").write_bytes(b"Directory unavailable")
         return tool_reply("artifact_write", {"name": "report.md", "content": "Attempted publication"}, "write")
 
-    with TestClient(create_app(store, model_transport=httpx.MockTransport(blocked_publication))) as client:
+    with TestClient(create_app(store, model_transport=httpx.MockTransport(planning(blocked_publication)))) as client:
         run, events = finish(client, create_task(client, source))
         assert run["status"] == "failed" and run["error"]["code"] == "execution_error"
         assert calls == 1 and not run["artifacts"]
-        assert [event["data"]["tool"] for event in events if event["kind"] == "tool.dispatched"] == ["artifact_write"]
+        assert [event["data"]["tool"] for event in events if event["kind"] == "tool.dispatched"] == ["plan_update", "artifact_write"]
         assert not any(event["kind"] == "correction.available" for event in events)
 
 
@@ -257,13 +258,13 @@ def test_later_decision_can_use_a_different_view_of_the_same_source(tmp_path: Pa
             return tool_reply("artifact_write", {"name": "columns.md", "content": "Columns: " + ", ".join(result["columns"]), "citations": [result["evidence_id"]]}, "write")
         return httpx.Response(200, json={"choices": [{"message": {"content": "Saved."}}]})
 
-    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(alternative), fault_once_source_read=True)) as client:
+    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(planning(alternative)), fault_once_source_read=True)) as client:
         run, events = finish(client, create_task(client, source, sources=["facts.csv"]))
         assert run["status"] == "completed", run["error"]
         corrected = [event["data"] for event in events if event["kind"] == "correction.observed"]
         assert len(corrected) == 1
         assert corrected[0]["successful_call_id"] == "inspect-instead"
-        assert corrected[0]["failed_decision_steps"] == [1] and corrected[0]["decision_step"] == 2
+        assert corrected[0]["failed_decision_steps"] == [2] and corrected[0]["decision_step"] == 3
 
 
 def test_fixing_one_csv_column_does_not_clear_another_failed_column(tmp_path: Path) -> None:
@@ -286,7 +287,7 @@ def test_fixing_one_csv_column_does_not_clear_another_failed_column(tmp_path: Pa
             return tool_reply("table_aggregate", {"path": "facts.csv", "column": "orders", "operation": "sum"}, "orders-fixed")
         return httpx.Response(200, json={"choices": [{"message": {"content": "Done."}}]})
 
-    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(columns))) as client:
+    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(planning(columns)))) as client:
         run, events = finish(client, create_task(client, source, sources=["facts.csv"]))
         assert run["status"] == "failed" and run["error"]["code"] == "unresolved_tool_error"
         corrected = [event["data"] for event in events if event["kind"] == "correction.observed"]
@@ -312,7 +313,7 @@ def test_different_numeric_operands_do_not_clear_the_failed_percentage(tmp_path:
             return tool_reply("number_calculate", {"operation": "ratio_percent", "numerator": "E1", "denominator": "E2"}, "different-rate")
         return httpx.Response(200, json={"choices": [{"message": {"content": "Done."}}]})
 
-    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(operands))) as client:
+    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(planning(operands)))) as client:
         run, events = finish(client, create_task(client, source, sources=["facts.csv"]))
         assert run["status"] == "failed" and run["error"]["code"] == "unresolved_tool_error"
         assert not any(event["kind"] == "correction.observed" for event in events)
@@ -339,7 +340,7 @@ def test_invalid_column_can_be_corrected_without_changing_the_calculation(tmp_pa
             return tool_reply("artifact_write", {"name": "total.md", "content": f"Orders: {result['value']}", "citations": [result["evidence_id"]]}, "write")
         return httpx.Response(200, json={"choices": [{"message": {"content": "Saved."}}]})
 
-    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(fix_column))) as client:
+    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(planning(fix_column)))) as client:
         run, events = finish(client, create_task(client, source, sources=["facts.csv"]))
         assert run["status"] == "completed", run["error"]
         assert any(event["kind"] == "correction.observed" for event in events)
@@ -363,13 +364,13 @@ def test_successive_parameter_fixes_resolve_the_original_error_chain(tmp_path: P
             return tool_reply("artifact_write", {"name": "total.md", "content": f"Orders: {result['value']}", "citations": [result["evidence_id"]]}, "write")
         return httpx.Response(200, json={"choices": [{"message": {"content": "Saved."}}]})
 
-    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(chain))) as client:
+    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(planning(chain)))) as client:
         run, events = finish(client, create_task(client, source, sources=["facts.csv"]))
         assert run["status"] == "completed", run["error"]
         corrected = [event["data"] for event in events if event["kind"] == "correction.observed"]
         assert corrected[0]["failed_call_ids"] == ["attempt-1", "attempt-2"]
-        assert corrected[0]["failed_decision_steps"] == [1, 2]
-        assert corrected[0]["decision_step"] == 3
+        assert corrected[0]["failed_decision_steps"] == [2, 3]
+        assert corrected[0]["decision_step"] == 4
         assert sum(event["kind"] == "correction.available" for event in events) == 2
 
 

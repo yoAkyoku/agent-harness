@@ -5,6 +5,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+from scripted import planning
 from agent_harness_demo.web import create_app
 from test_workbench import ReportPeer, create_task, finish, tool_reply
 
@@ -55,7 +56,7 @@ def test_oversized_label_view_is_omitted_without_truncating_raw_source(tmp_path:
         read = next(event["data"]["result"] for event in events if event["kind"] == "tool.completed" and event["data"]["call_id"] == "read")
         assert "labelled_lines" not in read
         assert read["text"] == text
-        transported = json.loads(peer.requests[2]["messages"][-1]["content"])
+        transported = json.loads(peer.requests[3]["messages"][-1]["content"])
         assert transported == read
         assert text in client.get(run["artifacts"][0]["download_url"]).text
 

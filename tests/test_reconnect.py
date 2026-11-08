@@ -5,6 +5,7 @@ from threading import Event
 import httpx
 from fastapi.testclient import TestClient
 
+from scripted import planning
 from agent_harness_demo.web import create_app
 from test_workbench import ReportPeer, create_task
 
@@ -21,7 +22,7 @@ def test_reconnect_resumes_after_saved_cursor_without_restarting_run(tmp_path: P
             assert await asyncio.to_thread(release.wait, 5)
         return await peer(request)
 
-    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(held))) as client:
+    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(planning(held)))) as client:
         run = create_task(client, source)
         received = []
         try:
@@ -102,7 +103,7 @@ def test_concurrent_retries_share_one_execution_and_changed_content_conflicts(tm
         if not peer.requests:
             assert await asyncio.to_thread(release.wait, 10)
         return await peer(request)
-    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(held))) as client:
+    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(planning(held)))) as client:
         workspace = client.post("/api/workspaces", json={"path": str(source)}).json()
         session = client.post("/api/sessions", json={"workspace_id": workspace["id"]}).json()
         url = f"/api/sessions/{session['id']}/runs"

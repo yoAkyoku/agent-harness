@@ -5,6 +5,7 @@ from threading import Event
 import httpx
 from fastapi.testclient import TestClient
 
+from scripted import planning
 from agent_harness_demo.web import create_app
 from test_workbench import ReportPeer, create_task, finish
 from test_analysis_task import AnalysisPeer
@@ -150,8 +151,8 @@ def test_publish_approval_never_bypasses_filename_guard(tmp_path: Path) -> None:
     async def traversal(request: httpx.Request) -> httpx.Response:
         return tool_reply("artifact_write", {"name": "../outside.md", "content": "Forbidden"}, "bad")
 
-    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(traversal))) as client:
+    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(planning(traversal)))) as client:
         run, events = finish(client, create_task(client, source, require_publish_approval=True, limits={"max_corrections": 0}))
         assert run["error"]["code"] == "invalid_arguments" and run["status"] == "failed"
         assert run["approvals"] == [] and run["artifacts"] == []
-        assert not any(event["kind"] == "tool.dispatched" for event in events)
+        assert not any(event["kind"] == "tool.dispatched" and event["data"]["tool"] != "plan_update" for event in events)

@@ -26,12 +26,15 @@ if TYPE_CHECKING:
 from .checkpoints import resume_blockers
 from .event_stream import stream_run
 from .implementation import source_identity
-from .local import LocalOriginMiddleware
+from .local import MIN_TOKEN_LENGTH, AccessTokenMiddleware, LocalOriginMiddleware, SecurityHeadersMiddleware
 from .model import DecisionModel, FixtureTransport, ModelAdapter, ModelSettings
 from .ownership import StoreLease
 from .runtime import Runtime
 from .sources import MAX_SOURCES, admit_sources, catalog, read_source, relevant_excerpts, workspace_root
 from .storage import Store
+
+# Host names the app answers to; anything else (DNS rebinding) is refused.
+TRUSTED_HOSTS: tuple[str, ...] = ("127.0.0.1", "localhost")
 
 
 class WorkspaceInput(BaseModel):
@@ -99,6 +102,7 @@ def create_app(
     anthropic_transport: "httpx2.AsyncBaseTransport | None" = None,
     fault_once_source_read: bool = False,
     hold_first_tool: Literal["source_read", "artifact_write"] | None = None,
+    access_token: str | None = None,
 ) -> FastAPI:
     """Build the workbench app.
 
@@ -106,7 +110,13 @@ def create_app(
     (fixture, local Ollama, OpenAI-compatible). `anthropic_transport` replaces the
     official Anthropic SDK's transport for Claude. Tests use them; production
     leaves both unset.
+
+    `access_token`, when set, is required on every request and WebSocket (the
+    command-line entry point always sets one). Without it the app relies only on
+    the loopback Host and same-origin checks, which suits in-process use and tests.
     """
+    if access_token is not None and len(access_token) < MIN_TOKEN_LENGTH:
+        raise ValueError(f"The access token must have at least {MIN_TOKEN_LENGTH} characters.")
     storage: Store
     runtime: Runtime
     model: DecisionModel
@@ -155,8 +165,12 @@ def create_app(
             await asyncio.to_thread(lease.close)
 
     app = FastAPI(title="Agent Harness Demo", lifespan=lifespan)
+    # Added last runs first: headers on every response, then Host, Origin and the token.
+    if access_token is not None:
+        app.add_middleware(AccessTokenMiddleware, token=access_token)
     app.add_middleware(LocalOriginMiddleware)
-    app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost", "testserver"])
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=list(TRUSTED_HOSTS))
+    app.add_middleware(SecurityHeadersMiddleware)
     package = Path(__file__).resolve().parent
     implementation = source_identity(package)
     app.mount("/assets", StaticFiles(directory=package / "static"), name="assets")

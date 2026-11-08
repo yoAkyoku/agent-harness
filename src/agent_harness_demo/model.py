@@ -342,14 +342,17 @@ class FixtureTransport:
         current = max(index for index, message in enumerate(messages) if message["role"] == "user")
         results = [json.loads(item["content"]) for item in messages[current+1:] if item["role"] == "tool"]
         if not results:
+            # Only plan_update is offered until a plan is saved.
+            return self._call("plan_update", {"steps": ["列出來源", "讀取來源", "保存快照"]}, "plan")
+        if len(results) == 1:
             return self._call("workspace_list", {}, "catalog")
-        sources = results[0]["sources"]
-        read_count = len(results) - 1
+        sources = results[1]["sources"]
+        read_count = len(results) - 2
         if read_count < len(sources):
             return self._call("source_read", {"path": sources[read_count]["path"]}, f"read-{read_count}")
         if read_count == len(sources):
             sections = ["# 來源快照", "此成果由模擬模型依固定示範步驟建立。\n"]
-            for result in results[1:]:
+            for result in results[2:]:
                 sections.append(f"## {result['path']}\n\n{result['text']}")
             return self._call("artifact_write", {"name": "source-snapshot.md", "content": "\n\n".join(sections)}, "publish")
         return httpx.Response(200, json={"choices": [{"message": {

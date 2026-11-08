@@ -4,12 +4,21 @@ import argparse
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
 import re
 import subprocess
 from pathlib import Path
 import time
 
 import httpx
+
+
+def workbench_headers() -> dict[str, str]:
+    """The workbench requires its per-launch token: start it with AGENT_HARNESS_TOKEN set, and run this with the same value."""
+    token = os.environ.get("AGENT_HARNESS_TOKEN")
+    if not token:
+        raise SystemExit("Set AGENT_HARNESS_TOKEN to the access token the workbench was started with.")
+    return {"Authorization": f"Bearer {token}"}
 
 
 def save(path: Path, value: object) -> None:
@@ -33,7 +42,7 @@ def main() -> None:
         ("changed-analysis", {"metrics.csv": "month,orders,exceptions\nApr,80,4\nMay,120,6\n"},
          "請分析 metrics.csv，計算訂單總數、異常總數及整體異常率（異常數 / 訂單數 × 100），寫成有來源依據的 Markdown 摘要。", ["200", "10", "5.000000"]),
     ]
-    with httpx.Client(base_url="http://127.0.0.1:8788", trust_env=False, timeout=15,
+    with httpx.Client(base_url="http://127.0.0.1:8788", trust_env=False, timeout=15, headers=workbench_headers(),
                       limits=httpx.Limits(max_keepalive_connections=0)) as client:
         config = client.get("/api/config").raise_for_status().json()
         assert config["model"]["name"] == "qwen3.5:9b-q4_K_M" and config["model"]["transport_fixture"] is False

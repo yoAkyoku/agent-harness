@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 import httpx
 from fastapi.testclient import TestClient
 
+from scripted import planning
 from agent_harness_demo.web import create_app
 from test_approval import pending_approval
 from test_workbench import ReportPeer, create_task, finish, tool_reply
@@ -115,7 +116,7 @@ def test_cancel_after_publish_before_receipt_preserves_artifact_and_uncertainty(
     source.mkdir()
     (source / "facts.md").write_bytes(b"Revenue was 42.\n")
     peer = ReportPeer()
-    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(peer), hold_first_tool="artifact_write")) as client:
+    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(planning(peer)), hold_first_tool="artifact_write")) as client:
         run = create_task(client, source)
         with client.websocket_connect(f"/api/runs/{run['id']}/stream") as stream:
             while True:
@@ -162,7 +163,7 @@ def test_cancel_after_approval_before_slot_dispatch_revokes_that_approval(tmp_pa
                 active -= 1
         return await peer(request)
 
-    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(capacity))) as client:
+    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(planning(capacity)))) as client:
         waiting = create_task(client, source, require_publish_approval=True)
         approval = pending_approval(client, waiting)
         blockers = [create_task(client, source, task="Hold capacity") for _ in range(4)]

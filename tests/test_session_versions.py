@@ -22,6 +22,8 @@ def test_revision_pins_base_and_keeps_original_download(tmp_path: Path) -> None:
             return await initial(request)
         revision_requests.append(body)
         if len(revision_requests) == 1:
+            return tool_reply("plan_update", {"steps": ["Revise the pinned base"]}, "revise-plan")
+        if len(revision_requests) == 2:
             return tool_reply("artifact_write", {"name": "snapshot.md", "content": "# Revised\nRevenue was 42.\n"}, "revise")
         return httpx.Response(200, json={"choices": [{"message": {"role": "assistant", "content": "Revised."}}]})
 
@@ -68,8 +70,10 @@ def test_revision_history_preserves_tool_pairs_and_selected_scope(tmp_path: Path
 
     async def peer(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)
-        if body["messages"][-1].get("content") == "Revise with history.":
+        if any(message.get("content") == "Revise with history." for message in body["messages"]):
             revision_requests.append(body)
+            if len(revision_requests) == 1:
+                return tool_reply("plan_update", {"steps": ["Revise with history"]}, "revise-plan")
             return tool_reply("source_read", {"path": "private.md"}, "forbidden")
         return await initial(request)
 
@@ -86,9 +90,9 @@ def test_revision_history_preserves_tool_pairs_and_selected_scope(tmp_path: Path
         messages = revision_requests[0]["messages"]
         assistant_calls = [call for message in messages for call in message.get("tool_calls", [])]
         results = [message for message in messages if message["role"] == "tool"]
-        assert [call["function"]["name"] for call in assistant_calls] == ["workspace_list", "source_read", "artifact_write"]
+        assert [call["function"]["name"] for call in assistant_calls] == ["plan_update", "workspace_list", "source_read", "artifact_write"]
         assert [call["id"] for call in assistant_calls] == [result["tool_call_id"] for result in results]
-        assert json.loads(results[1]["content"])["text"] == "Revenue was 42.\n"
+        assert json.loads(results[2]["content"])["text"] == "Revenue was 42.\n"
         assert "UNSELECTED-SECRET-981" not in json.dumps(messages)
         selected = next(event["data"] for event in events if event["kind"] == "context.selected")
         assert selected["history_run_ids"] == [original["id"]]
@@ -107,6 +111,8 @@ def test_history_budget_omits_a_whole_turn_without_changing_saved_records(tmp_pa
         if any(message.get("content") == "Revise under a small history budget." for message in body["messages"]):
             requests.append(body)
             if len(requests) == 1:
+                return tool_reply("plan_update", {"steps": ["Write the revision"]}, "revision-plan")
+            if len(requests) == 2:
                 return tool_reply("artifact_write", {"name": "revision.md", "content": "# Revision\nRevenue was 42.\n"}, "revision")
             return httpx.Response(200, json={"choices": [{"message": {"role": "assistant", "content": "Saved."}}]})
         return await initial(request)
@@ -165,6 +171,8 @@ def test_final_budget_drops_whole_history_but_keeps_base_and_current_constraint(
             requests.append(body)
             wire_bytes.append(len(request.content))
             if len(requests) == 1:
+                return tool_reply("plan_update", {"steps": ["Write the revision"]}, "revision-plan")
+            if len(requests) == 2:
                 return tool_reply("artifact_write", {"name": "revision.md", "content": "# Revised\nRevenue was 42.\n"}, "revision")
             return httpx.Response(200, json={"choices": [{"message": {"role": "assistant", "content": "Saved."}}]})
         return await initial(request)
@@ -201,7 +209,7 @@ def test_large_current_tool_result_is_not_silently_cut_or_dispatched(tmp_path: P
         final, events = finish(client, create_task(client, source, limits={"context_window_tokens": 8192}))
         assert final["status"] == "failed"
         assert final["error"]["code"] == "context_limit_exceeded"
-        assert len(peer.requests) == final["usage"]["model_calls"] == 2
+        assert len(peer.requests) == final["usage"]["model_calls"] == 3  # plan, catalog, read; the next request is too large
         assert any(event["kind"] == "tool.completed" and event["data"]["tool"] == "source_read" for event in events)
         assert not any(event["kind"] == "tool.requested" and event["data"]["tool"] == "artifact_write" for event in events)
         assert final["artifacts"] == []
@@ -248,8 +256,11 @@ def test_revisions_can_branch_from_an_explicit_older_version(tmp_path: Path) -> 
         if task not in contents:
             return await initial(request)
         bodies.append(body)
-        if not any(message["role"] == "tool" for message in body["messages"][users[-1]+1:]):
-            return tool_reply("artifact_write", {"name": "snapshot.md", "content": contents[task]}, "write")
+        results = [message for message in body["messages"][users[-1]+1:] if message["role"] == "tool"]
+        if not results:
+            return tool_reply("plan_update", {"steps": ["Revise the selected version"]}, f"plan-{task}")
+        if len(results) == 1:
+            return tool_reply("artifact_write", {"name": "snapshot.md", "content": contents[task]}, f"write-{task}")
         return httpx.Response(200, json={"choices": [{"message": {"role": "assistant", "content": "Saved."}}]})
 
     with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(peer))) as client:

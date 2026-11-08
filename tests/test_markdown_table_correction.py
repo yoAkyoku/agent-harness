@@ -5,6 +5,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 from agent_harness_demo.web import create_app
+from scripted import planning
 from test_workbench import create_task, finish, tool_reply
 
 
@@ -29,10 +30,10 @@ def test_model_can_correct_extra_markdown_table_cells_before_dispatch(tmp_path: 
             assert "table" in error["message"].lower()
             return tool_reply("artifact_write", {"name":"index.md", "content":good, "citations":["E1"]}, "fixed")
         return httpx.Response(200, json={"choices":[{"message":{"role":"assistant", "content":"Saved."}}]})
-    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(peer))) as client:
+    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(planning(peer)))) as client:
         run, events = finish(client, create_task(client, source, sources=["facts.md"]))
         assert run["status"] == "completed", run["error"]
-        assert [e["data"]["call_id"] for e in events if e["kind"] == "tool.dispatched"] == ["read", "fixed"]
+        assert [e["data"]["call_id"] for e in events if e["kind"] == "tool.dispatched"] == ["scripted-plan-1", "read", "fixed"]
         assert any(e["kind"] == "correction.observed" for e in events)
         assert client.get(run["artifacts"][0]["download_url"]).text.startswith(good)
 
@@ -60,7 +61,7 @@ def test_valid_or_non_table_content_can_be_published(tmp_path: Path, content: st
         if calls == 1:
             return tool_reply("artifact_write", {"name":"report.md", "content":content}, "publish")
         return httpx.Response(200, json={"choices":[{"message":{"role":"assistant", "content":"Saved."}}]})
-    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(peer))) as client:
+    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(planning(peer)))) as client:
         run, _ = finish(client, create_task(client, source, sources=["facts.md"]))
         assert run["status"] == "completed", run["error"]
         assert client.get(run["artifacts"][0]["download_url"]).text == content

@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 import httpx
 import pytest
 
+from scripted import planning
 from agent_harness_demo.web import create_app
 
 
@@ -29,6 +30,11 @@ def test_workspace_and_source_catalog_survive_reopening(tmp_path: Path) -> None:
         assert catalog["sources"] == [{"path": "facts.md", "bytes": 16}]
 
 
+def text_reply(content: str) -> httpx.Response:
+    """A plain-text final answer: how native, non-thinking models finish (they are never offered task_finish)."""
+    return httpx.Response(200, json={"choices": [{"message": {"role": "assistant", "content": content}}]})
+
+
 def tool_reply(name: str, arguments: dict, identity: str = "call") -> httpx.Response:
     return httpx.Response(200, json={"choices": [{"message": {
         "role": "assistant", "content": None, "tool_calls": [{
@@ -46,6 +52,10 @@ class ReportPeer:
         body = json.loads(request.content)
         self.requests.append(body)
         results = [item for item in body["messages"] if item["role"] == "tool"]
+        if not results:
+            # Only plan_update is offered until a plan is saved.
+            return tool_reply("plan_update", {"steps": ["List sources", "Read the source", "Save a snapshot"]}, "plan")
+        results = results[1:]
         if not results:
             return tool_reply("workspace_list", {}, "catalog")
         if len(results) == 1:
@@ -87,17 +97,17 @@ def test_task_runs_real_tools_streams_events_and_preserves_download(tmp_path: Pa
         run = client.get(f"/api/runs/{run_id}").json()
         assert run["status"] == "completed", run
         assert run["mode"] == "fixture"
-        assert run["usage"] == {"model_calls": 4, "tool_calls": 3}
+        assert run["usage"] == {"model_calls": 5, "tool_calls": 4}
         assert [event["sequence"] for event in events] == list(range(1, len(events) + 1))
         assert [event["data"]["tool"] for event in events if event["kind"] == "tool.completed"] == [
-            "workspace_list", "source_read", "artifact_write",
+            "plan_update", "workspace_list", "source_read", "artifact_write",
         ]
         saved_events = client.get(f"/api/runs/{run_id}/events").json()["events"]
         assert saved_events == events
         artifact = run["artifacts"][0]
         expected = b"# Snapshot\nRevenue was 42.\n"
         assert client.get(artifact["download_url"]).content == expected
-        assert json.loads(peer.requests[2]["messages"][-1]["content"])["text"] == "Revenue was 42.\n"
+        assert json.loads(peer.requests[3]["messages"][-1]["content"])["text"] == "Revenue was 42.\n"
 
     with TestClient(create_app(store)) as client:
         assert client.get(f"/api/runs/{run_id}").json() == run
@@ -168,12 +178,12 @@ def test_invalid_or_ungranted_tool_is_rejected_before_dispatch(
     async def peer(request: httpx.Request) -> httpx.Response:
         return tool_reply(tool, arguments)
 
-    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(peer))) as client:
+    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(planning(peer)))) as client:
         failed, events = finish(client, create_task(client, source, limits={"max_corrections": 0} if code == "invalid_arguments" else {}))
         assert failed["status"] == "failed"
         assert failed["error"]["code"] == code
         assert failed["artifacts"] == []
-        assert not any(event["kind"] == "tool.dispatched" for event in events)
+        assert not any(event["kind"] == "tool.dispatched" and event["data"]["tool"] != "plan_update" for event in events)
         assert any(event["kind"] == "tool.rejected" for event in events)
 
 
@@ -271,7 +281,7 @@ def test_changed_source_is_not_silently_read_as_the_admitted_version(tmp_path: P
         fact.write_bytes(b"Changed after admission.")
         return tool_reply("source_read", {"path": "facts.md"})
 
-    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(changes_source))) as client:
+    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(planning(changes_source)))) as client:
         run, _ = finish(client, create_task(client, source))
         assert run["status"] == "failed"
         assert run["error"]["code"] == "source_changed"

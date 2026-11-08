@@ -34,6 +34,12 @@ INITIAL_PUBLIC_PLAN_STEPS = (
 WorkResult = TypeVar("WorkResult")
 
 
+def request_digest(body: Record) -> str:
+    """SHA-256 of a request body in canonical JSON; the adapters send exactly this body."""
+    canonical = json.dumps(body, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode()).hexdigest()
+
+
 def project_initial_public_plan(decision: Decision, protocol: str) -> Decision:
     """Replace free-form pre-inspection plan claims with safe public action stages."""
     if not any(call.name == "plan_update" for call in decision.calls):
@@ -358,18 +364,21 @@ class Runtime:
                         tuple(attempt["error"].get("correctable_fields", [])),
                         error_code=attempt["error"].get("code"))
 
-        async def feedback(call: ToolCall, error: RunFailure, *, retryable: bool) -> None:
+        async def feedback(call: ToolCall, error: RunFailure, *, retryable: bool, owed: bool = True) -> None:
+            """Return a correctable error to the model; `owed` calls must be corrected before completion."""
             nonlocal corrections
             if not retryable or limits.max_corrections == 0:
                 raise error
             if corrections >= limits.max_corrections:
                 raise RunFailure("correction_limit_exceeded", "This Run exhausted its recoverable tool correction budget.")
             corrections += 1
-            superseded = [failed for failed, correction in pending.items() if correction.matches(call, step)]
-            prior = tuple(pending[failed] for failed in superseded)
-            pending[call.identity] = PendingCorrection(call, step, error.correctable_fields, prior, error.code)
-            for failed in superseded:
-                del pending[failed]
+            superseded: list[str] = []
+            if owed:
+                superseded = [failed for failed, correction in pending.items() if correction.matches(call, step)]
+                prior = tuple(pending[failed] for failed in superseded)
+                pending[call.identity] = PendingCorrection(call, step, error.correctable_fields, prior, error.code)
+                for failed in superseded:
+                    del pending[failed]
             result = {"ok": False, "error": {"code": error.code, "message": error.message,
                       "retryable": True, "remaining_corrections": limits.max_corrections - corrections,
                       "correctable_fields": list(error.correctable_fields)}}
@@ -393,7 +402,8 @@ class Runtime:
         for step in range(1, limits.max_steps + 1):
             await self._check_cancel(identity)
             selected_memories, omitted_memories = await self.store.current_memories(identity)
-            if memory_snapshot != (selected_memories, omitted_memories):
+            # Finalization works from a fixed context (system, task, published body); memory edits do not reach it.
+            if not publication_finalization_pending and memory_snapshot != (selected_memories, omitted_memories):
                 if memory_message is not None:
                     memory_index = next(index for index, message in enumerate(messages) if message is memory_message)
                     del messages[memory_index]
@@ -682,7 +692,11 @@ class Runtime:
                 await self._record(identity, "context.limited", {"step": step, **budget})
                 raise RunFailure("context_limit_exceeded", "The complete request exceeds the configured conservative context envelope.")
             usage["model_calls"] += 1
-            request_data = {"step": step, "context_budget": budget}
+            # Calls are checked against exactly the catalogue this request offered.
+            offered_tools = {tool["function"]["name"] for tool in available_tools}
+            request_data = {"step": step, "context_budget": budget, "offered_tools": sorted(offered_tools),
+                            "request_sha256": request_digest(self.model.request_body(
+                                messages, available_tools, limits.max_output_tokens))}
             if published_this_run and not receipt_mode:
                 request_data["summary_guidance_applied"] = summary_guidance_applied
             if completion_recovery_pending:
@@ -808,13 +822,19 @@ class Runtime:
                             claim_failure = completion_summary(call.arguments["summary"], await self._published_texts(identity))
                             if claim_failure is not None:
                                 raise claim_failure
+                    # Last gate before dispatch: the specific guards above keep their own codes, and a call
+                    # that passes them is still refused unless this request offered the tool.
+                    if call.name not in offered_tools:
+                        raise RunFailure("tool_not_offered", f"{call.name} was not offered for this step; "
+                                         f"use only: {', '.join(sorted(offered_tools))}.")
                 except RunFailure as error:
                     await self._record(identity, "tool.rejected", {"call_id": call.identity, "tool": call.name, "code": error.code})
                     await feedback(call, error, retryable=error.code in {
                         "invalid_arguments", "invalid_evidence", "missing_evidence",
                         "evidence_section_mismatch", "missing_body_citation",
                         "missing_calculation_citation", "unsupported_completion_claim", "mixed_source_roles",
-                    })
+                        "tool_not_offered",
+                    }, owed=error.code != "tool_not_offered")
                     continue
                 reused = next((confirmed for confirmed in checkpoint["confirmed"]
                                if confirmed["tool"] == call.name and isinstance(confirmed.get("arguments"), dict)
@@ -904,6 +924,10 @@ class Runtime:
                 current_start = len(messages)
                 acknowledged_until = current_start
                 canonical_index = None
+                # The replaced conversation took these messages with it; keep no references into it.
+                memory_message = None
+                excerpt_message = None
+                history_turns = []
                 publication_finalization_pending = True
                 publication_finalization_name = finalization_result["name"]
         raise RunFailure("step_limit_exceeded", "This Run reached its model decision limit.")

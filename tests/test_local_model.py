@@ -7,6 +7,7 @@ import httpx
 import pytest
 
 from agent_harness_demo.model import ModelSettings
+from scripted import planning
 from agent_harness_demo.web import create_app
 from test_workbench import ReportPeer, create_task, finish, tool_reply
 
@@ -125,7 +126,7 @@ def test_local_stream_reassembles_tools_and_emits_only_visible_text(tmp_path: Pa
                                model_transport=httpx.MockTransport(peer))) as client:
         run, events = finish(client, create_task(client, source))
         assert run["status"] == "completed", run["error"]
-        assert run["usage"] == {"model_calls": 4, "tool_calls": 3}
+        assert run["usage"] == {"model_calls": 5, "tool_calls": 4}
         assert run["result"] == "Saved the source snapshot."
         assert "".join(event["data"]["text"] for event in events if event["kind"] == "model.text_delta") == run["result"]
         assert "hidden-provider-field" not in json.dumps(events)
@@ -356,14 +357,14 @@ def test_local_model_cannot_publish_unsupported_content_without_citations(tmp_pa
         if request.url.path != "/v1/chat/completions":
             return await metadata(request)
         messages = json.loads(request.content)["messages"]
-        if not any(item["role"] == "tool" for item in messages):
+        if sum(item["role"] == "tool" for item in messages) == 1:  # only the plan result so far
             return tool_reply("artifact_write", {"name": "unsupported.md", "content": "Revenue was 999."}, "write")
         return httpx.Response(200, json={"choices": [{"message": {"content": "Finished."}}]})
 
     with TestClient(create_app(tmp_path / "store", model_settings=ModelSettings.local("contract-model", stream=False),
-                               model_transport=httpx.MockTransport(unsupported))) as client:
+                               model_transport=httpx.MockTransport(planning(unsupported)))) as client:
         run, events = finish(client, create_task(client, source, limits={"max_corrections": 0}))
         assert run["status"] == "failed"
         assert run["error"]["code"] == "missing_evidence"
         assert not run["artifacts"]
-        assert not any(event["kind"] == "tool.dispatched" for event in events)
+        assert not any(event["kind"] == "tool.dispatched" and event["data"]["tool"] != "plan_update" for event in events)

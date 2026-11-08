@@ -55,7 +55,7 @@ def test_empty_plan_update_after_saved_plan_preserves_correction_budget(tmp_path
         }, "corrected-write"),
         tool_reply("task_finish", {"summary": "Published report.md."}, "finish"),
     ])
-    settings = ModelSettings.local("contract-model", stream=False, server_controlled_initial_plan=False)
+    settings = ModelSettings.local("contract-model", stream=False, thinking=True, server_controlled_initial_plan=False)
 
     with TestClient(create_app(
         tmp_path / "store", model_settings=settings, model_transport=httpx.MockTransport(peer)

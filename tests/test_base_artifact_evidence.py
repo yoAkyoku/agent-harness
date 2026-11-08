@@ -28,7 +28,7 @@ def test_revision_can_cite_exact_selected_base_without_reopening_its_sources(tmp
             return httpx.Response(200, json={"choices": [{"message": {"role": "assistant", "content": content}, "finish_reason": "stop"}]})
         return response
 
-    with TestClient(create_app(tmp_path / "store", model_settings=ModelSettings.local("contract-model", stream=False, decision_protocol=protocol),
+    with TestClient(create_app(tmp_path / "store", model_settings=ModelSettings.local("contract-model", stream=False, decision_protocol=protocol, thinking=protocol == "native"),
                                model_transport=httpx.MockTransport(transport))) as client:
         original, _ = finish(client, create_task(client, source))
         assert original["status"] == "completed", original["error"]
@@ -94,7 +94,7 @@ def test_base_read_does_not_grant_ancestor_ids_paths_or_numeric_operands(
     (source / "facts.md").write_bytes(b"Revenue was 42.\n")
     (source / "other.csv").write_bytes(b"count\n1\n")
     peer = CompletionPeer(publication_replies() + [tool_reply("task_finish", {"summary": "Saved."}, "finish")])
-    with TestClient(create_app(tmp_path / "store", model_settings=ModelSettings.local("contract-model", stream=False),
+    with TestClient(create_app(tmp_path / "store", model_settings=ModelSettings.local("contract-model", stream=False, thinking=True),
                                model_transport=httpx.MockTransport(peer))) as client:
         original, _ = finish(client, create_task(client, source))
         assert original["status"] == "completed", original["error"]

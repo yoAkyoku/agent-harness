@@ -24,7 +24,7 @@ def test_model_sees_supported_filename_extensions_and_can_repair_an_invalid_name
         tool_reply('artifact_write', {'name': 'handoff.MD', 'content': content, 'citations': ['E1']}, 'good'),
         tool_reply('task_finish', {'summary': 'Saved.'}, 'finish'),
     ])
-    with TestClient(create_app(tmp_path / 'store', model_settings=ModelSettings.local('contract-model', stream=False),
+    with TestClient(create_app(tmp_path / 'store', model_settings=ModelSettings.local('contract-model', stream=False, thinking=True),
                                model_transport=httpx.MockTransport(peer))) as client:
         run, events = finish(client, create_task(client, source, sources=['facts.md']))
         assert run['status'] == 'completed', run['error']

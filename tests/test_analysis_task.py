@@ -5,6 +5,7 @@ import httpx
 from fastapi.testclient import TestClient
 import pytest
 
+from scripted import planning
 from agent_harness_demo.web import create_app
 from test_workbench import create_task, finish, tool_reply
 
@@ -107,12 +108,12 @@ def test_analysis_tools_cannot_read_unselected_sources_or_invent_evidence(tmp_pa
     async def invalid(request: httpx.Request) -> httpx.Response:
         return tool_reply(name, arguments)
 
-    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(invalid))) as client:
+    with TestClient(create_app(tmp_path / "store", model_transport=httpx.MockTransport(planning(invalid)))) as client:
         run, events = finish(client, create_task(client, source, sources=["facts.csv"], limits={"max_corrections": 0}))
         assert run["status"] == "failed"
         assert run["error"]["code"] == code
         assert not run["artifacts"]
-        assert not any(event["kind"] == "tool.dispatched" for event in events)
+        assert not any(event["kind"] == "tool.dispatched" and event["data"]["tool"] != "plan_update" for event in events)
 
 
 def test_csv_arithmetic_requires_numeric_evidence_before_publication_and_can_be_corrected(tmp_path: Path) -> None:

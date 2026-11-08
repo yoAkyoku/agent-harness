@@ -35,7 +35,7 @@ def test_calculated_values_must_cite_matching_calculation_evidence(tmp_path: Pat
         tool_reply("artifact_write", {"name": "report.md", "content": corrected, "citations": ["E2", "E3", "E4"]}, "good-write"),
         tool_reply("task_finish", {"summary": "已保存 report.md。"}, "finish"),
     ])
-    settings = ModelSettings.local("contract-model", stream=False, server_controlled_initial_plan=True)
+    settings = ModelSettings.local("contract-model", stream=False, thinking=True, server_controlled_initial_plan=True)
 
     with TestClient(create_app(tmp_path / "store", model_settings=settings,
                                model_transport=httpx.MockTransport(peer))) as client:
