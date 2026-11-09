@@ -37,6 +37,8 @@ Artifact使用不可變身分、SHA及精確bytes保存。版本修改釘住完�
 
 完成回覆同樣受檢查。發布後的收尾請求會附上已發布正文（不含伺服器附錄，上限 6000 bytes，超過則省略並記錄事件），讓模型描述的是這份成果而不是重述任務。`completion_summary` 只看回覆與已發布成果：回覆中提到成果標示為缺項的項目時，同一句必須說明它缺少（若同一標籤在成果別處有實際值，例如一份會議有決議、另一份沒有，就不據此拒絕）；回覆中的數值必須出現在成果裡（個位數計數除外）。不符時以可修正錯誤只開放 `summary` 欄位。不論模型怎麼結束都做同樣的檢查：發布後所有真實模型（包含遠端模型）都會被提供 `task_finish`，發布後的純文字結束也會受檢查；不符的回覆不放入下一次請求，改為只開放 `task_finish` 的可修正步驟，系統訊息附上拒絕原因。收據模式不產生自由摘要，因此不做這項檢查。工具目錄同樣不依任務措辭調整，只依Run狀態提供。
 
+PDF 與 Word 檔在 `sources.py` 中也是來源：`read_source` 保留檔案本身位元組的 SHA-256 與大小（因此受理、摘錄與讀取都能像其他來源一樣偵測文件變更），並回傳擷取的文字給模型。`pypdf` 逐頁讀取 PDF 並標上 `[page N]`；`python-docx` 依文件順序讀取 `.docx` 的段落與表格。擷取在解析前與解析中都有上限（檔案 10 MiB、200 頁、解壓後 50 MiB、文字 256 KiB），加密、掃描或損壞的文件會以 `source_unavailable` 附上原因拒絕，不會當成空白讀取。
+
 ## 模型供應商
 
 Runtime 只依賴 `model.py` 的 `DecisionModel` 介面（`request_body`、`context_budget`、`decide`、`settings`、`info`）。支援四種供應商：fixture（固定腳本，只證明控制流程）、本機 Ollama（核對模型 digest 與 renderer，Qwen3.5 可精確計量，小模型可用 JSON-tools 協定）、OpenAI 相容端點（原生 tool calling，只允許 HTTPS，loopback 例外，API key 從指定環境變數讀取），以及透過官方 `anthropic` SDK 的 Claude（Messages API，把 Runtime 的 Chat Completions 歷史轉成 Messages 格式再轉回）。遠端模型的 Context 上限以標明的 UTF-8 bytes 上界計算。遠端供應商可列出替代模型（`--alt-model`），Claude 另提供思考強度，兩者都公開在 `info.choices`。Run 受理時會依這些選項檢查 `model` 與 `effort`，並寫入 Run 的模型紀錄；決策循環改用 `with_settings(...)`，也就是共用啟動時 client、只改模型名稱與強度的轉接器變體。續做時接受 checkpoint 中任何已設定的模型名稱並保留。本機 Ollama 模型不能逐 Run 切換，因為每個模型都需要各自的 digest 與 tokenizer 驗證。

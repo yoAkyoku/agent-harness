@@ -1,17 +1,29 @@
-"""A bounded catalog of ordinary text sources inside an explicit workspace."""
+"""A bounded catalog of text sources inside an explicit workspace.
+
+Text files are read as UTF-8. PDF and Word (.docx) files are sources too: the model sees
+their extracted text, while the source's SHA-256 and size stay those of the file's bytes,
+so a changed document is detected like any changed source.
+"""
 
 import os
+import io
 import json
 import re
 import hashlib
+import zipfile
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
 from .contracts import RunFailure
 
-EXTENSIONS = {".md", ".txt", ".csv", ".json"}
-MAX_SOURCE_BYTES = 262_144
+TEXT_EXTENSIONS = {".md", ".txt", ".csv", ".json"}
+DOCUMENT_EXTENSIONS = {".pdf", ".docx"}
+EXTENSIONS = TEXT_EXTENSIONS | DOCUMENT_EXTENSIONS
+MAX_SOURCE_BYTES = 262_144  # a text file, or the text extracted from a document
+MAX_DOCUMENT_BYTES = 10 * 1024 * 1024
+MAX_DOCUMENT_PAGES = 200
+MAX_DOCUMENT_UNPACKED_BYTES = 50 * 1024 * 1024  # a .docx is a zip archive; refuse ones that inflate beyond this
 MAX_SOURCES = 8
 MAX_SOURCE_PATH = 500
 MAX_LABELLED_LINES = 16
@@ -97,7 +109,7 @@ def catalog(root: Path) -> list[dict[str, Any]]:
                 size = path.stat().st_size
             except OSError:
                 continue
-            if size <= MAX_SOURCE_BYTES:
+            if size <= _file_limit(path.suffix.lower()):
                 result.append({"path": relative, "bytes": size})
     return result
 
@@ -114,13 +126,89 @@ def read_source(root: Path, relative: str) -> dict[str, Any]:
             or any((root.joinpath(*parts[:index])).is_symlink() for index in range(1, len(parts) + 1))
         ):
             raise RunFailure("source_forbidden", "The requested source is outside the allowed workspace scope.")
+        suffix = resolved.suffix.lower()
+        limit = _file_limit(suffix)
         with resolved.open("rb") as handle:
-            raw = handle.read(MAX_SOURCE_BYTES + 1)
-        if len(raw) > MAX_SOURCE_BYTES:
-            raise RunFailure("source_too_large", "The selected source exceeds the 256 KiB limit.")
-        return {"path": relative, "text": raw.decode("utf-8"), "sha256": hashlib.sha256(raw).hexdigest(), "bytes": len(raw)}
+            raw = handle.read(limit + 1)
+        if len(raw) > limit:
+            raise RunFailure("source_too_large", f"The selected source exceeds the {_size(limit)} limit.")
+        identity = {"sha256": hashlib.sha256(raw).hexdigest(), "bytes": len(raw)}
+        if suffix in DOCUMENT_EXTENSIONS:
+            text, details = document_text(suffix, raw)
+            return {"path": relative, "text": text, **identity, **details}
+        return {"path": relative, "text": raw.decode("utf-8"), **identity}
     except (OSError, UnicodeError, ValueError) as error:
         raise RunFailure("source_unavailable", "The selected source cannot be read as UTF-8 text.") from error
+
+
+def _file_limit(suffix: str) -> int:
+    return MAX_DOCUMENT_BYTES if suffix in DOCUMENT_EXTENSIONS else MAX_SOURCE_BYTES
+
+
+def _size(limit: int) -> str:
+    return f"{limit // (1024 * 1024)} MiB" if limit >= 1024 * 1024 else f"{limit // 1024} KiB"
+
+
+def _bounded_text(parts: list[str], separator: str) -> str:
+    text = separator.join(parts)
+    if len(text.encode("utf-8")) > MAX_SOURCE_BYTES:
+        raise RunFailure("source_too_large", f"The document's extracted text exceeds the {_size(MAX_SOURCE_BYTES)} limit.")
+    return text
+
+
+def document_text(suffix: str, raw: bytes) -> tuple[str, dict[str, Any]]:
+    """Extract a PDF's or Word file's text, bounded; refuse with a reason instead of returning nothing."""
+    kind = suffix.lstrip(".")
+    try:
+        if suffix == ".pdf":
+            return _pdf_text(raw)
+        return _docx_text(raw)
+    except RunFailure:
+        raise
+    except Exception as error:  # parser libraries raise many types for damaged files
+        raise RunFailure("source_unavailable", f"The {kind.upper()} file cannot be read; it may be damaged.") from error
+
+
+def _pdf_text(raw: bytes) -> tuple[str, dict[str, Any]]:
+    import pypdf
+
+    reader = pypdf.PdfReader(io.BytesIO(raw))
+    if reader.is_encrypted:
+        raise RunFailure("source_unavailable", "The PDF is encrypted; save an unprotected copy to use it as a source.")
+    count = len(reader.pages)
+    if count == 0:
+        raise RunFailure("source_unavailable", "The PDF file cannot be read; it has no pages.")
+    if count > MAX_DOCUMENT_PAGES:
+        raise RunFailure("source_too_large", f"The PDF has more than {MAX_DOCUMENT_PAGES} pages.")
+    pages, found = [], False
+    for number, page in enumerate(reader.pages, 1):
+        content = (page.extract_text() or "").strip()
+        found = found or bool(content)
+        pages.append(f"[page {number}]\n{content}")
+        _bounded_text(pages, "\n\n")  # stop early on a huge document
+    if not found:
+        raise RunFailure("source_unavailable", "The PDF has no extractable text; a scanned PDF needs OCR first.")
+    return _bounded_text(pages, "\n\n"), {"converted_from": "pdf", "pages": count}
+
+
+def _docx_text(raw: bytes) -> tuple[str, dict[str, Any]]:
+    import docx
+    from docx.table import Table
+
+    with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+        if sum(item.file_size for item in archive.infolist()) > MAX_DOCUMENT_UNPACKED_BYTES:
+            raise RunFailure("source_too_large",
+                             f"The Word file's unpacked size exceeds the {_size(MAX_DOCUMENT_UNPACKED_BYTES)} limit.")
+    lines: list[str] = []
+    for block in docx.Document(io.BytesIO(raw)).iter_inner_content():
+        if isinstance(block, Table):
+            lines.extend(" | ".join(cell.text.strip() for cell in row.cells) for row in block.rows)
+        elif block.text.strip():
+            lines.append(block.text.strip())
+        _bounded_text(lines, "\n")
+    if not lines:
+        raise RunFailure("source_unavailable", "The Word file has no extractable text.")
+    return _bounded_text(lines, "\n"), {"converted_from": "docx"}
 
 
 def admit_sources(root: Path, selected: list[str]) -> list[dict[str, Any]]:

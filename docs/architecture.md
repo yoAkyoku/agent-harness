@@ -44,6 +44,8 @@ The adapter normalises text and tool requests and never executes a streamed call
 
 Artifacts are stored with an immutable identity, SHA-256 and exact bytes. A revision pins its completed base and adds a version instead of overwriting. Any two versions in a Session can be compared as a unified diff (by default a version against its parent); both are re-hashed before comparing, and only the first two diff lines are file headers, so a removed `---` rule still counts as a removed line.
 
+PDF and Word files are sources in `sources.py`: `read_source` keeps the SHA-256 and size of the file's bytes (so admission, excerpts and reads detect a changed document like any changed source) and returns extracted text for the model. `pypdf` reads PDFs page by page with `[page N]` markers; `python-docx` reads `.docx` paragraphs and tables in document order. Extraction is bounded before and during parsing (10 MiB file, 200 pages, 50 MiB unpacked archive, 256 KiB of text), and an encrypted, scanned or damaged document is refused with `source_unavailable` and a reason, never read as empty.
+
 ## Verifiers
 
 Before publication the runtime runs the verifiers in `verifiers.py`. **They receive only the candidate content and the server-held tool evidence, never the task text**, so they cannot encode answers for particular tasks. They reject only statements the tool results do not support:

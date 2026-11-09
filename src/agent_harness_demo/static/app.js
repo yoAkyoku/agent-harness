@@ -150,7 +150,7 @@ function renderSources() {
   $("sources").replaceChildren();
   if (!state.sources.length) {
     const message = document.createElement("p"); message.className = "sidebar-note";
-    message.textContent = t("找不到可用來源。請加入 UTF-8 的 .md、.txt、.csv 或 .json 檔案，每份不超過 256 KiB。");
+    message.textContent = t("找不到可用來源。請加入 UTF-8 的 .md、.txt、.csv、.json（每份不超過 256 KiB），或 PDF、Word（.docx，每份不超過 10 MiB）。");
     $("sources").append(message); return;
   }
   for (const [index, source] of state.sources.entries()) {

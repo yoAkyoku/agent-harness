@@ -157,7 +157,7 @@ const EN = {
   "每次需核准": "Approval each time",
   "唯讀": "Read-only",
   "（伺服器未提供說明）": "(no description from the server)",
-  "找不到可用來源。請加入 UTF-8 的 .md、.txt、.csv 或 .json 檔案，每份不超過 256 KiB。": "No usable sources found. Add UTF-8 .md, .txt, .csv or .json files of up to 256 KiB each.",
+  "找不到可用來源。請加入 UTF-8 的 .md、.txt、.csv、.json（每份不超過 256 KiB），或 PDF、Word（.docx，每份不超過 10 MiB）。": "No usable sources found. Add UTF-8 .md, .txt, .csv or .json files (up to 256 KiB each), or PDF and Word (.docx) files (up to 10 MiB each).",
   "查看": "View",
   "查看來源 {path}": "View source {path}",
   "來源預覽": "Source preview",
