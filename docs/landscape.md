@@ -12,7 +12,7 @@ The point is not feature parity. Those products are coding agents or browsers wi
 |---|---|---|---|---|---|---|
 | Give a task | Thread → turn; IDE, CLI, app, SDK and an App Server protocol | Interactive session, headless `-p` with stream-JSON, Agent SDK | TUI, `opencode run --format json`, shared local server, ACP | Web, headless, SDK and ACP profiles over one plugin tree | Side panel or task tab, often with a "plan first" step | HTTP API, workbench or headless NDJSON client: task + selected sources; idempotent submission key |
 | Show the plan | Plan items in the turn stream | Plan mode (read-only until approved) | `plan` agent (edits denied except plan files) | Plan mode is "soft guidance"; `exit_plan_mode` shows a plan | Plan approval defines the scope of later actions | A plan must be saved before any other tool is offered; the plan is public in the event stream |
-| Approve risky actions | Typed approval requests: accept, accept for session, decline, cancel | Permission modes; deny → ask → allow rules; hooks | `ask` replies once / always / reject | Fail-closed outcomes: allowed-once, rejected, cancelled, unavailable | Per-site / per-action-class grants; take over for sensitive steps | Optional single-use publication approval bound to a parameter digest |
+| Approve risky actions | Typed approval requests: accept, accept for session, decline, cancel | Permission modes; deny → ask → allow rules; hooks | `ask` replies once / always / reject | Fail-closed outcomes: allowed-once, rejected, cancelled, unavailable | Per-site / per-action-class grants; take over for sensitive steps | Single-use approval bound to a parameter digest, for publication (optional) and for every call of an `askTools` MCP tool; unlisted tools are denied |
 | Steer or interrupt | Steer, queue, interrupt mid-turn | Interrupt; queue follow-ups | Enter steers, queue, Esc interrupts; idempotent prompt IDs | Inbox `steer` / `followup` / `cancel(keepInbox)` | Pause, take over, resume | Add a message while the Run works (idempotent by message ID; delivered at the next decision); cancel |
 | Review and undo | Turn diffs; thread revert vs file revert | Checkpoints and rewind | Git snapshots per step, staged `/undo` | Review view; no file undo documented | Drafts instead of commits (e.g. compose but don't send) | Immutable, hashed artifacts; optional draft → publish review mode; revisions are new Runs on a base artifact |
 | Finish | Turn completed item | Result message with subtypes (e.g. max turns) | `run` waits for background jobs | `turn/end` with abort cause | Summary of actions taken | A `task_finish` summary (where offered) is checked against the published artifact; a Run cannot complete with an unresolved tool error or unpublished draft; terminal states cannot be reopened |
@@ -52,6 +52,7 @@ The products' mechanisms were used as a checklist against the code. Each item re
 | 8 | A running Run could only be cancelled; the user had no way to add or correct an instruction without starting over. | Codex steer/queue, opencode `delivery: steer \| queue`, DSH inbox with `steer`/`followup` | `POST /api/runs/{id}/messages` admits a message idempotently by `message_id`; the runtime delivers it as a user turn at the next step boundary and logs `message.queued` / `message.delivered`; messages that never reached the model are reported as `message.undelivered`. |
 | 9 | Scripts and CI could only drive the harness through hand-written HTTP calls. | Claude Code `-p --output-format stream-json`, `opencode run --format json` | `python -m agent_harness_demo.headless` submits a task, prints every saved event as NDJSON plus a `headless.result` line, acknowledges events, reconnects from its cursor, and exits with 0 completed / 1 failed / 2 refused / 3 cancelled / 4 interrupted. |
 | 10 | The tool set was fixed; no external tools could be connected. | MCP servers in Claude, Codex, opencode and DSH | User-configured stdio MCP servers; only allowlisted tools that do not declare side effects are offered, a Run opts into specific tools, results become cited evidence, and servers never see workbench secrets. |
+| 11 | Only publication could ask for approval; any external tool with side effects had to be refused. | Claude Code deny → ask → allow rules; Codex typed approvals; DSH fail-closed outcomes | `askTools` lets an MCP tool with side effects run only after a single-use approval bound to its exact arguments and scope; dispatch refuses it otherwise, and lost outcomes become unknown effects that block automatic resume. |
 
 ## Already in place
 
@@ -61,12 +62,11 @@ The products' mechanisms were used as a checklist against the code. Each item re
 
 ## Backlog, by value for this harness
 
-1. **Permission engine.** Deny → ask → allow rules per tool, with MCP tools that declare side effects allowed only through the existing single-use, digest-bound approval.
-2. **Skills.** `SKILL.md` folders whose names and descriptions sit in context and whose bodies load on demand, inside the context budget.
-3. **Tool hooks.** Pre- and post-execution hooks recorded as events, with deny taking precedence (Claude Code, Codex, opencode). Verifiers must stay independent of hooks.
-4. **Column-aware citations.** A value that cites a table sample should sit under the column its label names.
-5. **A real Claude batch.** The adapter is covered by mock-transport tests only; a recorded run needs an API key and consent to spend.
-6. **Remote MCP servers and OAuth connectors.** Needs a decision on how credentials are obtained and stored.
+1. **Skills.** `SKILL.md` folders whose names and descriptions sit in context and whose bodies load on demand, inside the context budget.
+2. **Tool hooks.** Pre- and post-execution hooks recorded as events, with deny taking precedence (Claude Code, Codex, opencode). Verifiers must stay independent of hooks.
+3. **Column-aware citations.** A value that cites a table sample should sit under the column its label names.
+4. **A real Claude batch.** The adapter is covered by mock-transport tests only; a recorded run needs an API key and consent to spend.
+5. **Remote MCP servers and OAuth connectors.** Needs a decision on how credentials are obtained and stored.
 
 ## Sources
 

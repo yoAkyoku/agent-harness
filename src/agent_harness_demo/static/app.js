@@ -268,10 +268,14 @@ function renderApproval(run) {
   const approval = run?.approvals?.find((item) => ["pending", "approved"].includes(item.status));
   state.approval = approval || null; $("approval-card").hidden = !approval;
   if (!approval) return;
-  $("approval-heading").textContent = approval.status === "approved" ? "已批准，等待派發" : "確認這次成果保存";
-  $("approval-target").textContent = `${toolNames[approval.tool] || approval.tool}：${approval.arguments.name}`;
+  const publication = approval.tool === "artifact_write";
+  $("approval-heading").textContent = approval.status === "approved" ? "已批准，等待派發" : publication ? "確認這次成果保存" : "確認這次外部工具操作";
+  $("approval-target").textContent = publication ? `${toolNames[approval.tool] || approval.tool}：${approval.arguments.name}`
+    : `外部工具 ${approval.tool}（MCP 伺服器 ${approval.scope?.mcp?.server || "未知"}），可能變更資料`;
   $("approval-expiry").textContent = `這次操作有效至 ${new Date(approval.expires_at).toLocaleString("zh-TW")}`;
-  $("approval-content").textContent = approval.arguments.content;
+  $("approval-content").textContent = publication ? approval.arguments.content : JSON.stringify(approval.arguments, null, 2);
+  $("approval-content").setAttribute("aria-label", publication ? "待批准的完整成果內容" : "待批准的完整工具參數");
+  $("approve-operation").textContent = publication ? "批准這次保存" : "批准這次操作";
   $("approval-parameters").textContent = JSON.stringify({tool: approval.tool, arguments: approval.arguments, scope: approval.scope}, null, 2);
   $("approval-version").textContent = `參數版本 SHA-256 ${approval.parameters_sha256}`;
   for (const id of ["approve-operation", "deny-operation"]) $(id).disabled = approval.status !== "pending" || run.status !== "waiting_approval" || state.approvalPending || state.cancelPending;
@@ -401,7 +405,7 @@ function appendEvent(event) {
   }
   const tool = toolNames[event.data.tool] || event.data.tool || "";
   const titles = {"run.accepted": "任務已接收", "run.started": "開始執行", "model.requested": "請求模型", "model.responded": event.data.text || `模型提出 ${event.data.tool_count} 個工具操作`, "plan.updated": "計畫已更新", "tool.requested": `準備：${tool}`, "tool.dispatched": `執行：${tool}`, "tool.completed": `完成：${tool}`, "tool.rejected": `操作被拒絕：${tool}`, "tool.failed": `工具未完成：${tool}`, "correction.available": "錯誤已回饋模型，等待修正", "correction.observed": "已執行後續修正操作", "tool.fault_injected": "受控驗證：刻意注入一次讀取失敗", "artifact.published": `成果已保存：${event.data.name}`, "run.completed": "任務完成", "run.failed": "任務未完成", "run.interrupted": "執行已中斷"};
-  Object.assign(titles, {"context.memory_refreshed": "已選取目前有效記憶", "context.selected": "已選取對話背景", "context.pruned": "已依預算省略已保存背景", "context.limited": "完整請求超出 Context 上限","approval.requested": "等待批准這次保存", "approval.approved": "這次操作已批准", "approval.denied": "這次操作已拒絕", "approval.consumed": "單次批准已用於派發", "approval.expired": "批准已失效", "approval.cancelled": "批准因取消而失效", "run.cancel_requested": "取消請求已保存", "run.cancelled": "執行器已確認停止", "tool.unknown": "已派發操作的結果待確認", "validation.tool_held": "受控驗證：工具在同步點暫停", "message.queued": `已收到補充指示：${event.data.text || ""}`, "message.delivered": "補充指示已送給模型", "message.undelivered": "補充指示未及送給模型，執行已結束"});
+  Object.assign(titles, {"context.memory_refreshed": "已選取目前有效記憶", "context.selected": "已選取對話背景", "context.pruned": "已依預算省略已保存背景", "context.limited": "完整請求超出 Context 上限","approval.requested": event.data.tool && event.data.tool !== "artifact_write" ? `等待批准外部操作：${event.data.tool}` : "等待批准這次保存", "approval.approved": "這次操作已批准", "approval.denied": "這次操作已拒絕", "approval.consumed": "單次批准已用於派發", "approval.expired": "批准已失效", "approval.cancelled": "批准因取消而失效", "run.cancel_requested": "取消請求已保存", "run.cancelled": "執行器已確認停止", "tool.unknown": "已派發操作的結果待確認", "validation.tool_held": "受控驗證：工具在同步點暫停", "message.queued": `已收到補充指示：${event.data.text || ""}`, "message.delivered": "補充指示已送給模型", "message.undelivered": "補充指示未及送給模型，執行已結束"});
   const row = document.createElement("li"); row.className = `event${event.kind.startsWith("run.") || event.kind === "artifact.published" ? " important" : ""}${event.kind.endsWith("failed") || event.kind.endsWith("rejected") ? " failure" : ""}`;
   const details = document.createElement("details"); const summary = document.createElement("summary");
   const number = document.createElement("span"); number.className = "event-number"; number.textContent = String(event.sequence).padStart(2, "0");

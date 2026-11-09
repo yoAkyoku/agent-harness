@@ -26,6 +26,13 @@ def delete_note(name: str) -> str:
     return f"Deleted {name}."
 
 
+@server.tool(annotations=ToolAnnotations(read_only_hint=False, destructive_hint=False))
+def create_note(name: str, text: str) -> str:
+    """Create or replace a note."""
+    NOTES[name] = text
+    return f"Saved note {name}."
+
+
 @server.tool()
 def word_count(text: str) -> int:
     """Count words in a text."""

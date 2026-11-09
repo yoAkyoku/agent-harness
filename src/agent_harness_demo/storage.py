@@ -697,7 +697,8 @@ class Store:
                 raise RunFailure("run_not_active", "The Run is not allowed to dispatch tools.")
             policy = json.loads(run["policy_json"])
             arguments, scope = prepared.arguments, prepared.scope
-            if prepared.call.name == "artifact_write" and policy.get("require_publish_approval"):
+            if (prepared.scope.get("approval") == "required"
+                    or (prepared.call.name == "artifact_write" and policy.get("require_publish_approval"))):
                 row = connection.execute("SELECT * FROM approvals WHERE run_id=? AND id=?", (identity, approval_id)).fetchone()
                 if row is None or row["status"] != "approved" or row["call_id"] != prepared.call.identity or row["tool"] != prepared.call.name or row["parameters_sha256"] != prepared.digest(identity):
                     raise RunFailure("approval_required", "A matching single-use approval is required.")

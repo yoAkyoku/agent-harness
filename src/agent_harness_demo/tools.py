@@ -523,10 +523,13 @@ class Tools:
             raise
         scope = {"workspace": str(self.root),
             "artifact_directory": str(self.store.directory / "artifacts"),
-            "effect": "read_only" if call.name in self.mcp_tools else DEFINITIONS[call.name]["effect"],
+            "effect": ((("external_effect" if self.mcp_tools[call.name].approval else "read_only"))
+                       if call.name in self.mcp_tools else DEFINITIONS[call.name]["effect"]),
             "sources": deepcopy(list(self.sources.values()))}
         if call.name in self.mcp_tools:
             scope["mcp"] = {"server": self.mcp_tools[call.name].server, "tool": self.mcp_tools[call.name].tool}
+            if self.mcp_tools[call.name].approval:
+                scope["approval"] = "required"  # bound into the digest that the single-use approval covers
         if call.name == "base_artifact_read":
             assert self.base_artifact is not None
             scope["base_artifact"] = {key: self.base_artifact[key] for key in ("id", "run_id", "sha256", "version")}

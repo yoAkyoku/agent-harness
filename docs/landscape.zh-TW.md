@@ -12,7 +12,7 @@
 |---|---|---|---|---|---|---|
 | 交付任務 | thread → turn；IDE、CLI、App、SDK 與 App Server 協定 | 互動對話、無頭 `-p` 搭配 stream-JSON、Agent SDK | TUI、`opencode run --format json`、共用的本機伺服器、ACP | Web、headless、SDK、ACP 等設定檔共用一棵外掛樹 | 側邊欄或任務分頁，常先「提出計畫」 | HTTP API、工作台或無頭 NDJSON 用戶端：任務＋選定來源；重送同一個 key 會拿回原本的 Run |
 | 顯示計畫 | turn 串流中的計畫項目 | Plan 模式（核准前唯讀） | `plan` agent（除計畫檔外禁止編輯） | Plan 模式只是「軟性引導」；`exit_plan_mode` 顯示計畫 | 核准的計畫界定之後動作的範圍 | 必須先保存計畫，其他工具才會開放；計畫公開在事件串流中 |
-| 核准高風險動作 | 型別化的核准請求：接受、本次對話都接受、拒絕、取消 | 權限模式；deny → ask → allow 規則；hooks | `ask` 可回覆一次／一律／拒絕 | 失敗即關閉的結果：allowed-once、rejected、cancelled、unavailable | 依網站／動作類別授權；敏感步驟由使用者接手 | 可選的一次性發布核准，綁定參數摘要 |
+| 核准高風險動作 | 型別化的核准請求：接受、本次對話都接受、拒絕、取消 | 權限模式；deny → ask → allow 規則；hooks | `ask` 可回覆一次／一律／拒絕 | 失敗即關閉的結果：allowed-once、rejected、cancelled、unavailable | 依網站／動作類別授權；敏感步驟由使用者接手 | 單次核准綁定參數摘要，用於發布（可選）與每次 `askTools` MCP 工具呼叫；未列出的工具一律拒絕 |
 | 中途引導或中斷 | steer、排隊、中斷 | 中斷；排隊後續訊息 | Enter 引導、排隊、Esc 中斷；提示 ID 具冪等性 | inbox 的 `steer`／`followup`／`cancel(keepInbox)` | 暫停、接手、繼續 | Run 進行中可追加訊息（以訊息 ID 冪等受理，於下一次決策送達）；可取消 |
 | 檢視與復原 | turn diff；thread 還原與檔案還原分開 | 檢查點與 rewind | 每步 Git 快照、分段 `/undo` | Review 檢視；文件未提到檔案復原 | 以草稿代替提交（例如寫好但不送出） | 不可變、有雜湊的成果；可選草稿 → 發布審閱模式；修訂是以基準成果開新的 Run |
 | 完成 | turn completed 項目 | 結果訊息帶子類型（例如達到回合上限） | `run` 會等背景工作結束 | `turn/end` 帶中止原因 | 列出已執行的動作 | 有提供 `task_finish` 時，其摘要會和已發布成果比對；仍有未解決的工具錯誤或未發布草稿時不能完成；終止狀態不會被重新打開 |
@@ -52,6 +52,7 @@
 | 8 | 執行中的 Run 只能取消，使用者無法在不重來的情況下補充或修正指示。 | Codex steer/queue、opencode `delivery: steer \| queue`、DSH inbox 的 `steer`／`followup` | `POST /api/runs/{id}/messages` 以 `message_id` 冪等受理訊息；Runtime 在下一個步驟邊界以使用者回合送達，記錄 `message.queued`／`message.delivered`；沒送到模型的訊息以 `message.undelivered` 回報。 |
 | 9 | 腳本與 CI 只能自行撰寫 HTTP 呼叫來驅動 harness。 | Claude Code `-p --output-format stream-json`、`opencode run --format json` | `python -m agent_harness_demo.headless` 提交任務，把每個已保存事件輸出為 NDJSON，最後輸出 `headless.result`；逐筆確認事件、從 cursor 重新連線，退出碼 0 完成／1 失敗／2 被拒／3 取消／4 中斷。 |
 | 10 | 工具集固定，無法接上外部工具。 | Claude、Codex、opencode、DSH 的 MCP 伺服器 | 使用者設定的 stdio MCP 伺服器；只提供列在允許清單、且未宣告副作用的工具，Run 選用特定工具，結果成為被引用的證據，伺服器拿不到工作台的秘密。 |
+| 11 | 只有發布能要求核准，任何有副作用的外部工具都只能拒絕。 | Claude Code 的 deny → ask → allow 規則、Codex 的型別化核准、DSH 失敗即關閉的結果 | `askTools` 讓有副作用的 MCP 工具只在單次核准後執行，核准綁定確切參數與範圍；否則派送一律拒絕，結果遺失時成為效果未知並阻擋自動續做。 |
 
 ## 已經具備
 
@@ -61,12 +62,11 @@
 
 ## 待辦（依對本專案的價值排序）
 
-1. **權限引擎。** 依 deny → ask → allow 規則判斷每個工具；宣告有副作用的 MCP 工具只能透過現有的單次、綁定參數摘要的核准執行。
-2. **Skills。** `SKILL.md` 資料夾：名稱與描述放在 Context，內容需要時才載入，並受 Context 預算約束。
-3. **工具 hooks。** 執行前後的 hook 記錄為事件，deny 優先（Claude Code、Codex、opencode）；驗證器必須與 hooks 互相獨立。
-4. **欄位感知的引用。** 引用表格樣本的數值，必須位在標籤所指的欄位。
-5. **真實的 Claude 批次。** 轉接器目前只有模擬傳輸測試；要錄一次真實執行需要 API 金鑰與花費同意。
-6. **遠端 MCP 伺服器與 OAuth 連接器。** 需要決定憑證如何取得與保存。
+1. **Skills。** `SKILL.md` 資料夾：名稱與描述放在 Context，內容需要時才載入，並受 Context 預算約束。
+2. **工具 hooks。** 執行前後的 hook 記錄為事件，deny 優先（Claude Code、Codex、opencode）；驗證器必須與 hooks 互相獨立。
+3. **欄位感知的引用。** 引用表格樣本的數值，必須位在標籤所指的欄位。
+4. **真實的 Claude 批次。** 轉接器目前只有模擬傳輸測試；要錄一次真實執行需要 API 金鑰與花費同意。
+5. **遠端 MCP 伺服器與 OAuth 連接器。** 需要決定憑證如何取得與保存。
 
 ## 來源
 

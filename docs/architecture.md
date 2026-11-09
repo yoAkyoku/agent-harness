@@ -78,9 +78,11 @@ Current Claude models always think and bind each thinking block to the exact con
 
 The app answers only to loopback host names (DNS-rebinding defence) and refuses foreign `Origin` headers. The command-line entry point also requires a per-launch access token: a browser presents `/?token=…` once and receives an HttpOnly, SameSite=Strict cookie named after the token, so workbenches on other ports never share it; scripts send `Authorization: Bearer <token>`. Every response refuses framing and sends no referrer.
 
-## Read-only MCP tools
+## MCP tools and permission rules
 
 `mcp_hub.py` starts the stdio servers named in the `--mcp-config` file when the app starts and closes them with it. A server that fails to start is reported in `/api/config` and does not stop the workbench. A tool is offered only if the user lists it in `allowedTools`; server annotations can only narrow that list (a tool that declares `read_only_hint: false` or `destructive_hint: true` is excluded), never widen it. Third-party descriptions are capped at 400 characters and introduced as untrusted, and input schemas must be valid JSON Schema objects under 4 KiB. A Run selects tools at admission like its sources; the selection is part of the Run's policy, so checkpoints and resumes keep it. A call is validated against the server's schema, dispatched as a `read_only` effect, limited to 30 s and 64 KiB of text, and its result becomes evidence (`mcp/<server>/<tool>`, SHA-256, text) that artifacts cite and verifiers check. Error results return to the model as correctable errors that a corrected retry of the same tool resolves. Servers get the MCP SDK's minimal inherited environment plus their configured `env`. Remote servers and OAuth connectors are not supported yet.
+
+Permission rules are deny → ask → allow per tool: unlisted tools are never offered; `askTools` entries may have side effects, so their prepared scope carries `approval: required` and `effect: external_effect`. That scope is part of the digest a single-use approval binds to, and the store refuses to dispatch such a call without a matching, unexpired approval, so a denied, expired or cancelled approval means it never runs. An approved call whose outcome is lost in a crash is reported as an unknown effect and blocks automatic resume, like a publication; its errors are not retried automatically.
 
 ## Headless clients
 

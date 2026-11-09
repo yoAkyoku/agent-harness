@@ -263,7 +263,7 @@ class Runtime:
             raise RunFailure("mcp_tool_unavailable", "This Run selected MCP tools, but no MCP servers are configured.")
         mcp_tools = self.mcp.select(selected_mcp) if self.mcp is not None and selected_mcp else {}
         # MCP tools are read-only evidence producers, like the built-in read tools.
-        read_tools = READ_TOOLS | set(mcp_tools)
+        read_tools = READ_TOOLS | {name for name, tool in mcp_tools.items() if not tool.approval}
         tools = Tools(self.store, identity, root, run["sources"], require_citations=require_citations,
                       receipt_completion=receipt_mode,
                       base_artifact=run.get("base_artifact"),
@@ -886,7 +886,8 @@ class Runtime:
                         await self._record(identity, "plan.updated", {"steps": result["steps"], "reused": True})
                 else:
                     approval_id = None
-                    if call.name == "artifact_write" and run.get("policy", {}).get("require_publish_approval"):
+                    if (prepared.scope.get("approval") == "required"
+                            or (call.name == "artifact_write" and run.get("policy", {}).get("require_publish_approval"))):
                         approval = await self.store.request_approval(identity, prepared)
                         approval_id = approval["id"]
                         await self.notify()

@@ -81,19 +81,20 @@ uv run python -m agent_harness_demo.headless --workspace ./docs --source notes.m
 
 Exit codes: `0` completed, `1` failed, `2` refused request or usage error, `3` cancelled, `4` interrupted. The client acknowledges each event and reconnects from its last cursor if the stream drops; stopping it does not stop the Run.
 
-### Read-only MCP tools
+### MCP tools
 
-Connect local [MCP](https://modelcontextprotocol.io) servers with a config file in the familiar `mcpServers` shape. Each server must list the tools it may expose:
+Connect local [MCP](https://modelcontextprotocol.io) servers with a config file in the familiar `mcpServers` shape. Each tool falls under one rule: `allowedTools` (read-only, runs freely), `askTools` (may change data; every call waits for your single-use approval of the exact arguments) or, if unlisted, deny:
 
 ```json
-{"mcpServers": {"notes": {"command": "uvx", "args": ["my-notes-mcp"], "allowedTools": ["search_notes"]}}}
+{"mcpServers": {"notes": {"command": "uvx", "args": ["my-notes-mcp"],
+  "allowedTools": ["search_notes"], "askTools": ["create_note"]}}}
 ```
 
 ```bash
 uv run python -m agent_harness_demo --mcp-config mcp.json --store .private/demo
 ```
 
-`/api/config` lists each server's offered and excluded tools. A Run opts into tools by name (`"mcp_tools": ["mcp__notes__search_notes"]`, or `--mcp-tool` in headless mode). Results become evidence such as `[mcp/notes/search_notes E2]`, checked like any source. Only tools on the allowlist are offered, and a tool that declares side effects is refused even if listed. Servers receive only a minimal environment plus their configured `env`, never the workbench token or API keys. Local stdio servers only for now; tools with side effects wait for the permission engine.
+`/api/config` lists each server's offered and excluded tools. A Run opts into tools by name (`"mcp_tools": ["mcp__notes__search_notes"]`, or `--mcp-tool` in headless mode). Results become evidence such as `[mcp/notes/search_notes E2]`, checked like any source. A tool in `allowedTools` that declares side effects is refused; list it in `askTools` to allow it with approval. A denied or expired approval means the call never runs. Servers receive only a minimal environment plus their configured `env`, never the workbench token or API keys. Local stdio servers only for now.
 
 ## Tests
 

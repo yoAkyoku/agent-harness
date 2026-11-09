@@ -81,19 +81,20 @@ uv run python -m agent_harness_demo.headless --workspace ./docs --source notes.m
 
 退出碼：`0` 完成、`1` 失敗、`2` 請求被拒或用法錯誤、`3` 已取消、`4` 已中斷。用戶端逐筆確認事件，串流中斷時從上次的 cursor 重新接上；結束用戶端不會停止 Run。
 
-### 唯讀 MCP 工具
+### MCP 工具
 
-用 `mcpServers` 格式的設定檔連接本機 [MCP](https://modelcontextprotocol.io) 伺服器，每個伺服器都必須列出允許提供的工具：
+用 `mcpServers` 格式的設定檔連接本機 [MCP](https://modelcontextprotocol.io) 伺服器。每個工具只屬於一條規則：`allowedTools`（唯讀，可直接執行）、`askTools`（可能變更資料，每次呼叫都要等你對確切參數做單次核准），或未列出即拒絕：
 
 ```json
-{"mcpServers": {"notes": {"command": "uvx", "args": ["my-notes-mcp"], "allowedTools": ["search_notes"]}}}
+{"mcpServers": {"notes": {"command": "uvx", "args": ["my-notes-mcp"],
+  "allowedTools": ["search_notes"], "askTools": ["create_note"]}}}
 ```
 
 ```bash
 uv run python -m agent_harness_demo --mcp-config mcp.json --store .private/demo
 ```
 
-`/api/config` 會列出每個伺服器提供與排除的工具。Run 依名稱選用工具（`"mcp_tools": ["mcp__notes__search_notes"]`，無頭模式用 `--mcp-tool`）。結果會成為像 `[mcp/notes/search_notes E2]` 的證據，和來源一樣受檢查。只有允許清單上的工具會被提供；即使列在清單上，工具若自行宣告有副作用也會被拒絕。伺服器只會收到最小的環境變數加上設定中的 `env`，不會拿到工作台權杖或 API 金鑰。目前只支援本機 stdio 伺服器；有副作用的工具要等權限引擎完成。
+`/api/config` 會列出每個伺服器提供與排除的工具。Run 依名稱選用工具（`"mcp_tools": ["mcp__notes__search_notes"]`，無頭模式用 `--mcp-tool`）。結果會成為像 `[mcp/notes/search_notes E2]` 的證據，和來源一樣受檢查。列在 `allowedTools` 的工具若自行宣告有副作用會被拒絕；改列在 `askTools` 才能在核准後使用。核准被拒或過期時，該呼叫永遠不會執行。伺服器只會收到最小的環境變數加上設定中的 `env`，不會拿到工作台權杖或 API 金鑰。目前只支援本機 stdio 伺服器。
 
 ## 測試
 

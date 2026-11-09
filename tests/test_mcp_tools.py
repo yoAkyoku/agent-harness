@@ -58,7 +58,7 @@ def test_only_allowed_read_only_tools_are_offered(tmp_path: Path) -> None:
     assert notes["status"] == "connected"
     assert [tool["name"] for tool in notes["tools"]] == ["mcp__notes__env_has", "mcp__notes__lookup_note", SEARCH]
     excluded = {item["tool"]: item["reason"] for item in notes["excluded"]}
-    assert excluded == {"delete_note": "declares_side_effects", "word_count": "not_allowed"}
+    assert excluded == {"create_note": "not_allowed", "delete_note": "declares_side_effects", "word_count": "not_allowed"}
 
 
 def test_selected_mcp_tool_result_is_citable_evidence(tmp_path: Path) -> None:
