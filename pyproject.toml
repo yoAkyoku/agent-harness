@@ -10,6 +10,7 @@ dependencies = [
     "jsonschema>=4.26,<5",
     "mcp>=2.3,<3",
     "pypdf>=6,<7",
+    "pypdfium2>=4.30,<6",
     "python-docx>=1.1,<2",
     "uvicorn[standard]>=0.34,<1",
     "websockets>=13,<18",
@@ -33,3 +34,7 @@ pythonpath = ["src"]
 python_version = "3.12"
 strict = true
 files = ["src/agent_harness"]
+
+[[tool.mypy.overrides]]
+module = ["pypdfium2"]  # ships no type information
+ignore_missing_imports = true

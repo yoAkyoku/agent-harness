@@ -89,7 +89,7 @@ docker run --rm -p 127.0.0.1:8787:8787 -e ANTHROPIC_API_KEY agent-harness --prov
 
 ### PDF 與 Word 來源
 
-工作區中的 PDF 與 Word（`.docx`）檔會和其他來源一起列出。模型讀到的是擷取出的文字：PDF 每頁標上 `[page N]`，Word 表格轉成 `儲存格 | 儲存格` 的列。引用與變更偵測使用檔案本身的雜湊。沒有文字層的掃描 PDF、加密 PDF 或損壞的檔案會附上原因拒絕，不會當成空白讀取。限制：每個檔案 10 MiB、200 頁、`.docx` 解壓後 50 MiB、擷取文字 256 KiB。
+工作區中的 PDF 與 Word（`.docx`）檔會和其他來源一起列出。模型讀到的是擷取出的文字：PDF 每頁標上 `[page N]`，Word 表格轉成 `儲存格 | 儲存格` 的列。引用與變更偵測使用檔案本身的雜湊。加密 PDF 或損壞的檔案會附上原因拒絕，不會當成空白讀取。沒有文字層的掃描 PDF 也會被拒絕，除非你用 `--tesseract` 指定本機的 [Tesseract](https://github.com/tesseract-ocr/tesseract)（其他語言加上 `--ocr-languages eng+chi_tra`）：這時每頁會轉成影像再經 OCR 讀取，並標上 `[page N, OCR]`，避免把辨識結果誤當成文字層。OCR 結果依檔案雜湊快取，上限 30 頁。限制：每個檔案 10 MiB、200 頁、`.docx` 解壓後 50 MiB、擷取文字 256 KiB。
 
 來源清單下方的「上傳檔案」（或以原始位元組呼叫 `POST /api/workspaces/{id}/uploads?name=<檔名>`）會把檔案存進工作資料夾的 `uploads/`，成為來源並自動勾選。寫入前會先檢查：不含資料夾的檔名與來源類型、該類型的大小上限，以及能否讀取（UTF-8 文字，或有可擷取文字的 PDF／Word）。上傳不會覆寫：再次送出相同內容會回傳已保存的檔案，同名但內容不同則拒絕。
 
@@ -165,7 +165,7 @@ for file in src/agent_harness/static/*.js; do node --check "$file"; done
 
 ## 限制
 
-單一使用者、只綁定 localhost 並需每次啟動的權杖、受限工具：每個任務最多八份來源（UTF-8 文字每份 256 KiB，或 PDF、Word 檔每份 10 MiB 且擷取文字不超過 256 KiB；不做 OCR）；沒有 shell、瀏覽器或網路工具，沒有多租戶或分散式 worker，也不宣稱正式環境的效能。引用能證明數值來源，不代表每句話都正確。已發布成果不等於整個 Run 完成。中斷時效果未知的操作不會自動重送或回滾，續做必須明確建立新 Run。
+單一使用者、只綁定 localhost 並需每次啟動的權杖、受限工具：每個任務最多八份來源（UTF-8 文字每份 256 KiB，或 PDF、Word 檔每份 10 MiB 且擷取文字不超過 256 KiB；OCR 需加上 `--tesseract`）；沒有 shell、瀏覽器或網路工具，沒有多租戶或分散式 worker，也不宣稱正式環境的效能。引用能證明數值來源，不代表每句話都正確。已發布成果不等於整個 Run 完成。中斷時效果未知的操作不會自動重送或回滾，續做必須明確建立新 Run。
 
 ## 授權
 

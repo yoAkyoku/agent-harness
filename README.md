@@ -89,7 +89,7 @@ Put house rules for a workspace in an `AGENTS.md` at its root (UTF-8, at most 8 
 
 ### PDF and Word sources
 
-PDF and Word (`.docx`) files in the workspace are listed with the other sources. The model reads their extracted text: PDF pages are marked `[page N]`, and Word tables become `cell | cell` rows. Citations and change detection use the hash of the file itself. A scanned PDF without a text layer, an encrypted PDF or a damaged file is refused with a reason rather than read as empty. Limits: 10 MiB per file, 200 pages, 50 MiB unpacked for `.docx`, and 256 KiB of extracted text.
+PDF and Word (`.docx`) files in the workspace are listed with the other sources. The model reads their extracted text: PDF pages are marked `[page N]`, and Word tables become `cell | cell` rows. Citations and change detection use the hash of the file itself. An encrypted PDF or a damaged file is refused with a reason rather than read as empty. A scanned PDF with no text layer is refused too, unless you name a local [Tesseract](https://github.com/tesseract-ocr/tesseract) with `--tesseract` (and `--ocr-languages eng+chi_tra` for other languages): its pages are then rendered and read through OCR, marked `[page N, OCR]` so recognized text is never mistaken for a text layer. OCR results are cached by the file's hash and limited to 30 pages. Limits: 10 MiB per file, 200 pages, 50 MiB unpacked for `.docx`, and 256 KiB of extracted text.
 
 “Upload files” under the source list (or `POST /api/workspaces/{id}/uploads?name=<file>` with the raw bytes) saves files into the workspace's `uploads/` folder, where they become sources and are selected for the task. Each file is checked before anything is written: a plain file name with a source type, the type's size limit, and readability (UTF-8 text, or a PDF/Word file with extractable text). Uploads never overwrite: sending identical bytes again returns the saved file, and different bytes under an existing name are refused.
 
@@ -165,7 +165,7 @@ Tests go through the public HTTP/WebSocket interface and replace only the model'
 
 ## Limits
 
-Single user, bound to localhost behind a per-launch token, with restricted tools: at most eight sources per task (UTF-8 text up to 256 KiB, or PDF and Word files up to 10 MiB whose extracted text fits 256 KiB; no OCR), no shell, browser or network tools, no multi-tenant or distributed workers, and no production performance claims. A citation proves where a value came from, not that every sentence is correct. A published artifact does not mean the Run completed. Effects whose outcome is unknown after a crash are never retried or rolled back; continuing requires an explicit new Run.
+Single user, bound to localhost behind a per-launch token, with restricted tools: at most eight sources per task (UTF-8 text up to 256 KiB, or PDF and Word files up to 10 MiB whose extracted text fits 256 KiB; OCR only with `--tesseract`), no shell, browser or network tools, no multi-tenant or distributed workers, and no production performance claims. A citation proves where a value came from, not that every sentence is correct. A published artifact does not mean the Run completed. Effects whose outcome is unknown after a crash are never retried or rolled back; continuing requires an explicit new Run.
 
 ## License
 

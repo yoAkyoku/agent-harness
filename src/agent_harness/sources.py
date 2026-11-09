@@ -24,6 +24,13 @@ MAX_SOURCE_BYTES = 262_144  # a text file, or the text extracted from a document
 MAX_DOCUMENT_BYTES = 10 * 1024 * 1024
 MAX_DOCUMENT_PAGES = 200
 MAX_DOCUMENT_UNPACKED_BYTES = 50 * 1024 * 1024  # a .docx is a zip archive; refuse ones that inflate beyond this
+# Optional OCR for PDFs without a text layer (configure_ocr); off unless the workbench names a Tesseract.
+OCR_COMMAND: tuple[str, ...] | None = None
+OCR_LANGUAGES = "eng"
+OCR_SCALE = 300 / 72  # render at 300 dpi, Tesseract's preferred resolution
+OCR_PAGE_TIMEOUT_SECONDS = 60
+MAX_OCR_PAGES = 30
+_OCR_CACHE: dict[tuple[str, tuple[str, ...], str], str] = {}
 MAX_SOURCES = 8
 MAX_SOURCE_PATH = 500
 MAX_LABELLED_LINES = 16
@@ -187,8 +194,61 @@ def _pdf_text(raw: bytes) -> tuple[str, dict[str, Any]]:
         pages.append(f"[page {number}]\n{content}")
         _bounded_text(pages, "\n\n")  # stop early on a huge document
     if not found:
-        raise RunFailure("source_unavailable", "The PDF has no extractable text; a scanned PDF needs OCR first.")
+        if OCR_COMMAND is None:
+            raise RunFailure("source_unavailable", "The PDF has no extractable text; a scanned PDF needs OCR "
+                             "(start the workbench with --tesseract to read it).")
+        return _ocr_text(raw, count), {"converted_from": "pdf", "pages": count, "ocr": "tesseract"}
     return _bounded_text(pages, "\n\n"), {"converted_from": "pdf", "pages": count}
+
+
+def configure_ocr(command: list[str] | None, languages: str = "eng") -> None:
+    """Use this OCR program (Tesseract's command line) for PDFs without a text layer; None turns OCR off."""
+    global OCR_COMMAND, OCR_LANGUAGES
+    OCR_COMMAND, OCR_LANGUAGES = (tuple(command) if command else None), languages
+    _OCR_CACHE.clear()
+
+
+def _ocr_text(raw: bytes, count: int) -> str:
+    """Render each page to a grayscale PGM image and read it with the OCR program; cached by file hash."""
+    if count > MAX_OCR_PAGES:
+        raise RunFailure("source_too_large", f"OCR is limited to {MAX_OCR_PAGES} pages.")
+    assert OCR_COMMAND is not None
+    key = (hashlib.sha256(raw).hexdigest(), OCR_COMMAND, OCR_LANGUAGES)
+    if key in _OCR_CACHE:
+        return _OCR_CACHE[key]
+    import pypdfium2
+    import subprocess
+    import tempfile
+
+    pages: list[str] = []
+    document = pypdfium2.PdfDocument(raw)
+    try:
+        with tempfile.TemporaryDirectory(prefix="agent-harness-ocr-") as folder:
+            for number in range(1, count + 1):
+                bitmap = document[number - 1].render(scale=OCR_SCALE, grayscale=True)
+                width, height, stride = bitmap.width, bitmap.height, bitmap.stride
+                pixels = bytes(bitmap.buffer)
+                image = Path(folder) / f"page-{number}.pgm"
+                image.write_bytes(f"P5 {width} {height} 255\n".encode() +
+                                  b"".join(pixels[row * stride: row * stride + width] for row in range(height)))
+                try:
+                    done = subprocess.run([*OCR_COMMAND, str(image), "stdout", "-l", OCR_LANGUAGES], capture_output=True,
+                                          timeout=OCR_PAGE_TIMEOUT_SECONDS, check=False)
+                except (OSError, subprocess.TimeoutExpired) as error:
+                    raise RunFailure("source_unavailable", f"OCR failed on page {number}: {type(error).__name__}.") from error
+                if done.returncode != 0:
+                    raise RunFailure("source_unavailable", f"OCR failed on page {number} (exit status {done.returncode}).")
+                pages.append(f"[page {number}, OCR]\n{done.stdout.decode('utf-8', errors='replace').strip()}")
+                _bounded_text(pages, "\n\n")
+    finally:
+        document.close()
+    if not any(page.split("\n", 1)[1] for page in pages):
+        raise RunFailure("source_unavailable", "OCR found no text in the scanned PDF.")
+    text = _bounded_text(pages, "\n\n")
+    if len(_OCR_CACHE) >= 32:
+        _OCR_CACHE.pop(next(iter(_OCR_CACHE)))
+    _OCR_CACHE[key] = text
+    return text
 
 
 def _docx_text(raw: bytes) -> tuple[str, dict[str, Any]]:

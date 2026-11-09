@@ -37,7 +37,7 @@ from .local import MIN_TOKEN_LENGTH, AccessTokenMiddleware, LocalOriginMiddlewar
 from .model import DecisionModel, FixtureTransport, ModelAdapter, ModelSettings
 from .ownership import StoreLease
 from .runtime import Runtime
-from .sources import MAX_SOURCES, admit_sources, catalog, read_source, relevant_excerpts, workspace_root
+from .sources import MAX_SOURCES, admit_sources, catalog, configure_ocr, read_source, relevant_excerpts, workspace_root
 from .storage import Store
 
 # Host names the app answers to; anything else (DNS rebinding) is refused.
@@ -134,6 +134,8 @@ def create_app(
     hooks_config: Path | None = None,
     hooks_transport: httpx.AsyncBaseTransport | None = None,
     allow_command_hooks: bool = False,
+    ocr_command: list[str] | None = None,
+    ocr_languages: str = "eng",
 ) -> FastAPI:
     """Build the workbench app.
 
@@ -163,6 +165,7 @@ def create_app(
         validation["hold_first_tool"] = hold_first_tool
     mcp = McpHub.from_config(mcp_config) if mcp_config is not None else None
     skills = SkillLibrary.from_directory(skills_dir) if skills_dir is not None else None
+    configure_ocr(ocr_command, ocr_languages)  # PDFs without a text layer go through OCR only when this is set
     hooks = (HookRunner.from_config(hooks_config, hooks_transport, allow_commands=allow_command_hooks)
              if hooks_config is not None else None)
 
@@ -232,7 +235,8 @@ def create_app(
                 "validation": validation, "implementation": implementation,
                 "mcp": mcp.status() if mcp is not None else {"servers": {}},
                 "skills": skills.status() if skills is not None else {"available": [], "excluded": []},
-                "prices": prices or {}, "hooks": hooks.status() if hooks is not None else []}
+                "prices": prices or {}, "hooks": hooks.status() if hooks is not None else [],
+                "ocr": {"enabled": ocr_command is not None, **({"languages": ocr_languages} if ocr_command else {})}}
 
     @app.post("/api/workspaces", status_code=201)
     async def add_workspace(body: WorkspaceInput) -> dict[str, Any]:

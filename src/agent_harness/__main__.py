@@ -1,5 +1,7 @@
 import argparse
 import os
+import re
+import shutil
 from pathlib import Path
 import secrets
 
@@ -51,11 +53,28 @@ def parser() -> argparse.ArgumentParser:
     parser.add_argument("--hooks-config", type=Path,
                         help="JSON file with HTTP webhooks called before tool calls (allow/deny) and after them (notify); "
                              "command hooks need --allow-command-hooks.")
+    parser.add_argument("--tesseract", type=Path,
+                        help="A local Tesseract program; PDFs without a text layer are then read through OCR.")
+    parser.add_argument("--ocr-languages", help="Tesseract language codes joined by +, such as eng+chi_tra (default eng).")
     parser.add_argument("--allow-command-hooks", action="store_true",
                         help="Allow hooks that start local programs (argument lists, never a shell) from --hooks-config.")
     parser.add_argument("--fault-once-source-read", action="store_true", help="Controlled validation: fail each Run's first source_read before filesystem access.")
     parser.add_argument("--hold-first-tool", choices=["source_read", "artifact_write"], help="Controlled validation: hold the service's first matching read before access, or publish before result acknowledgement.")
     return parser
+
+
+def build_ocr(arguments: argparse.Namespace) -> list[str] | None:
+    """The OCR command from --tesseract; raises ValueError with a user-facing reason."""
+    if arguments.tesseract is None:
+        if arguments.ocr_languages is not None:
+            raise ValueError("--ocr-languages needs --tesseract.")
+        return None
+    program = arguments.tesseract if arguments.tesseract.is_file() else shutil.which(str(arguments.tesseract))
+    if program is None:
+        raise ValueError(f"--tesseract {arguments.tesseract} is not a program on this computer.")
+    if arguments.ocr_languages is not None and not re.fullmatch(r"[A-Za-z_]{2,20}(\+[A-Za-z_]{2,20}){0,7}", arguments.ocr_languages):
+        raise ValueError("--ocr-languages takes Tesseract language codes joined by +, such as eng+chi_tra.")
+    return [str(program)]
 
 
 def build_prices(arguments: argparse.Namespace, settings: ModelSettings) -> dict[str, dict[str, float]]:
@@ -129,6 +148,7 @@ def main() -> None:
     try:
         settings = build_settings(arguments)
         prices = build_prices(arguments, settings)
+        ocr_command = build_ocr(arguments)
     except ValueError as error:
         cli.error(str(error))
     configured = os.environ.get(TOKEN_ENV)
@@ -139,7 +159,8 @@ def main() -> None:
         app = create_app(arguments.store.resolve(), model_settings=settings, fault_once_source_read=arguments.fault_once_source_read,
                          hold_first_tool=arguments.hold_first_tool, access_token=token, mcp_config=arguments.mcp_config,
                          skills_dir=arguments.skills_dir, prices=prices, hooks_config=arguments.hooks_config,
-                         allow_command_hooks=arguments.allow_command_hooks)
+                         allow_command_hooks=arguments.allow_command_hooks,
+                         ocr_command=ocr_command, ocr_languages=arguments.ocr_languages or "eng")
     except ValueError as error:
         cli.error(str(error))
     shown = "<the value of " + TOKEN_ENV + ">" if configured else token

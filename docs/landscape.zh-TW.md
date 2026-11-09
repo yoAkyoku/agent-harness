@@ -60,7 +60,7 @@
 | 16 | 工作區無法帶著固定指令，每個任務都得重述做法。 | Codex、opencode、DSH 的 `AGENTS.md`；Claude Code 的 `CLAUDE.md` | Run 可套用工作區的 `AGENTS.md`（8 KiB、UTF-8、一般檔案）。文字與 SHA-256 在受理時固定、續做時保留，且位於 harness 規則之下，不能增加來源、工具或批准。只讀根目錄一個檔案，不做目錄鏈。 |
 | 17 | Run 只計算模型與工具呼叫次數，沒有 token 用量與費用。 | Claude Code 的 `/cost`；Codex 的 token 計數；opencode 的 session 費用 | 每個 Run 在保存每次回覆事件的同一交易中加總供應商回報的 tokens。`--price MODEL=INPUT,OUTPUT` 提供在受理時固定的費用估算；未回報用量的回覆會被計數，估算標示為不完整。沒有內建價格表。 |
 | 18 | 工作台只有繁體中文介面。 | 參考產品多以英文為主要介面 | 新增英文／繁中切換（預設依瀏覽器語言，選擇存在本機）。所有介面字串都經過同一份以原中文為鍵的字典；新增字串若未包裝或缺英文，測試就會失敗。檔案內容與模型輸出不翻譯。 |
-| 19 | 只有純文字檔能當來源。 | Claude 與 Codex 的檔案附件；AI 瀏覽器的文件閱讀 | 工作區中的 PDF 與 Word（`.docx`）檔可作為來源：模型讀取有上限的擷取文字，引用與變更偵測使用檔案本身的雜湊，無法讀取的文件會附上原因拒絕。工作台上傳的檔案經相同檢查後存進 `uploads/`，且不會覆寫。不做 OCR。 |
+| 19 | 只有純文字檔能當來源。 | Claude 與 Codex 的檔案附件；AI 瀏覽器的文件閱讀 | 工作區中的 PDF 與 Word（`.docx`）檔可作為來源：模型讀取有上限的擷取文字，引用與變更偵測使用檔案本身的雜湊，無法讀取的文件會附上原因拒絕。工作台上傳的檔案經相同檢查後存進 `uploads/`，且不會覆寫。以 `--tesseract` 指定本機 Tesseract 時，掃描 PDF 會經 OCR 讀取，文字標示為 OCR。 |
 | 20 | MCP 伺服器只能以本機指令執行。 | Claude、Codex、opencode 的遠端 MCP 伺服器 | 透過 Streamable HTTP 連接遠端伺服器（HTTPS，或連到迴路位址的 HTTP），憑證從設定所指名的環境變數讀取，不寫在設定中也不顯示。不支援 OAuth。 |
 | 21 | Harness 之外無法否決或觀察工具呼叫。 | Claude Code、Codex、opencode 的 hooks | 工具呼叫前（允許／拒絕；任何 deny 優先；連不上或回覆無效視為 deny）與呼叫後（只觀察）的 HTTP webhook，並記錄為 Run 事件。本機程式只能以參數清單執行（絕不經過 shell），需加上 `--allow-command-hooks`，且只給最小環境變數；hooks 不能修改參數，驗證器也不參考它們。 |
 | 22 | Token 用量與費用只能看單一 Run。 | Claude Code 與 opencode 的 session 費用 | `GET /api/sessions/{id}/usage` 加總對話中的所有 Run；有 Run 沒有單價或未回報用量時，估算標示為不完整。 |
@@ -76,7 +76,6 @@
 
 1. **真實的 Claude 批次。** 轉接器目前只有模擬傳輸測試；要錄一次真實執行需要 API 金鑰與花費同意。
 2. **OAuth 連接器。** 遠端 MCP 伺服器的憑證來自環境變數；要透過 OAuth 登入，需要決定接哪些服務、權杖如何保存。
-3. **掃描 PDF 的 OCR。** 沒有文字層的文件目前會被拒絕。
 
 ## 來源
 
