@@ -55,6 +55,7 @@ The products' mechanisms were used as a checklist against the code. Each item re
 | 11 | Only publication could ask for approval; any external tool with side effects had to be refused. | Claude Code deny → ask → allow rules; Codex typed approvals; DSH fail-closed outcomes | `askTools` lets an MCP tool with side effects run only after a single-use approval bound to its exact arguments and scope; dispatch refuses it otherwise, and lost outcomes become unknown effects that block automatic resume. |
 | 12 | There was no way to package reusable instructions for kinds of work. | Agent Skills in Claude and Codex; AGENTS.md chains in opencode and DSH | `--skills-dir` loads `SKILL.md` skills; a Run sees only selected names and descriptions, loads instructions on demand with `skill_load` (hashed), and `/skill-name` selects a skill from the task text. |
 | 13 | Revisions kept every version, but there was no way to see what changed between them. | Codex turn diffs; Claude Code checkpoints | A diff endpoint and preview toggle compare any two versions in a Session (default: against the parent), re-hashing both first. |
+| 14 | The model and effort were fixed when the workbench started. | Model and effort pickers in Claude, Codex and opencode | Remote providers can offer alternative models and Claude its effort levels; each Run chooses (workbench selectors, `model` / `effort` in the API), records the choice, and keeps it on resume. Local models stay fixed because each needs its own verification. |
 
 ## Already in place
 

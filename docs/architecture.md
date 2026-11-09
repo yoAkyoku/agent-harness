@@ -68,6 +68,8 @@ The runtime depends on a small protocol (`DecisionModel` in `model.py`): `reques
 
 Remote context budgets use a labelled UTF-8 byte upper bound, because those tokenizers are not verified locally.
 
+Remote providers may list alternative models (`--alt-model`), and Claude exposes effort levels; `info.choices` publishes both. A Run's admission checks its `model` and `effort` against those choices and records them in the Run's model record. The loop then works with `with_settings(...)`, a variant of the startup adapter that shares its client and changes only the model name and effort. A resume accepts any configured model name from the checkpoint and keeps it. Local Ollama models do not switch per Run, because each one needs its own digest and tokenizer verification.
+
 Current Claude models always think and bind each thinking block to the exact conversation prefix that produced it, while this harness deliberately rewrites history (pruning, executor-state snapshots, publication finalization). Replaying a block after such an edit is rejected, so the Claude adapter never replays thinking blocks: each turn is answered without the model's previous private reasoning. This is a documented trade-off, not an oversight.
 
 ## Adding a message to a running Run

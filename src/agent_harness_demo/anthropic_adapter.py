@@ -12,6 +12,7 @@ edit is rejected, so the adapter keeps only text and tool calls; the model
 then answers each turn without its previous turns' private reasoning.
 """
 
+import copy
 import json
 import os
 from typing import Any
@@ -21,7 +22,7 @@ import httpx2
 
 from .context import request_budget
 from .contracts import Decision, RunFailure, ToolCall
-from .model import REMOTE_CONTEXT_PROFILE, ModelResponseError, ModelSettings
+from .model import REMOTE_CONTEXT_PROFILE, ModelResponseError, ModelSettings, model_choices
 from .streaming import TextSink
 
 STATE_PREFIX = "Harness state (written by the agent runtime, not the user):\n"
@@ -107,9 +108,19 @@ class AnthropicAdapter:
             "offers_tool_finish": True,
             "context_capacity_tokens": settings.context_window_tokens, "context_capacity_source": "application_configuration",
             "context_profile": REMOTE_CONTEXT_PROFILE, "effort": settings.effort, "thinking_replay": "never",
+            "choices": model_choices(settings),
         }
         if settings.server_controlled_initial_plan:
             self.info["server_controlled_initial_plan"] = True
+
+    def with_settings(self, settings: ModelSettings) -> "AnthropicAdapter":
+        """A variant sharing this adapter's client, for the model and effort a Run chose."""
+        if settings.mode != "anthropic":
+            raise ValueError("The Claude adapter only switches Claude models and effort.")
+        variant = copy.copy(self)
+        variant.settings = settings
+        variant.info = {**self.info, "name": settings.name, "effort": settings.effort}
+        return variant
 
     async def prepare(self) -> None:
         assert self.settings.api_key_env is not None

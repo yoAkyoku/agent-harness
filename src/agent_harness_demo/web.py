@@ -69,6 +69,9 @@ class RunInput(BaseModel):
     completion_workflow: Literal["model_summary", "artifact_receipt"] = "model_summary"
     # Read-only MCP tools this Run may use, chosen like its sources (names from /api/config).
     mcp_tools: list[Annotated[str, Field(pattern=MODEL_NAME.pattern)]] = Field(default_factory=list, max_length=16)
+    # One of the configured models (and, for Claude, an effort level) instead of the defaults.
+    model: str | None = Field(default=None, min_length=1, max_length=100)
+    effort: Literal["low", "medium", "high", "xhigh", "max"] | None = None
     # Installed skills whose descriptions this Run sees; their instructions load on request.
     skills: list[Annotated[str, Field(pattern=SKILL_NAME.pattern, max_length=64)]] = Field(default_factory=list, max_length=16)
 
@@ -309,6 +312,9 @@ def create_app(
             del effective["publication_workflow"]
         if body.completion_workflow == "model_summary":
             del effective["completion_workflow"]
+        for optional in ("model", "effort"):
+            if effective[optional] is None:
+                del effective[optional]
         if not body.skills:
             del effective["skills"]
         else:
@@ -341,7 +347,17 @@ def create_app(
                     raise RunFailure("skill_unavailable", "No skills directory is configured for this workbench.")
                 skills.select(body.skills)
                 policy["skills"] = sorted(set(body.skills))
-            run, created = await storage.add_run(session_id, body.task, sources, body.limits.model_dump(), model.info,
+            run_model = dict(model.info)
+            choices = model.info.get("choices", {})
+            if body.model is not None and body.model != model.info["name"]:
+                if body.model not in choices.get("models", []):
+                    raise RunFailure("model_unavailable", f"{body.model} is not one of this workbench's models.")
+                run_model["name"] = body.model
+            if body.effort is not None:
+                if body.effort not in choices.get("efforts", []):
+                    raise RunFailure("effort_unavailable", "This model provider has no effort setting.")
+                run_model["effort"] = body.effort
+            run, created = await storage.add_run(session_id, body.task, sources, body.limits.model_dump(), run_model,
                                         validation,
                                         policy,
                                         body.base_artifact.model_dump() if body.base_artifact else None, excerpts,
@@ -399,8 +415,10 @@ def create_app(
                 raise RunFailure("checkpoint_changed", "Reload the saved checkpoint before continuing.")
             if resume_blockers(checkpoint):
                 raise RunFailure("checkpoint_blocked", "Unverified effects must be resolved before continuing.")
-            if any(checkpoint["model"].get(key) != model.info.get(key) for key in
-                   ("mode", "name", "digest", "context_profile", "stream", "context_capacity_tokens")) or (
+            allowed_names = model.info.get("choices", {}).get("models", [model.info.get("name")])
+            if checkpoint["model"].get("name") not in allowed_names or any(
+                    checkpoint["model"].get(key) != model.info.get(key) for key in
+                    ("mode", "digest", "context_profile", "stream", "context_capacity_tokens")) or (
                     checkpoint["model"].get("decision_protocol", "native") != model.info.get("decision_protocol", "native")):
                 raise RunFailure("checkpoint_model_changed", "Continue with the same verified model configuration.")
             session = await storage.session(parent["session_id"])
@@ -413,7 +431,9 @@ def create_app(
                 raise RunFailure("checkpoint_sources_changed", "Selected sources no longer match the checkpoint versions.")
             base = parent["base_artifact"]
             base_reference = {"run_id": base["run_id"], "artifact_id": base["id"]} if base else None
-            run, created = await storage.add_run(parent["session_id"], checkpoint["task"], sources, checkpoint["limits"], model.info,
+            resumed_model = {**model.info, "name": checkpoint["model"]["name"],
+                             **({"effort": checkpoint["model"]["effort"]} if "effort" in checkpoint["model"] else {})}
+            run, created = await storage.add_run(parent["session_id"], checkpoint["task"], sources, checkpoint["limits"], resumed_model,
                 validation, checkpoint["policy"], base_reference, submission_key=body.submission_key,
                 request_sha256=digest, resume_checkpoint=checkpoint)
         except RunFailure as error:

@@ -68,7 +68,7 @@ docker run --rm -p 127.0.0.1:8787:8787 agent-harness   # 會印出含權杖的�
 docker run --rm -p 127.0.0.1:8787:8787 -e ANTHROPIC_API_KEY agent-harness --provider anthropic
 ```
 
-遠端模型依呼叫計費。Claude 預設 `claude-opus-5-5`、effort `low`，可用 `--effort` 與 `--context-window` 調整。因為 harness 會刻意改寫歷史，Claude 的私密推理不會被重送，詳見[架構](docs/architecture.zh-TW.md)。
+遠端模型依呼叫計費。Claude 預設 `claude-opus-5-5`、effort `low`，可用 `--effort` 與 `--context-window` 調整。加上 `--alt-model <名稱>`（可重複）後，每個任務都能改用同一供應商的其他模型；工作台會顯示模型與思考強度選單，API 接受 `"model"`，Claude 另可指定 `"effort"`。Run 會記錄所選設定，續做時保留。因為 harness 會刻意改寫歷史，Claude 的私密推理不會被重送，詳見[架構](docs/architecture.zh-TW.md)。
 
 ### 比較版本
 

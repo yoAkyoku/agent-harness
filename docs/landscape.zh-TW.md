@@ -55,6 +55,7 @@
 | 11 | 只有發布能要求核准，任何有副作用的外部工具都只能拒絕。 | Claude Code 的 deny → ask → allow 規則、Codex 的型別化核准、DSH 失敗即關閉的結果 | `askTools` 讓有副作用的 MCP 工具只在單次核准後執行，核准綁定確切參數與範圍；否則派送一律拒絕，結果遺失時成為效果未知並阻擋自動續做。 |
 | 12 | 無法把某類工作的做法包裝成可重複使用的指示。 | Claude 與 Codex 的 Agent Skills；opencode、DSH 的 AGENTS.md | `--skills-dir` 載入 `SKILL.md` 形式的 skills；Run 只看到選用 skill 的名稱與說明，需要時以 `skill_load` 載入指示（附雜湊），任務以 `/skill名稱` 開頭也能選用。 |
 | 13 | 修改會保留每個版本，但看不出版本之間改了什麼。 | Codex 的 turn diff、Claude Code 的檢查點 | 差異 API 與預覽切換可比較同一對話中的任兩個版本（預設對照上一版），比較前先重新驗證兩者的雜湊。 |
+| 14 | 模型與思考強度在工作台啟動時就固定。 | Claude、Codex、opencode 的模型與強度選單 | 遠端供應商可提供替代模型、Claude 可提供思考強度；每個 Run 自行選擇（工作台選單或 API 的 `model`／`effort`），選擇會被記錄並在續做時保留。本機模型維持固定，因為每個都需要各自的驗證。 |
 
 ## 已經具備
 

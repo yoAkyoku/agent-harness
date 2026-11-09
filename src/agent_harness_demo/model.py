@@ -1,5 +1,6 @@
 """Chat Completions serialization and a clearly identified scripted transport."""
 
+import copy
 import json
 import asyncio
 from dataclasses import dataclass
@@ -74,11 +75,15 @@ class ModelSettings:
     base_url: str | None = None
     api_key_env: str | None = None
     effort: Literal["low", "medium", "high", "xhigh", "max"] = "low"
+    # Other models of the same remote provider that a Run may choose instead of `name`.
+    alternatives: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if self.mode in REMOTE_MODES:
             self._validate_remote()
             return
+        if self.alternatives:
+            raise ValueError("Only remote providers offer alternative models per Run.")
         if (self.exact_tokenizer_library is None) != (self.exact_tokenizer_model is None):
             raise ValueError("Specify both local tokenizer assets.")
         if self.exact_tokenizer_library is not None and (self.mode != "local" or self.thinking or self.decision_protocol != "json_tools"):
@@ -103,6 +108,11 @@ class ModelSettings:
     def _validate_remote(self) -> None:
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,99}", self.name):
             raise ValueError("Choose a valid explicit model name.")
+        if (not isinstance(self.alternatives, tuple) or len(self.alternatives) > 8 or self.name in self.alternatives
+                or len(set(self.alternatives)) != len(self.alternatives)
+                or not all(isinstance(item, str) and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,99}", item)
+                           for item in self.alternatives)):
+            raise ValueError("Alternative models must be up to 8 distinct valid names other than the default.")
         if self.stream or self.thinking or self.decision_protocol != "native" or self.exact_tokenizer_library or self.exact_tokenizer_model:
             raise ValueError("Remote providers use native, non-streaming tool calling without local tokenizer assets.")
         if type(self.context_window_tokens) is not int or not 4096 <= self.context_window_tokens <= 1_000_000:
@@ -123,19 +133,22 @@ class ModelSettings:
     @classmethod
     def openai_compatible(cls, name: str, *, base_url: str, api_key_env: str = "OPENAI_API_KEY",
                           context_window_tokens: int = 128_000,
-                          server_controlled_initial_plan: bool = False) -> "ModelSettings":
+                          server_controlled_initial_plan: bool = False,
+                          alternatives: tuple[str, ...] = ()) -> "ModelSettings":
         """Any server that speaks OpenAI Chat Completions with native tool calling."""
         return cls(mode="openai", name=name, base_url=base_url, api_key_env=api_key_env,
                    context_window_tokens=context_window_tokens,
-                   server_controlled_initial_plan=server_controlled_initial_plan)
+                   server_controlled_initial_plan=server_controlled_initial_plan, alternatives=alternatives)
 
     @classmethod
     def anthropic(cls, name: str = "claude-opus-5-5", *, api_key_env: str = "ANTHROPIC_API_KEY",
                   context_window_tokens: int = 200_000, effort: Literal["low", "medium", "high", "xhigh", "max"] = "low",
-                  server_controlled_initial_plan: bool = False) -> "ModelSettings":
+                  server_controlled_initial_plan: bool = False,
+                  alternatives: tuple[str, ...] = ()) -> "ModelSettings":
         """Claude through the official Anthropic SDK (Messages API)."""
         return cls(mode="anthropic", name=name, api_key_env=api_key_env, context_window_tokens=context_window_tokens,
-                   effort=effort, server_controlled_initial_plan=server_controlled_initial_plan)
+                   effort=effort, server_controlled_initial_plan=server_controlled_initial_plan,
+                   alternatives=alternatives)
 
     @property
     def loopback(self) -> bool:
@@ -174,6 +187,14 @@ class DecisionModel(Protocol):
     async def decide(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]], on_text: TextSink | None = None,
                      *, max_output_tokens: int = 2048) -> Decision: ...
 
+    def with_settings(self, settings: ModelSettings) -> "DecisionModel": ...
+
+
+def model_choices(settings: ModelSettings) -> dict[str, list[str]]:
+    """What a Run may choose: the default and alternative models, and Claude's effort levels."""
+    return {"models": [settings.name, *settings.alternatives],
+            "efforts": ["low", "medium", "high", "xhigh", "max"] if settings.mode == "anthropic" else []}
+
 
 class ModelAdapter:
     def __init__(self, client: httpx.AsyncClient, settings: ModelSettings, *, transport_fixture: bool) -> None:
@@ -192,8 +213,18 @@ class ModelAdapter:
             "context_capacity_source": "application_configuration" if configured else "synthetic_fixture",
             "context_profile": REMOTE_CONTEXT_PROFILE if settings.mode == "openai" else "synthetic_fixture",
         }
+        if settings.mode == "openai":
+            self.info["choices"] = model_choices(settings)
         if settings.server_controlled_initial_plan:
             self.info["server_controlled_initial_plan"] = True
+
+    def with_settings(self, settings: ModelSettings) -> "ModelAdapter":
+        """A variant sharing this adapter's client, for a model a Run chose among the configured ones."""
+        if settings.mode != "openai" or settings.mode != self.settings.mode:
+            raise ValueError("Only an OpenAI-compatible provider switches models per Run.")
+        variant = copy.copy(self)
+        variant.settings, variant.info = settings, {**self.info, "name": settings.name}
+        return variant
 
     async def prepare(self) -> None:
         if self.settings.mode == "fixture":

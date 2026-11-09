@@ -4,6 +4,7 @@ const $ = (id) => document.getElementById(id);
 const state = {config: null, workspace: null, session: null, run: null, approval: null, sources: [], selected: new Set(), busy: false, socket: null, generation: 0, approvalPending: false, cancelPending: false, runs: [], base: null, previewArtifact: null, pendingSubmission: null, initializing: true, planSequence: 0, correctionSequence: 0, mcpSelected: new Set(), skillSelected: new Set()};
 const toolNames = {workspace_list: "列出允許的來源", source_read: "讀取來源", base_artifact_read: "讀取修改基底", artifact_write: "保存成果", artifact_draft: "保存待核對草稿（尚未發布）", plan_update: "更新計畫", table_inspect: "檢查表格", table_aggregate: "計算欄位", number_calculate: "計算比例", task_finish: "提交完成回覆"};
 const statusNames = {queued: "等待執行", running: "執行中", waiting_approval: "等待你的確認", cancel_requested: "正在取消", cancelled: "已取消", completed: "已完成", failed: "未完成", interrupted: "執行已中斷"};
+const effortNames = {low: "低", medium: "中", high: "高", xhigh: "很高", max: "最高"};
 const activeStatuses = new Set(["queued", "running", "waiting_approval", "cancel_requested"]);
 
 async function api(path, body) {
@@ -31,6 +32,7 @@ function updateControls() {
   document.querySelectorAll(".session-button").forEach((button) => { button.disabled = locked; });
   document.querySelectorAll(".source-item input").forEach((input) => { input.disabled = locked || (state.selected.size >= 8 && !input.checked); });
   document.querySelectorAll(".mcp-tool input, .skill-item input").forEach((input) => { input.disabled = locked; });
+  for (const id of ["model-select", "effort-select"]) $(id).disabled = locked;
   $("source-count").textContent = `${state.selected.size} / 8`;
   $("selection-hint").textContent = state.pendingSubmission ? "提交結果尚未確認；重試會查回同一次執行" : state.selected.size ? `本次允許讀取 ${state.selected.size} 份來源` : "先從左側選擇資料來源";
 }
@@ -95,6 +97,20 @@ function renderMcpTools() {
   updateControls();
 }
 function selectMcpTools(names) { state.mcpSelected = new Set(names || []); renderMcpTools(); }
+function renderModelChoices() {
+  const model = state.config?.model || {}, choices = model.choices || {models: [], efforts: []};
+  const visible = choices.models.length > 1 || choices.efforts.length > 0;
+  $("model-choice").hidden = !visible;
+  $("model-select").replaceChildren(...choices.models.map((name) => new Option(name, name)));
+  $("effort-select").replaceChildren(...choices.efforts.map((name) => new Option(effortNames[name] || name, name)));
+  $("effort-select").hidden = $("effort-label").hidden = !choices.efforts.length;
+  selectModel(model.name, model.effort);
+}
+// Show the model and effort a Run used, or the workbench defaults for a new task.
+function selectModel(name, effort) {
+  if (name && [...$("model-select").options].some((option) => option.value === name)) $("model-select").value = name;
+  if (effort && [...$("effort-select").options].some((option) => option.value === effort)) $("effort-select").value = effort;
+}
 function availableSkills() { return state.config?.skills?.available || []; }
 function renderSkills() {
   const skills = availableSkills();
@@ -177,7 +193,7 @@ async function openHistoricalRun(identity) {
   await observeRun(identity);
   $("task-input").value = state.run.task;
   state.selected = new Set(state.run.sources.map((source) => source.path)); renderSources();
-  selectMcpTools(state.run.policy?.mcp_tools); selectSkills(state.run.policy?.skills || []);
+  selectMcpTools(state.run.policy?.mcp_tools); selectSkills(state.run.policy?.skills || []); selectModel(state.run.model?.name, state.run.model?.effort);
   $("require-publish-approval").checked = Boolean(state.run.policy?.require_publish_approval);
   $("publication-workflow").value = state.run.policy?.publication_workflow || "direct";
   $("completion-workflow").value = state.run.policy?.completion_workflow || "model_summary";
@@ -209,7 +225,7 @@ async function openSession(session) {
   await loadWorkspace(workspace.path); state.session = session;
   const runs = await api(`/api/sessions/${session.id}/runs`); state.runs = runs;
   if (runs.length) {
-    const run = runs.at(-1); state.selected = new Set(run.sources.map((source) => source.path)); renderSources(); selectMcpTools(run.policy?.mcp_tools); selectSkills(run.policy?.skills || []);
+    const run = runs.at(-1); state.selected = new Set(run.sources.map((source) => source.path)); renderSources(); selectMcpTools(run.policy?.mcp_tools); selectSkills(run.policy?.skills || []); selectModel(run.model?.name, run.model?.effort);
     $("task-input").value = run.task; $("require-publish-approval").checked = Boolean(run.policy?.require_publish_approval); $("publication-workflow").value = run.policy?.publication_workflow || "direct"; $("completion-workflow").value = run.policy?.completion_workflow || "model_summary"; await observeRun(run.id);
   }
   await refreshSessions(); renderSessionControls(); updateControls();
@@ -236,6 +252,10 @@ async function startTask(event) {
       const slash = body.task.trim().match(/^\/([a-z0-9]+(?:-[a-z0-9]+)*)(?:\s|$)/);
       if (slash && availableSkills().some((skill) => skill.name === slash[1])) { state.skillSelected.add(slash[1]); renderSkills(); }
       if (state.skillSelected.size) body.skills = [...state.skillSelected];
+      if (!$("model-choice").hidden) {
+        body.model = $("model-select").value;
+        if (!$("effort-select").hidden) body.effort = $("effort-select").value;
+      }
       if (state.base) body.base_artifact = state.base;
       const pending = {session_id: state.session.id, workspace_path: state.workspace.path, body};
       localStorage.setItem(pendingStorageKey, JSON.stringify(pending));
@@ -551,7 +571,7 @@ try {
   $("mode-description").textContent = local ? "先選來源，再交代資料分析或文件整理任務。計畫、工具與成果可逐筆檢查；模型輸出仍需對照來源。" : "依固定步驟讀取已選來源、保存來源快照；此模式不會理解任意任務。";
   if (state.config.validation?.fault_once_source_read) $("mode-description").textContent += " 受控驗證模式：每筆任務首次來源讀取會刻意失敗一次。";
   if (state.config.validation?.hold_first_tool) $("mode-description").textContent += " 受控同步點驗證：本服務首個指定工具會暫停，供取消／併發觀察。";
-  renderMcpTools(); selectSkills();
+  renderMcpTools(); selectSkills(); renderModelChoices();
   await refreshSessions(); await restorePendingSubmission(); updateControls();
 } catch (error) { showError(error); }
 finally { state.initializing = false; updateControls(); }

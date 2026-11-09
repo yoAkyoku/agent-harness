@@ -2,6 +2,7 @@
 
 import asyncio
 from copy import deepcopy
+from dataclasses import replace
 import hashlib
 from collections.abc import Awaitable, Callable
 import json
@@ -252,7 +253,17 @@ class Runtime:
                 except TimeoutError as error:
                     raise RunFailure("approval_expired", "The requested approval has expired.") from error
 
+    def _run_model(self, run: Record) -> DecisionModel:
+        """The startup model, or its variant for the model and effort this Run chose."""
+        settings = self.model.settings
+        chosen = run.get("model", {})
+        name, effort = chosen.get("name", settings.name), chosen.get("effort", settings.effort)
+        if (name, effort) == (settings.name, settings.effort):
+            return self.model
+        return self.model.with_settings(replace(settings, name=name, effort=effort, alternatives=()))
+
     async def _loop(self, run: Record, root: Path, limits: RunLimits) -> None:
+        model = self._run_model(run)
         identity = run["id"]
         require_citations = run["mode"] != "fixture"
         checkpoint = run.get("resume_checkpoint")
@@ -277,7 +288,7 @@ class Runtime:
                       mcp_tools=mcp_tools, mcp_hub=self.mcp, skills=selected_skills)
         if checkpoint is not None:
             tools.restore_evidence(checkpoint["confirmed"])
-        label_queries_available = self.model.settings.mode == "fixture" and any(
+        label_queries_available = model.settings.mode == "fixture" and any(
             Path(source["path"]).suffix.lower() != ".csv" for source in run["sources"]
         )
         messages: list[Record] = [
@@ -456,8 +467,8 @@ class Runtime:
                     await self._record(identity, "message.delivered", {"message_id": queued["message_id"], "step": step})
             finish_available = False
             published_this_run = False
-            if ((receipt_mode or self.model.settings.thinking or self.model.info.get("requires_tool_finish") is True
-                 or self.model.info.get("offers_tool_finish") is True)
+            if ((receipt_mode or model.settings.thinking or model.info.get("requires_tool_finish") is True
+                 or model.info.get("offers_tool_finish") is True)
                     and navigation_state["plan_saved"] and latest_draft is None
                     and all(correction.call.name == "task_finish" for correction in pending.values())):
                 current = await self.store.run(identity)
@@ -513,8 +524,8 @@ class Runtime:
                     "本次只交代簡短後續動作，不先解完整任務；等工具回傳證據再計算與下結論。"
                 )
             capacity = min(run["model"]["context_capacity_tokens"], limits.context_window_tokens or run["model"]["context_capacity_tokens"])
-            body = self.model.request_body(messages, available_tools, limits.max_output_tokens)
-            budget = await self._perform(identity, lambda: self.model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
+            body = model.request_body(messages, available_tools, limits.max_output_tokens)
+            budget = await self._perform(identity, lambda: model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
             while budget["upper_bound_tokens"] > capacity and history_turns:
                 removed = history_turns.pop(0)
                 del messages[1:1 + len(removed["messages"])]
@@ -522,8 +533,8 @@ class Runtime:
                 acknowledged_until = max(0, acknowledged_until - len(removed["messages"]))
                 if canonical_index is not None:
                     canonical_index -= len(removed["messages"])
-                body = self.model.request_body(messages, available_tools, limits.max_output_tokens)
-                budget = await self._perform(identity, lambda: self.model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
+                body = model.request_body(messages, available_tools, limits.max_output_tokens)
+                budget = await self._perform(identity, lambda: model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
                 await self._record(identity, "context.pruned", {"step": step, "history_run_id": removed["run_id"],
                                     "reason": "request_budget", **budget})
             excerpt_index = next((index for index, message in enumerate(messages)
@@ -535,8 +546,8 @@ class Runtime:
                     acknowledged_until -= 1
                 if canonical_index is not None and canonical_index > excerpt_index:
                     canonical_index -= 1
-                body = self.model.request_body(messages, available_tools, limits.max_output_tokens)
-                budget = await self._perform(identity, lambda: self.model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
+                body = model.request_body(messages, available_tools, limits.max_output_tokens)
+                budget = await self._perform(identity, lambda: model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
                 await self._record(identity, "context.pruned", {"step": step, "reason": "source_excerpt_budget", **budget})
             while budget["upper_bound_tokens"] > capacity:
                 narration = completed_tool_group(messages, current_start, len(messages),
@@ -545,8 +556,8 @@ class Runtime:
                     first, _, call_ids = narration
                     text_bytes = len(messages[first]["content"].encode("utf-8"))
                     messages[first]["content"] = None
-                    body = self.model.request_body(messages, available_tools, limits.max_output_tokens)
-                    budget = await self._perform(identity, lambda: self.model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
+                    body = model.request_body(messages, available_tools, limits.max_output_tokens)
+                    budget = await self._perform(identity, lambda: model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
                     await self._record(identity, "context.pruned", {"step": step, "call_ids": call_ids,
                         "reason": "tool_narration", "text_utf8_bytes": text_bytes, **budget})
                     continue
@@ -569,8 +580,8 @@ class Runtime:
                     )
                     if pruned_call_ids:
                         acknowledged_until = max(current_start, acknowledged_until - len(pruned_call_ids))
-                        body = self.model.request_body(messages, available_tools, limits.max_output_tokens)
-                        budget = await self._perform(identity, lambda: self.model.context_budget(
+                        body = model.request_body(messages, available_tools, limits.max_output_tokens)
+                        budget = await self._perform(identity, lambda: model.context_budget(
                             body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture"),
                         ))
                         reason = ("superseded_correction"
@@ -610,8 +621,8 @@ class Runtime:
                     acknowledged_until += 1
                 else:
                     messages[canonical_index] = canonical
-                body = self.model.request_body(messages, available_tools, limits.max_output_tokens)
-                budget = await self._perform(identity, lambda: self.model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
+                body = model.request_body(messages, available_tools, limits.max_output_tokens)
+                budget = await self._perform(identity, lambda: model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
                 context_prune = {"step": step, "call_ids": call_ids,
                                  "reason": "artifact_correction_pinned_text" if omitted_pinned_text else reason,
                                  "retained_executor_state": deepcopy(navigation_state), **budget}
@@ -623,28 +634,28 @@ class Runtime:
                 available_tools = [{"type": tool["type"], "function": {
                     key: value for key, value in tool["function"].items() if key != "description"
                 }} for tool in available_tools]
-                body = self.model.request_body(messages, available_tools, limits.max_output_tokens)
-                budget = await self._perform(identity, lambda: self.model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
+                body = model.request_body(messages, available_tools, limits.max_output_tokens)
+                budget = await self._perform(identity, lambda: model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
                 await self._record(identity, "context.pruned", {"step": step, "reason": "tool_descriptions", **budget})
             if budget["upper_bound_tokens"] > capacity and review_mode:
                 encoded_calls = encode_draft_receipts(messages)
                 if encoded_calls:
-                    body = self.model.request_body(messages, available_tools, limits.max_output_tokens)
-                    budget = await self._perform(identity, lambda: self.model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
+                    body = model.request_body(messages, available_tools, limits.max_output_tokens)
+                    budget = await self._perform(identity, lambda: model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
                     await self._record(identity, "context.pruned", {"step": step, "reason": "draft_receipt_encoding",
                         "call_ids": encoded_calls, **budget})
             if budget["upper_bound_tokens"] > capacity and (review_mode or receipt_mode or published_this_run or pending):
                 available_tools = compact_tool_catalog(available_tools)
-                body = self.model.request_body(messages, available_tools, limits.max_output_tokens)
-                budget = await self._perform(identity, lambda: self.model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
+                body = model.request_body(messages, available_tools, limits.max_output_tokens)
+                budget = await self._perform(identity, lambda: model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
                 await self._record(identity, "context.pruned", {"step": step, "reason": "tool_schema_bounds", **budget})
             if budget["upper_bound_tokens"] > capacity:
                 omitted = omit_runtime_guidance(messages, navigation_state)
                 if omitted:
                     if canonical_index is not None:
                         messages[canonical_index] = executor_context_message()[0]
-                    body = self.model.request_body(messages, available_tools, limits.max_output_tokens)
-                    budget = await self._perform(identity, lambda: self.model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
+                    body = model.request_body(messages, available_tools, limits.max_output_tokens)
+                    budget = await self._perform(identity, lambda: model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
                     await self._record(identity, "context.pruned", {"step": step, "reason": "runtime_guidance_budget",
                         "omitted_result_views": omitted, **budget})
             if budget["upper_bound_tokens"] > capacity:
@@ -655,8 +666,8 @@ class Runtime:
                     if omitted:
                         messages[canonical_index] = executor_context_message(include_inspection_hints=False)[0]
                 if omitted:
-                    body = self.model.request_body(messages, available_tools, limits.max_output_tokens)
-                    budget = await self._perform(identity, lambda: self.model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
+                    body = model.request_body(messages, available_tools, limits.max_output_tokens)
+                    budget = await self._perform(identity, lambda: model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
                     await self._record(identity, "context.pruned", {"step": step, "reason": "inspection_capability_hints",
                         "omitted_result_views": omitted, **budget})
             if budget["upper_bound_tokens"] > capacity:
@@ -669,8 +680,8 @@ class Runtime:
                             omitted_names += 1
                 if omitted_names:
                     available_tools = compacted
-                    body = self.model.request_body(messages, available_tools, limits.max_output_tokens)
-                    budget = await self._perform(identity, lambda: self.model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
+                    body = model.request_body(messages, available_tools, limits.max_output_tokens)
+                    budget = await self._perform(identity, lambda: model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
                     await self._record(identity, "context.pruned", {"step": step, "reason": "artifact_name_descriptions",
                         "omitted_descriptions": omitted_names, **budget})
             if budget["upper_bound_tokens"] > capacity and published_this_run and canonical_index is not None:
@@ -681,8 +692,8 @@ class Runtime:
                     del evidence[key]["labelled_lines"]
                 if labelled:
                     messages[canonical_index] = executor_state_message(projected_state)
-                    body = self.model.request_body(messages, available_tools, limits.max_output_tokens)
-                    budget = await self._perform(identity, lambda: self.model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
+                    body = model.request_body(messages, available_tools, limits.max_output_tokens)
+                    budget = await self._perform(identity, lambda: model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
                     await self._record(identity, "context.pruned", {"step": step, "reason": "labelled_lines_projection", "evidence_ids": labelled, **budget})
             if budget["upper_bound_tokens"] > capacity and published_this_run:
                 compacted_results = 0
@@ -694,12 +705,12 @@ class Runtime:
                             message["content"] = compact
                             compacted_results += 1
                 if compacted_results:
-                    body = self.model.request_body(messages, available_tools, limits.max_output_tokens)
-                    budget = await self._perform(identity, lambda: self.model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
+                    body = model.request_body(messages, available_tools, limits.max_output_tokens)
+                    budget = await self._perform(identity, lambda: model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
                     await self._record(identity, "context.pruned", {"step": step, "reason": "tool_result_json_whitespace", "compacted_results": compacted_results, **budget})
             if budget["upper_bound_tokens"] > capacity and receipt_mode and encode_duplicate_plan(messages):
-                body = self.model.request_body(messages, available_tools, limits.max_output_tokens)
-                budget = await self._perform(identity, lambda: self.model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
+                body = model.request_body(messages, available_tools, limits.max_output_tokens)
+                budget = await self._perform(identity, lambda: model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
                 await self._record(identity, "context.pruned", {"step": step, "reason": "duplicate_plan_encoding", **budget})
             summary_guidance_applied = False
             if budget["upper_bound_tokens"] <= capacity and published_this_run and not receipt_mode:
@@ -707,8 +718,8 @@ class Runtime:
                 candidate_messages[0]["content"] += (
                     " 完成摘要只敘述已保存成果明確包含的內容；沒有標示缺項時，不宣稱已標示缺項。"
                 )
-                candidate_body = self.model.request_body(candidate_messages, available_tools, limits.max_output_tokens)
-                candidate_budget = await self._perform(identity, lambda: self.model.context_budget(candidate_body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
+                candidate_body = model.request_body(candidate_messages, available_tools, limits.max_output_tokens)
+                candidate_budget = await self._perform(identity, lambda: model.context_budget(candidate_body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
                 if candidate_budget["upper_bound_tokens"] <= capacity:
                     messages[0]["content"] = candidate_messages[0]["content"]
                     budget = candidate_budget
@@ -720,7 +731,7 @@ class Runtime:
             # Calls are checked against exactly the catalogue this request offered.
             offered_tools = {tool["function"]["name"] for tool in available_tools}
             request_data = {"step": step, "context_budget": budget, "offered_tools": sorted(offered_tools),
-                            "request_sha256": request_digest(self.model.request_body(
+                            "request_sha256": request_digest(model.request_body(
                                 messages, available_tools, limits.max_output_tokens))}
             if published_this_run and not receipt_mode:
                 request_data["summary_guidance_applied"] = summary_guidance_applied
@@ -732,7 +743,7 @@ class Runtime:
                     await self._record(identity, "model.text_delta", {"step": step, "text": text})
 
             try:
-                decision = await self._perform(identity, lambda: self.model.decide(messages, available_tools, on_text, max_output_tokens=limits.max_output_tokens))
+                decision = await self._perform(identity, lambda: model.decide(messages, available_tools, on_text, max_output_tokens=limits.max_output_tokens))
             except ModelResponseError as error:
                 await self._check_cancel(identity)
                 diagnostics = error.diagnostics or {}
@@ -741,8 +752,8 @@ class Runtime:
                     and diagnostics.get("finish_reason") == "stop"
                     and diagnostics.get("visible_text_characters") == 0
                     and diagnostics.get("tool_calls_count") == 0
-                    and self.model.settings.thinking
-                    and self.model.settings.decision_protocol == "native"
+                    and model.settings.thinking
+                    and model.settings.decision_protocol == "native"
                     and not receipt_mode
                     and published_this_run
                     and finish_available
@@ -764,8 +775,8 @@ class Runtime:
                 continue
             await self._check_cancel(identity)
             if (not navigation_state["plan_saved"]
-                    and self.model.settings.server_controlled_initial_plan):
-                decision = project_initial_public_plan(decision, self.model.settings.decision_protocol)
+                    and model.settings.server_controlled_initial_plan):
+                decision = project_initial_public_plan(decision, model.settings.decision_protocol)
             acknowledged_until = len(messages)
             messages.append(decision.message)
             await self._record(identity, "model.responded", {
@@ -937,7 +948,7 @@ class Runtime:
                     if review_mode:
                         latest_draft = None
                     publication_recovery_pending = False
-                    if self.model.info.get("requires_tool_finish") is True:
+                    if model.info.get("requires_tool_finish") is True:
                         finalization_candidate = (call, deepcopy(result))
                 if canonical_index is not None and call.name in {"plan_update", "workspace_list"}:
                     messages[canonical_index] = executor_state_message(navigation_state)

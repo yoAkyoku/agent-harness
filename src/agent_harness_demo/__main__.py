@@ -29,6 +29,8 @@ def parser() -> argparse.ArgumentParser:
     parser.add_argument("--base-url", help="OpenAI-compatible base URL, for example https://api.openai.com/v1.")
     parser.add_argument("--api-key-env", help="Environment variable holding the API key "
                                               "(default OPENAI_API_KEY or ANTHROPIC_API_KEY). The key itself is never a flag.")
+    parser.add_argument("--alt-model", dest="alt_models", action="append", default=[],
+                        help="Another model of the same remote provider that a Run may choose; repeat for more.")
     parser.add_argument("--context-window", type=int, help="Context budget in tokens for remote providers.")
     parser.add_argument("--effort", choices=("low", "medium", "high", "xhigh", "max"), default="low",
                         help="Claude effort level (thinking depth and token spend).")
@@ -63,16 +65,18 @@ def build_settings(arguments: argparse.Namespace) -> ModelSettings:
         return ModelSettings.openai_compatible(arguments.model, base_url=arguments.base_url,
                                                api_key_env=arguments.api_key_env or "OPENAI_API_KEY",
                                                context_window_tokens=arguments.context_window or 128_000,
-                                               server_controlled_initial_plan=plan)
+                                               server_controlled_initial_plan=plan,
+                                               alternatives=tuple(arguments.alt_models))
     if arguments.provider == "anthropic":
         if arguments.base_url:
             raise ValueError("--base-url does not apply to --provider anthropic.")
         return ModelSettings.anthropic(arguments.model or "claude-opus-5-5",
                                        api_key_env=arguments.api_key_env or "ANTHROPIC_API_KEY",
                                        context_window_tokens=arguments.context_window or 200_000,
-                                       effort=arguments.effort, server_controlled_initial_plan=plan)
-    if arguments.base_url or arguments.api_key_env or arguments.context_window:
-        raise ValueError("--base-url, --api-key-env and --context-window apply to remote providers.")
+                                       effort=arguments.effort, server_controlled_initial_plan=plan,
+                                       alternatives=tuple(arguments.alt_models))
+    if arguments.base_url or arguments.api_key_env or arguments.context_window or arguments.alt_models:
+        raise ValueError("--base-url, --api-key-env, --context-window and --alt-model apply to remote providers.")
     if not arguments.model:
         used = [flag for flag, value in local_only.items() if value]
         if arguments.model_authored_initial_plan:
