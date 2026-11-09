@@ -13,6 +13,7 @@ from jsonschema import Draft202012Validator, ValidationError
 
 from .arithmetic_evidence import require_csv_arithmetic_evidence
 from .contracts import PreparedCall, RunFailure, ToolCall, canonical_tool_arguments
+from .mcp_hub import McpHub, McpTool, mcp_evidence
 from .sources import MAX_SOURCE_BYTES, MAX_SOURCE_PATH, MAX_SOURCES, labelled_source_lines, query_source_labels, read_source
 from .storage import Record, Store
 from .tables import ratio_percent, table_result
@@ -302,7 +303,8 @@ DRAFT_PUBLICATION_PARAMETERS: Record = {
 def model_tools(*, require_citations: bool = False, include_tables: bool = True, include_labels: bool = True,
                 include_finish: bool = False, include_draft: bool = False,
                 receipt_completion: bool = False, include_base: bool = False,
-                aggregate_operations: tuple[str, ...] = ("sum", "mean")) -> list[Record]:
+                aggregate_operations: tuple[str, ...] = ("sum", "mean"),
+                extra_tools: list[Record] | None = None) -> list[Record]:
     definitions = deepcopy(DEFINITIONS)
     if not include_base:
         del definitions["base_artifact_read"]
@@ -337,14 +339,17 @@ def model_tools(*, require_citations: bool = False, include_tables: bool = True,
                 parameters["required"].append("citations")
             parameters["properties"]["citations"]["minItems"] = 1
     return [{"type": "function", "function": {"name": name, "description": definition["description"],
-             "parameters": definition["parameters"]}} for name, definition in definitions.items()]
+             "parameters": definition["parameters"]}} for name, definition in definitions.items()] + deepcopy(extra_tools or [])
 
 
 class Tools:
     def __init__(self, store: Store, run_id: str, root: Path, sources: list[Record], *, require_citations: bool = False,
                  fault_once_source_read: bool = False, receipt_completion: bool = False,
-                 base_artifact: Record | None = None) -> None:
+                 base_artifact: Record | None = None, mcp_tools: dict[str, McpTool] | None = None,
+                 mcp_hub: McpHub | None = None) -> None:
         self.store = store
+        self.mcp_tools = dict(mcp_tools or {})
+        self.mcp_hub = mcp_hub
         self.run_id = run_id
         self.receipt_completion = receipt_completion
         self.root = root
@@ -370,9 +375,13 @@ class Tools:
             result = call["result"]
             if "evidence_id" not in result:
                 continue
-            if call["tool"] not in {"source_read", "table_inspect", "table_aggregate", "number_calculate", "base_artifact_read"}:
+            if call["tool"] in self.mcp_tools:
+                expected = mcp_evidence(self.mcp_tools[call["tool"]], result.get("arguments", {}), result.get("text", ""))
+                if {key: value for key, value in result.items() if key != "evidence_id"} != expected:
+                    raise RunFailure("checkpoint_evidence_invalid", "Restored MCP evidence must match its recorded text and tool.")
+            elif call["tool"] not in {"source_read", "table_inspect", "table_aggregate", "number_calculate", "base_artifact_read"}:
                 raise RunFailure("checkpoint_evidence_invalid", "The checkpoint contains an unsupported evidence producer.")
-            if call["tool"] == "base_artifact_read":
+            elif call["tool"] == "base_artifact_read":
                 expected = self._base_result()
                 if {key: value for key, value in result.items() if key != "evidence_id"} != expected:
                     raise RunFailure("checkpoint_evidence_invalid", "Restored artifact evidence must match the pinned base version.")
@@ -430,6 +439,14 @@ class Tools:
         return hint
 
     def validate(self, call: ToolCall) -> None:
+        if call.name in self.mcp_tools:
+            try:
+                Draft202012Validator(self.mcp_tools[call.name].input_schema).validate(call.arguments)
+            except ValidationError as error:
+                mcp_fields = tuple(str(part) for part in list(error.absolute_path)[:1]) or tuple(call.arguments)
+                raise RunFailure("invalid_arguments", f"Invalid MCP tool input at {error.json_path}: {error.message[:200]}",
+                                 correctable_fields=mcp_fields) from error
+            return
         if call.name not in DEFINITIONS or (call.name == "base_artifact_read" and self.base_artifact is None):
             raise RunFailure("unknown_tool", "The requested tool is not available to this Run.")
         try:
@@ -505,8 +522,11 @@ class Tools:
                 raise RunFailure("unreviewed_artifact", "A draft SHA must retain its exact current evidence bindings. Stage a new candidate for edits.") from error
             raise
         scope = {"workspace": str(self.root),
-            "artifact_directory": str(self.store.directory / "artifacts"), "effect": DEFINITIONS[call.name]["effect"],
+            "artifact_directory": str(self.store.directory / "artifacts"),
+            "effect": "read_only" if call.name in self.mcp_tools else DEFINITIONS[call.name]["effect"],
             "sources": deepcopy(list(self.sources.values()))}
+        if call.name in self.mcp_tools:
+            scope["mcp"] = {"server": self.mcp_tools[call.name].server, "tool": self.mcp_tools[call.name].tool}
         if call.name == "base_artifact_read":
             assert self.base_artifact is not None
             scope["base_artifact"] = {key: self.base_artifact[key] for key in ("id", "run_id", "sha256", "version")}
@@ -532,6 +552,10 @@ class Tools:
         if call.name == "task_finish" and self.receipt_completion:
             return {"summary": "已發布：" + "、".join(item["name"] for item in prepared.scope["completion_receipts"]) + "。",
                     "artifact_ids": deepcopy(prepared.arguments["artifact_ids"]), "receipt": True}
+        if call.name in self.mcp_tools:
+            if self.mcp_hub is None:
+                raise RunFailure("mcp_unavailable", "No MCP servers are connected.")
+            return self._evidence(await self.mcp_hub.call(self.mcp_tools[call.name], prepared.arguments))
         return await self.actions[call.name](prepared.arguments)
 
     async def _list(self, arguments: Record) -> Record:

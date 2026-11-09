@@ -39,6 +39,8 @@ def parser() -> argparse.ArgumentParser:
                         help="Ollama decision wire protocol; JSON tools is experimental and requires --model.")
     parser.add_argument("--exact-tokenizer-library", type=Path, help="Explicit pinned local Windows libllama DLL; requires matching model asset.")
     parser.add_argument("--exact-tokenizer-model", type=Path, help="Explicit pinned local Qwen35 9B GGUF blob; vocab-only, no inference.")
+    parser.add_argument("--mcp-config", type=Path,
+                        help="JSON file with mcpServers (command, args, allowedTools); their allowed read-only tools can be selected by Runs.")
     parser.add_argument("--fault-once-source-read", action="store_true", help="Controlled validation: fail each Run's first source_read before filesystem access.")
     parser.add_argument("--hold-first-tool", choices=["source_read", "artifact_write"], help="Controlled validation: hold the service's first matching read before access, or publish before result acknowledgement.")
     return parser
@@ -95,8 +97,11 @@ def main() -> None:
     if configured is not None and len(configured) < MIN_TOKEN_LENGTH:
         cli.error(f"{TOKEN_ENV} must have at least {MIN_TOKEN_LENGTH} characters.")
     token = configured or secrets.token_urlsafe(32)
-    app = create_app(arguments.store.resolve(), model_settings=settings, fault_once_source_read=arguments.fault_once_source_read,
-                     hold_first_tool=arguments.hold_first_tool, access_token=token)
+    try:
+        app = create_app(arguments.store.resolve(), model_settings=settings, fault_once_source_read=arguments.fault_once_source_read,
+                         hold_first_tool=arguments.hold_first_tool, access_token=token, mcp_config=arguments.mcp_config)
+    except ValueError as error:
+        cli.error(str(error))
     shown = "<the value of " + TOKEN_ENV + ">" if configured else token
     print(f"Open the workbench at http://127.0.0.1:{arguments.port}/?token={shown}", flush=True)
     print("Scripts: send the same token as 'Authorization: Bearer <token>'.", flush=True)

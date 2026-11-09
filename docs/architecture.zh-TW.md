@@ -43,6 +43,10 @@ Runtime 只依賴 `model.py` 的 `DecisionModel` 介面（`request_body`、`cont
 
 目前的 Claude 模型一定會思考，且每個思考區塊綁定產生它的對話前綴；本 harness 會刻意改寫歷史（裁切、執行狀態快照、發布後收尾），改寫後重送思考區塊會被拒絕，所以 Claude adapter 從不重送思考區塊，模型每一輪看不到前一輪的私密推理。這是明確記錄的取捨。
 
+## 唯讀 MCP 工具
+
+`mcp_hub.py` 在服務啟動時啟動 `--mcp-config` 列出的 stdio 伺服器，服務結束時一併關閉。啟動失敗的伺服器會在 `/api/config` 回報，不會讓工作台停止。只有使用者列在 `allowedTools` 的工具才會提供；伺服器的註記只能縮小這個清單（宣告 `read_only_hint: false` 或 `destructive_hint: true` 的工具會被排除），不能擴大。第三方描述最多 400 字元並標示為不可信，輸入 schema 必須是 4 KiB 以內的有效 JSON Schema 物件。Run 在受理時像選來源一樣選用工具；選擇存在 Run 的政策中，checkpoint 與續做都會保留。呼叫會先依伺服器的 schema 驗證，以 `read_only` 效果派送，限制 30 秒與 64 KiB 文字，結果成為證據（`mcp/<伺服器>/<工具>`、SHA-256、文字），供成果引用並由驗證器檢查。錯誤結果以可修正錯誤回到模型，以修正後重試同一工具來解決。伺服器只會拿到 MCP SDK 預設的最小環境變數與設定中的 `env`。目前不支援遠端伺服器與 OAuth 連接器。
+
 ## 無頭用戶端
 
 `agent_harness_demo.headless` 只是一般的觀察者：透過 HTTP API 建立工作區、Session 與 Run，再以 `flow=ack` 讀取持久事件串流，逐筆確認，串流中斷時從最後的 cursor 重新接上（已輸出的序號會略過）。它原樣輸出事件為 NDJSON，並把終止狀態對應成退出碼。觀察者從不擁有執行，所以用戶端結束時 Run 仍會繼續。重新連線的路徑目前還沒有測試。

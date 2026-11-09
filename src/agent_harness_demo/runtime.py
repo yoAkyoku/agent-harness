@@ -12,6 +12,7 @@ from typing import Any, Literal, TypeVar
 
 from .context import added_message, compact_tool_catalog, completed_tool_group, encode_draft_receipts, encode_duplicate_plan, executor_state_message, omit_inspection_hints, omit_runtime_guidance, prune_resolved_tool_failures, publication_finalization_prefix, published_draft_group
 from .contracts import Decision, PendingCorrection, RunCancelled, RunFailure, RunLimits, ToolCall, canonical_tool_arguments
+from .mcp_hub import McpHub
 from .model import DecisionModel, ModelResponseError
 from .storage import Record, Store
 from .tools import Tools, model_tools
@@ -65,9 +66,11 @@ def project_initial_public_plan(decision: Decision, protocol: str) -> Decision:
 
 
 class Runtime:
-    def __init__(self, store: Store, model: DecisionModel, *, hold_first_tool: Literal["source_read", "artifact_write"] | None = None) -> None:
+    def __init__(self, store: Store, model: DecisionModel, *, hold_first_tool: Literal["source_read", "artifact_write"] | None = None,
+                 mcp: McpHub | None = None) -> None:
         self.store = store
         self.model = model
+        self.mcp = mcp
         self.changed = asyncio.Condition()
         self._jobs: set[asyncio.Task[None]] = set()
         self._slots = asyncio.Semaphore(4)
@@ -255,10 +258,17 @@ class Runtime:
         receipt_mode = run.get("policy", {}).get("completion_workflow") == "artifact_receipt"
         latest_draft: Record | None = None
         draft_step = 0
+        selected_mcp = run.get("policy", {}).get("mcp_tools", [])
+        if selected_mcp and self.mcp is None:
+            raise RunFailure("mcp_tool_unavailable", "This Run selected MCP tools, but no MCP servers are configured.")
+        mcp_tools = self.mcp.select(selected_mcp) if self.mcp is not None and selected_mcp else {}
+        # MCP tools are read-only evidence producers, like the built-in read tools.
+        read_tools = READ_TOOLS | set(mcp_tools)
         tools = Tools(self.store, identity, root, run["sources"], require_citations=require_citations,
                       receipt_completion=receipt_mode,
                       base_artifact=run.get("base_artifact"),
-                      fault_once_source_read=bool(run.get("validation", {}).get("fault_once_source_read")))
+                      fault_once_source_read=bool(run.get("validation", {}).get("fault_once_source_read")),
+                      mcp_tools=mcp_tools, mcp_hub=self.mcp)
         if checkpoint is not None:
             tools.restore_evidence(checkpoint["confirmed"])
         label_queries_available = self.model.settings.mode == "fixture" and any(
@@ -461,7 +471,8 @@ class Runtime:
             available_tools = model_tools(require_citations=require_citations,
                 include_tables=any(Path(source["path"]).suffix.lower() == ".csv" for source in run["sources"]),
                 include_labels=label_queries_available, include_finish=finish_available, include_draft=review_mode,
-                receipt_completion=receipt_mode, include_base=run.get("base_artifact") is not None)
+                receipt_completion=receipt_mode, include_base=run.get("base_artifact") is not None,
+                extra_tools=[tool.definition() for tool in mcp_tools.values()])
             pending_tools = {correction.call.name for correction in pending.values()}
             if pending_tools == {"number_calculate"}:
                 correction_tools = [tool for tool in available_tools
@@ -565,10 +576,10 @@ class Runtime:
                     if navigation is not None:
                         reason = "superseded_correction" if any(call_id in superseded_errors for call_id in navigation[2]) else "resolved_correction"
                 if navigation is None:
-                    navigation = completed_tool_group(messages, current_start, acknowledged_until, READ_TOOLS)
+                    navigation = completed_tool_group(messages, current_start, acknowledged_until, read_tools)
                     reason = "acknowledged_evidence"
                 if navigation is None and review_mode:
-                    navigation = published_draft_group(messages, current_start, acknowledged_until, READ_TOOLS)
+                    navigation = published_draft_group(messages, current_start, acknowledged_until, read_tools)
                     reason = "published_draft"
                 if navigation is None:
                     break
@@ -576,7 +587,7 @@ class Runtime:
                 if reason in {"acknowledged_evidence", "published_draft"}:
                     ledger = navigation_state.setdefault("verified_evidence", {})
                     for call, message in zip(messages[first]["tool_calls"], messages[first + 1:after], strict=True):
-                        if call["function"]["name"] not in READ_TOOLS:
+                        if call["function"]["name"] not in read_tools:
                             continue
                         result = json.loads(message["content"])
                         ledger[result["evidence_id"]] = result
@@ -895,8 +906,9 @@ class Runtime:
                         result = await self._perform(identity, execute_tool)
                     except RunFailure as error:
                         await self._record(identity, "tool.failed", {"call_id": call.identity, "tool": call.name, "code": error.code})
-                        await feedback(call, error, retryable=call.name in READ_TOOLS and error.code in {
+                        await feedback(call, error, retryable=call.name in read_tools and error.code in {
                             "source_unavailable", "invalid_table", "invalid_calculation",
+                            "mcp_tool_error", "mcp_result_too_large",
                         })
                         continue
                     if (run["mode"] != "fixture" and call.name == "source_read"

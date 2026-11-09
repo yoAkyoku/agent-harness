@@ -27,7 +27,7 @@
 | 不可信內容 | 瀏覽器把頁面內容視為受污染、用隔離的審查模型、不讓密鑰進入模型上下文 | 來源文字、記憶與摘錄都標成不可信資料；API 金鑰只從環境變數讀取，不會進入請求內容 |
 | 上下文管理 | 接近上限時滾動摘要與壓縮（opencode、DSH、Claude Code） | 每個請求先量測；先做無損調整，再做標示過的有損省略，仍超出就停止——不會默默截斷或摘要 |
 | 指令與記憶 | `AGENTS.md`／`CLAUDE.md` 鏈 | 使用者保存、具版本的記憶，以樂觀並行控制更新 |
-| 擴充 | hooks、外掛、MCP、子代理 | 固定工具集；提供者都實作同一個 `DecisionModel` 協定 |
+| 擴充 | hooks、外掛、MCP、子代理 | 固定內建工具，加上使用者允許、每個 Run 選用的唯讀 MCP 工具；提供者都實作同一個 `DecisionModel` 協定 |
 | 驗證 | 多半交給使用者或自動審查模型 | 只看成果與證據、從不看任務文字的驗證器 |
 
 ## 刻意不同之處
@@ -51,6 +51,7 @@
 | 7 | 修正 #1 時發現：未開本機思考模式的原生模型（包含 Claude 與 OpenAI 相容轉接器）從不會被提供 `task_finish`，而是以純文字結束，因此遠端模型從不經過完成回覆檢查。 | Claude Code 與 Codex 以型別化的結果結束一回合；DSH 記錄回合結束的原因 | 遠端轉接器在發布後會被提供 `task_finish`；有提供 `task_finish` 時，發布後的純文字結束同樣經過 `completion_summary` 檢查，不符的回覆不放入下一次請求，改為只開放 `task_finish` 的可修正步驟。 |
 | 8 | 執行中的 Run 只能取消，使用者無法在不重來的情況下補充或修正指示。 | Codex steer/queue、opencode `delivery: steer \| queue`、DSH inbox 的 `steer`／`followup` | `POST /api/runs/{id}/messages` 以 `message_id` 冪等受理訊息；Runtime 在下一個步驟邊界以使用者回合送達，記錄 `message.queued`／`message.delivered`；沒送到模型的訊息以 `message.undelivered` 回報。 |
 | 9 | 腳本與 CI 只能自行撰寫 HTTP 呼叫來驅動 harness。 | Claude Code `-p --output-format stream-json`、`opencode run --format json` | `python -m agent_harness_demo.headless` 提交任務，把每個已保存事件輸出為 NDJSON，最後輸出 `headless.result`；逐筆確認事件、從 cursor 重新連線，退出碼 0 完成／1 失敗／2 被拒／3 取消／4 中斷。 |
+| 10 | 工具集固定，無法接上外部工具。 | Claude、Codex、opencode、DSH 的 MCP 伺服器 | 使用者設定的 stdio MCP 伺服器；只提供列在允許清單、且未宣告副作用的工具，Run 選用特定工具，結果成為被引用的證據，伺服器拿不到工作台的秘密。 |
 
 ## 已經具備
 
@@ -60,10 +61,12 @@
 
 ## 待辦（依對本專案的價值排序）
 
-1. **工具 hooks。** 執行前後的 hook 記錄為事件，deny 優先（Claude Code、Codex、opencode）；驗證器必須與 hooks 互相獨立。
-2. **唯讀的 MCP 來源。** 把 MCP resource 當成另一種選定來源，擁有自己的證據 ID。
-3. **欄位感知的引用。** 引用表格樣本的數值，必須位在標籤所指的欄位。
-4. **真實的 Claude 批次。** 轉接器目前只有模擬傳輸測試；要錄一次真實執行需要 API 金鑰與花費同意。
+1. **權限引擎。** 依 deny → ask → allow 規則判斷每個工具；宣告有副作用的 MCP 工具只能透過現有的單次、綁定參數摘要的核准執行。
+2. **Skills。** `SKILL.md` 資料夾：名稱與描述放在 Context，內容需要時才載入，並受 Context 預算約束。
+3. **工具 hooks。** 執行前後的 hook 記錄為事件，deny 優先（Claude Code、Codex、opencode）；驗證器必須與 hooks 互相獨立。
+4. **欄位感知的引用。** 引用表格樣本的數值，必須位在標籤所指的欄位。
+5. **真實的 Claude 批次。** 轉接器目前只有模擬傳輸測試；要錄一次真實執行需要 API 金鑰與花費同意。
+6. **遠端 MCP 伺服器與 OAuth 連接器。** 需要決定憑證如何取得與保存。
 
 ## 來源
 

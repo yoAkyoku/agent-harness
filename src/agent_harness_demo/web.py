@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 from .checkpoints import resume_blockers
 from .event_stream import stream_run
 from .implementation import source_identity
+from .mcp_hub import MODEL_NAME, McpHub
 from .local import MIN_TOKEN_LENGTH, AccessTokenMiddleware, LocalOriginMiddleware, SecurityHeadersMiddleware
 from .model import DecisionModel, FixtureTransport, ModelAdapter, ModelSettings
 from .ownership import StoreLease
@@ -64,6 +65,8 @@ class RunInput(BaseModel):
     require_publish_approval: bool = Field(default=False, strict=True)
     publication_workflow: Literal["direct", "draft_review"] = "direct"
     completion_workflow: Literal["model_summary", "artifact_receipt"] = "model_summary"
+    # Read-only MCP tools this Run may use, chosen like its sources (names from /api/config).
+    mcp_tools: list[Annotated[str, Field(pattern=MODEL_NAME.pattern)]] = Field(default_factory=list, max_length=16)
 
 
 class ResumeInput(BaseModel):
@@ -110,6 +113,7 @@ def create_app(
     fault_once_source_read: bool = False,
     hold_first_tool: Literal["source_read", "artifact_write"] | None = None,
     access_token: str | None = None,
+    mcp_config: Path | None = None,
 ) -> FastAPI:
     """Build the workbench app.
 
@@ -121,6 +125,9 @@ def create_app(
     `access_token`, when set, is required on every request and WebSocket (the
     command-line entry point always sets one). Without it the app relies only on
     the loopback Host and same-origin checks, which suits in-process use and tests.
+
+    `mcp_config` names an `mcpServers` file; its servers start with the app and
+    only their allowed, read-only tools can be selected by a Run.
     """
     if access_token is not None and len(access_token) < MIN_TOKEN_LENGTH:
         raise ValueError(f"The access token must have at least {MIN_TOKEN_LENGTH} characters.")
@@ -131,6 +138,7 @@ def create_app(
     validation: dict[str, Any] = {"fault_once_source_read": fault_once_source_read}
     if hold_first_tool is not None:
         validation["hold_first_tool"] = hold_first_tool
+    mcp = McpHub.from_config(mcp_config) if mcp_config is not None else None
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -143,13 +151,15 @@ def create_app(
                 transport = httpx.MockTransport(FixtureTransport())
             try:
                 await storage.recover_interrupted()
+                if mcp is not None:
+                    await mcp.start()
                 if settings.mode == "anthropic":
                     from .anthropic_adapter import AnthropicAdapter
 
                     claude = AnthropicAdapter(settings, transport=anthropic_transport)
                     await claude.prepare()
                     model = claude
-                    runtime = Runtime(storage, model, hold_first_tool=hold_first_tool)
+                    runtime = Runtime(storage, model, hold_first_tool=hold_first_tool, mcp=mcp)
                     try:
                         yield
                     finally:
@@ -161,12 +171,14 @@ def create_app(
                         adapter = ModelAdapter(client, settings, transport_fixture=transport is not None)
                         await adapter.prepare()
                         model = adapter
-                        runtime = Runtime(storage, model, hold_first_tool=hold_first_tool)
+                        runtime = Runtime(storage, model, hold_first_tool=hold_first_tool, mcp=mcp)
                         try:
                             yield
                         finally:
                             await runtime.close()
             finally:
+                if mcp is not None:
+                    await mcp.close()
                 await storage.close()
         finally:
             await asyncio.to_thread(lease.close)
@@ -189,7 +201,8 @@ def create_app(
     @app.get("/api/config")
     async def config() -> dict[str, Any]:
         return {"mode": settings.mode, "model": model.info, "demo_path": str(package / "demo_sources"),
-                "validation": validation, "implementation": implementation}
+                "validation": validation, "implementation": implementation,
+                "mcp": mcp.status() if mcp is not None else {"servers": {}}}
 
     @app.post("/api/workspaces", status_code=201)
     async def add_workspace(body: WorkspaceInput) -> dict[str, Any]:
@@ -289,6 +302,10 @@ def create_app(
             del effective["publication_workflow"]
         if body.completion_workflow == "model_summary":
             del effective["completion_workflow"]
+        if not body.mcp_tools:
+            del effective["mcp_tools"]
+        else:
+            effective["mcp_tools"] = sorted(set(body.mcp_tools))
         effective["sources"] = sorted(effective["sources"])
         digest = hashlib.sha256(json.dumps(effective, sort_keys=True, ensure_ascii=True, separators=(",", ":")).encode()).hexdigest()
         try:
@@ -303,6 +320,11 @@ def create_app(
                 policy["publication_workflow"] = body.publication_workflow
             if body.completion_workflow == "artifact_receipt":
                 policy["completion_workflow"] = body.completion_workflow
+            if body.mcp_tools:
+                if mcp is None:
+                    raise RunFailure("mcp_tool_unavailable", "No MCP servers are configured for this workbench.")
+                mcp.select(body.mcp_tools)
+                policy["mcp_tools"] = sorted(set(body.mcp_tools))
             run, created = await storage.add_run(session_id, body.task, sources, body.limits.model_dump(), model.info,
                                         validation,
                                         policy,

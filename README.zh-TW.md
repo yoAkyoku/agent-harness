@@ -81,6 +81,20 @@ uv run python -m agent_harness_demo.headless --workspace ./docs --source notes.m
 
 退出碼：`0` 完成、`1` 失敗、`2` 請求被拒或用法錯誤、`3` 已取消、`4` 已中斷。用戶端逐筆確認事件，串流中斷時從上次的 cursor 重新接上；結束用戶端不會停止 Run。
 
+### 唯讀 MCP 工具
+
+用 `mcpServers` 格式的設定檔連接本機 [MCP](https://modelcontextprotocol.io) 伺服器，每個伺服器都必須列出允許提供的工具：
+
+```json
+{"mcpServers": {"notes": {"command": "uvx", "args": ["my-notes-mcp"], "allowedTools": ["search_notes"]}}}
+```
+
+```bash
+uv run python -m agent_harness_demo --mcp-config mcp.json --store .private/demo
+```
+
+`/api/config` 會列出每個伺服器提供與排除的工具。Run 依名稱選用工具（`"mcp_tools": ["mcp__notes__search_notes"]`，無頭模式用 `--mcp-tool`）。結果會成為像 `[mcp/notes/search_notes E2]` 的證據，和來源一樣受檢查。只有允許清單上的工具會被提供；即使列在清單上，工具若自行宣告有副作用也會被拒絕。伺服器只會收到最小的環境變數加上設定中的 `env`，不會拿到工作台權杖或 API 金鑰。目前只支援本機 stdio 伺服器；有副作用的工具要等權限引擎完成。
+
 ## 測試
 
 ```bash
@@ -93,7 +107,7 @@ for file in src/agent_harness_demo/static/*.js; do node --check "$file"; done
 
 ## 目錄
 
-- `src/agent_harness_demo/`：harness 本體。`runtime.py`（循環）、`context.py`（預算與裁切）、`tools.py`、`verifiers.py`、`storage.py`、`checkpoints.py`、`event_stream.py`、`model.py` 與 `anthropic_adapter.py`（供應商）、`web.py`（API）、`static/`（工作台）。
+- `src/agent_harness_demo/`：harness 本體。`runtime.py`（循環）、`context.py`（預算與裁切）、`tools.py`、`verifiers.py`、`storage.py`、`checkpoints.py`、`event_stream.py`、`model.py` 與 `anthropic_adapter.py`（供應商）、`mcp_hub.py`（MCP 工具）、`headless.py`（NDJSON 用戶端）、`web.py`（API）、`static/`（工作台）。
 - `tests/`：公開介面測試與 fixtures，包含錄製的模型執行紀錄。
 - `evaluation/`：固定題組，真值在任何模型執行前寫定。
 - `scripts/`：對執行中的工作台跑題組，保存每個事件、成果與評分的記錄器。

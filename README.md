@@ -81,6 +81,20 @@ uv run python -m agent_harness_demo.headless --workspace ./docs --source notes.m
 
 Exit codes: `0` completed, `1` failed, `2` refused request or usage error, `3` cancelled, `4` interrupted. The client acknowledges each event and reconnects from its last cursor if the stream drops; stopping it does not stop the Run.
 
+### Read-only MCP tools
+
+Connect local [MCP](https://modelcontextprotocol.io) servers with a config file in the familiar `mcpServers` shape. Each server must list the tools it may expose:
+
+```json
+{"mcpServers": {"notes": {"command": "uvx", "args": ["my-notes-mcp"], "allowedTools": ["search_notes"]}}}
+```
+
+```bash
+uv run python -m agent_harness_demo --mcp-config mcp.json --store .private/demo
+```
+
+`/api/config` lists each server's offered and excluded tools. A Run opts into tools by name (`"mcp_tools": ["mcp__notes__search_notes"]`, or `--mcp-tool` in headless mode). Results become evidence such as `[mcp/notes/search_notes E2]`, checked like any source. Only tools on the allowlist are offered, and a tool that declares side effects is refused even if listed. Servers receive only a minimal environment plus their configured `env`, never the workbench token or API keys. Local stdio servers only for now; tools with side effects wait for the permission engine.
+
 ## Tests
 
 ```bash
@@ -93,7 +107,7 @@ Tests go through the public HTTP/WebSocket interface and replace only the model'
 
 ## Repository map
 
-- `src/agent_harness_demo/` — the harness: `runtime.py` (loop), `context.py` (budget and pruning), `tools.py`, `verifiers.py`, `storage.py`, `checkpoints.py`, `event_stream.py`, `model.py` and `anthropic_adapter.py` (providers), `web.py` (API), `static/` (workbench).
+- `src/agent_harness_demo/` — the harness: `runtime.py` (loop), `context.py` (budget and pruning), `tools.py`, `verifiers.py`, `storage.py`, `checkpoints.py`, `event_stream.py`, `model.py` and `anthropic_adapter.py` (providers), `mcp_hub.py` (MCP tools), `headless.py` (NDJSON client), `web.py` (API), `static/` (workbench).
 - `tests/` — public-interface tests and fixtures, including recorded model runs.
 - `evaluation/` — fixed task suites with truth written before any model run.
 - `scripts/` — recorders that run a suite against a live workbench and save every event, artifact and score.

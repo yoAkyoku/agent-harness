@@ -50,6 +50,8 @@ def parser() -> argparse.ArgumentParser:
     task = cli.add_mutually_exclusive_group(required=True)
     task.add_argument("--task", help="The task text.")
     task.add_argument("--task-file", type=Path, help="Read the task text from a UTF-8 file.")
+    cli.add_argument("--mcp-tool", dest="mcp_tools", action="append", default=[],
+                     help="An allowed read-only MCP tool for this Run, such as mcp__notes__search; repeat for more.")
     cli.add_argument("--max-steps", type=int, help="Model decision limit for this Run.")
     cli.add_argument("--max-tool-calls", type=int, help="Tool call limit for this Run.")
     cli.add_argument("--submission-key", help="Re-sending the same key returns the original Run instead of starting another.")
@@ -123,6 +125,8 @@ async def run(arguments: argparse.Namespace, task: str, out: TextIO) -> int:
                             "submission_key": arguments.submission_key or f"headless-{uuid4().hex}"}
     if limits:
         body["limits"] = limits
+    if arguments.mcp_tools:
+        body["mcp_tools"] = arguments.mcp_tools
     async with httpx.AsyncClient(base_url=base, headers=headers, trust_env=False, timeout=30) as client:
         workspace = await _post(client, "/api/workspaces", {"path": str(Path(arguments.workspace).resolve())})
         session = await _post(client, "/api/sessions", {"workspace_id": workspace["id"]})
