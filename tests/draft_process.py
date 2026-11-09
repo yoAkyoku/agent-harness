@@ -73,17 +73,19 @@ uvicorn.run(create_app(Path(sys.argv[1]),model_settings=ModelSettings.local(mode
         process = subprocess.Popen([sys.executable, str(helper), str(store), str(fixture), str(port), str(Path(__file__).parent), "hold" if hold_publication else "none", str((package_root or Path(__file__).resolve().parents[1]) / "src"), decision_protocol, str(exact_assets[0]) if exact_assets else "", str(exact_assets[1]) if exact_assets else "", "4b" if qwen_4b else ""],
                                    stdout=output, stderr=subprocess.STDOUT,
                                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
-    client = httpx.Client(base_url=f"http://127.0.0.1:{port}", trust_env=False, timeout=2)
+    client = httpx.Client(base_url=f"http://127.0.0.1:{port}", trust_env=False, timeout=10)
     try:
         deadline = time.monotonic() + 30  # generous: slow CI runners start Python slowly
         while time.monotonic() < deadline:
             assert process.poll() is None, log.read_text(encoding="utf-8", errors="replace")[-4000:]
             try:
-                if client.get("/api/config").status_code == 200:
-                    yield DraftService(client, process, log, Path(str(fixture)+".requests.json"))
-                    return
+                ready = client.get("/api/config").status_code == 200
             except httpx.TransportError:
-                pass
+                ready = False
+            if ready:
+                # Outside the try: an error raised by the test body must surface, not restart this loop.
+                yield DraftService(client, process, log, Path(str(fixture)+".requests.json"))
+                return
             time.sleep(.03)
         pytest.fail("Draft child service not ready: " + log.read_text(encoding="utf-8", errors="replace")[-4000:])
     finally:

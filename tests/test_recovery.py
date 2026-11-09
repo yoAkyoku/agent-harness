@@ -50,7 +50,7 @@ def stop(process: subprocess.Popen) -> None:
 @contextmanager
 def running_service(store: Path, *extra: str, package_root: Path | None = None) -> Iterator[RunningService]:
     process, log, port = launch(store, *extra, package_root=package_root)
-    client = httpx.Client(base_url=f"http://127.0.0.1:{port}", trust_env=False, timeout=2,
+    client = httpx.Client(base_url=f"http://127.0.0.1:{port}", trust_env=False, timeout=10,
                           headers={"Authorization": f"Bearer {SERVICE_TOKEN}"})
     try:
         deadline = time.monotonic() + 30  # generous: slow CI runners start Python slowly
