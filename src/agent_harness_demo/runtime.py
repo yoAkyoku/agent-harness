@@ -13,6 +13,7 @@ from typing import Any, Literal, TypeVar
 
 from .context import added_message, compact_tool_catalog, completed_tool_group, encode_draft_receipts, encode_duplicate_plan, executor_state_message, omit_inspection_hints, omit_runtime_guidance, prune_resolved_tool_failures, publication_finalization_prefix, published_draft_group
 from .contracts import Decision, PendingCorrection, RunCancelled, RunFailure, RunLimits, ToolCall, canonical_tool_arguments
+from .hooks import HookRunner
 from .mcp_hub import McpHub
 from .instructions import instructions_message
 from .skills import SkillLibrary, catalog_message, loader_definition
@@ -70,10 +71,11 @@ def project_initial_public_plan(decision: Decision, protocol: str) -> Decision:
 
 class Runtime:
     def __init__(self, store: Store, model: DecisionModel, *, hold_first_tool: Literal["source_read", "artifact_write"] | None = None,
-                 mcp: McpHub | None = None, skills: SkillLibrary | None = None) -> None:
+                 mcp: McpHub | None = None, skills: SkillLibrary | None = None, hooks: HookRunner | None = None) -> None:
         self.store = store
         self.model = model
         self.mcp = mcp
+        self.hooks = hooks
         self.skills = skills
         self.changed = asyncio.Condition()
         self._jobs: set[asyncio.Task[None]] = set()
@@ -898,14 +900,24 @@ class Runtime:
                     if call.name not in offered_tools:
                         raise RunFailure("tool_not_offered", f"{call.name} was not offered for this step; "
                                          f"use only: {', '.join(sorted(offered_tools))}.")
+                    # User hooks see only calls that passed every built-in guard; any deny refuses the call.
+                    if self.hooks is not None:
+                        decisions = await self.hooks.before_tool(identity, call.identity, call.name,
+                                                                 prepared.arguments, prepared.scope["effect"])
+                        for decided in decisions:
+                            await self._record(identity, "hook.decided", decided)
+                        denied = next((decided for decided in decisions if decided["decision"] == "deny"), None)
+                        if denied is not None:
+                            raise RunFailure("hook_denied", f"A hook denied {call.name}: "
+                                             f"{denied.get('reason') or 'no reason given'}")
                 except RunFailure as error:
                     await self._record(identity, "tool.rejected", {"call_id": call.identity, "tool": call.name, "code": error.code})
                     await feedback(call, error, retryable=error.code in {
                         "invalid_arguments", "invalid_evidence", "missing_evidence",
                         "evidence_section_mismatch", "missing_body_citation",
                         "missing_calculation_citation", "unsupported_completion_claim", "mixed_source_roles",
-                        "tool_not_offered",
-                    }, owed=error.code != "tool_not_offered")
+                        "tool_not_offered", "hook_denied",
+                    }, owed=error.code not in {"tool_not_offered", "hook_denied"})
                     continue
                 reused = next((confirmed for confirmed in checkpoint["confirmed"]
                                if confirmed["tool"] == call.name and isinstance(confirmed.get("arguments"), dict)
@@ -966,6 +978,9 @@ class Runtime:
                             and not any(later.name == "source_read" for later in decision.calls[call_index + 1:])):
                         result["runtime_guidance"] = {"origin": "agent_runtime", "text": SOURCE_REVIEW_GUIDANCE}
                     await self._record(identity, "tool.completed", {"call_id": call.identity, "tool": call.name, "result": result})
+                    if self.hooks is not None:
+                        for notice in await self.hooks.after_tool(identity, call.identity, call.name, prepared.arguments, result):
+                            await self._record(identity, "hook.notified", notice)
                 if call.name == "plan_update":
                     navigation_state["plan_saved"] = True
                     navigation_state["plan_steps"] = list(result["steps"])

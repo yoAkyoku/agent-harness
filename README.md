@@ -125,6 +125,19 @@ uv run python -m agent_harness_demo --mcp-config mcp.json --store .private/demo
 
 `/api/config` lists each server's offered and excluded tools. A Run opts into tools by ticking them in the workbench (marked read-only or approval-each-time), by name in the API (`"mcp_tools": ["mcp__notes__search_notes"]`), or with `--mcp-tool` in headless mode. Results become evidence such as `[mcp/notes/search_notes E2]`, checked like any source. A tool in `allowedTools` that declares side effects is refused; list it in `askTools` to allow it with approval. A denied or expired approval means the call never runs. Servers receive only a minimal environment plus their configured `env`, never the workbench token or API keys. A remote server (`url`, Streamable HTTP) must use HTTPS, or plain HTTP to a loopback address. Its credentials are never written in the config: `bearerTokenEnv` names the environment variable holding a bearer token, and `headerEnv` maps other headers to environment variables. A server whose variable is missing, or that refuses the token, is reported as unavailable without the value. OAuth sign-in is not supported.
 
+### Hooks
+
+`--hooks-config hooks.json` calls your HTTP webhooks around tool calls. Shell-command hooks are not supported.
+
+```json
+{"hooks": [
+  {"event": "before_tool", "url": "https://policy.example.com/check", "tools": ["source_read", "mcp__*"],
+   "bearerTokenEnv": "POLICY_TOKEN", "timeoutSeconds": 5},
+  {"event": "after_tool", "url": "http://127.0.0.1:9000/audit"}]}
+```
+
+A `before_tool` hook receives the tool, its arguments (as they will be dispatched) and its effect, and answers `{"decision": "allow" | "deny", "reason": "..."}`. Any deny refuses the call and the reason goes back to the model. A hook that cannot be reached, times out or answers anything else counts as a deny. An `after_tool` hook is told about each completed call, with a result summary (evidence ID, path, SHA-256; no source text), and cannot affect the Run. Every decision and notification is a Run event. Hooks cannot change arguments, and the verifiers never consult them. URLs and credentials follow the same rules as remote MCP servers.
+
 ### Skills
 
 Point `--skills-dir` at a folder of skills in the Agent Skills format: each skill is a folder with a `SKILL.md` whose frontmatter has a `name` (matching the folder) and a `description`. A Run sees only the names and descriptions of the skills it selected (all of them by default in the workbench; `"skills": [...]` in the API; `--skill` in headless mode) and loads a skill's instructions with `skill_load` when it needs them. Starting a task with `/skill-name` also selects that skill. Invalid skills are listed in `/api/config` with the reason. Scripts inside skill folders are never run.
@@ -141,7 +154,7 @@ Tests go through the public HTTP/WebSocket interface and replace only the model'
 
 ## Repository map
 
-- `src/agent_harness_demo/` — the harness: `runtime.py` (loop), `context.py` (budget and pruning), `tools.py`, `verifiers.py`, `storage.py`, `checkpoints.py`, `event_stream.py`, `model.py` and `anthropic_adapter.py` (providers), `mcp_hub.py` (MCP tools), `skills.py` (skills), `instructions.py` (AGENTS.md), `headless.py` (NDJSON client), `web.py` (API), `static/` (workbench).
+- `src/agent_harness_demo/` — the harness: `runtime.py` (loop), `context.py` (budget and pruning), `tools.py`, `verifiers.py`, `storage.py`, `checkpoints.py`, `event_stream.py`, `model.py` and `anthropic_adapter.py` (providers), `mcp_hub.py` (MCP tools), `skills.py` (skills), `instructions.py` (AGENTS.md), `uploads.py`, `hooks.py`, `remote.py` (endpoint and credential rules), `headless.py` (NDJSON client), `web.py` (API), `static/` (workbench).
 - `tests/` — public-interface tests and fixtures, including recorded model runs.
 - `evaluation/` — fixed task suites with truth written before any model run.
 - `scripts/` — recorders that run a suite against a live workbench and save every event, artifact and score.

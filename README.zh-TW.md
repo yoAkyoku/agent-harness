@@ -125,6 +125,19 @@ uv run python -m agent_harness_demo --mcp-config mcp.json --store .private/demo
 
 `/api/config` 會列出每個伺服器提供與排除的工具。Run 可在工作台勾選工具（標示唯讀或每次需核准），也可在 API 依名稱選用（`"mcp_tools": ["mcp__notes__search_notes"]`），無頭模式用 `--mcp-tool`。結果會成為像 `[mcp/notes/search_notes E2]` 的證據，和來源一樣受檢查。列在 `allowedTools` 的工具若自行宣告有副作用會被拒絕；改列在 `askTools` 才能在核准後使用。核准被拒或過期時，該呼叫永遠不會執行。伺服器只會收到最小的環境變數加上設定中的 `env`，不會拿到工作台權杖或 API 金鑰。遠端伺服器（`url`，Streamable HTTP）必須使用 HTTPS，或連到本機迴路位址的一般 HTTP。憑證不會寫在設定檔裡：`bearerTokenEnv` 指定存放 bearer token 的環境變數名稱，`headerEnv` 則把其他標頭對應到環境變數。缺少變數或權杖被拒絕的伺服器會標示為無法使用，但不會顯示權杖內容。不支援 OAuth 登入。
 
+### Hooks
+
+`--hooks-config hooks.json` 會在工具呼叫前後呼叫你的 HTTP webhook；不支援執行 shell 指令的 hook。
+
+```json
+{"hooks": [
+  {"event": "before_tool", "url": "https://policy.example.com/check", "tools": ["source_read", "mcp__*"],
+   "bearerTokenEnv": "POLICY_TOKEN", "timeoutSeconds": 5},
+  {"event": "after_tool", "url": "http://127.0.0.1:9000/audit"}]}
+```
+
+`before_tool` hook 會收到工具名稱、（即將派送的）參數與效果類型，並回覆 `{"decision": "allow" | "deny", "reason": "..."}`。任何一個 deny 都會拒絕該呼叫，原因會回給模型。連不上、逾時或回覆其他內容的 hook 一律視為 deny。`after_tool` hook 會收到每次完成的呼叫與結果摘要（證據 ID、路徑、SHA-256，不含來源文字），無法影響 Run。每次決定與通知都會記錄為 Run 事件。Hooks 不能修改參數，驗證器也從不參考它們。URL 與憑證的規則和遠端 MCP 伺服器相同。
+
 ### Skills
 
 用 `--skills-dir` 指向 Agent Skills 格式的 skills 資料夾：每個 skill 是一個含 `SKILL.md` 的資料夾，frontmatter 寫明 `name`（須與資料夾同名）與 `description`。Run 只會看到所選 skills 的名稱與說明（工作台預設全選；API 用 `"skills": [...]`；無頭模式用 `--skill`），需要時才以 `skill_load` 載入完整指示。任務以 `/skill名稱` 開頭也會選用該 skill。無效的 skill 會連同原因列在 `/api/config`。skill 資料夾裡的腳本永遠不會執行。
@@ -141,7 +154,7 @@ for file in src/agent_harness_demo/static/*.js; do node --check "$file"; done
 
 ## 目錄
 
-- `src/agent_harness_demo/`：harness 本體。`runtime.py`（循環）、`context.py`（預算與裁切）、`tools.py`、`verifiers.py`、`storage.py`、`checkpoints.py`、`event_stream.py`、`model.py` 與 `anthropic_adapter.py`（供應商）、`mcp_hub.py`（MCP 工具）、`skills.py`（Skills）、`instructions.py`（AGENTS.md）、`headless.py`（NDJSON 用戶端）、`web.py`（API）、`static/`（工作台）。
+- `src/agent_harness_demo/`：harness 本體。`runtime.py`（循環）、`context.py`（預算與裁切）、`tools.py`、`verifiers.py`、`storage.py`、`checkpoints.py`、`event_stream.py`、`model.py` 與 `anthropic_adapter.py`（供應商）、`mcp_hub.py`（MCP 工具）、`skills.py`（Skills）、`instructions.py`（AGENTS.md）、`uploads.py`、`hooks.py`、`remote.py`（端點與憑證規則）、`headless.py`（NDJSON 用戶端）、`web.py`（API）、`static/`（工作台）。
 - `tests/`：公開介面測試與 fixtures，包含錄製的模型執行紀錄。
 - `evaluation/`：固定題組，真值在任何模型執行前寫定。
 - `scripts/`：對執行中的工作台跑題組，保存每個事件、成果與評分的記錄器。

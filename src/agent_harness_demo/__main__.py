@@ -48,6 +48,9 @@ def parser() -> argparse.ArgumentParser:
                         help="JSON file with mcpServers (command, args, allowedTools); their allowed read-only tools can be selected by Runs.")
     parser.add_argument("--skills-dir", type=Path,
                         help="Folder of skills (each a folder with SKILL.md); Runs can select them and load instructions on demand.")
+    parser.add_argument("--hooks-config", type=Path,
+                        help="JSON file with HTTP webhooks called before tool calls (allow/deny) and after them (notify); "
+                             "shell-command hooks are not supported.")
     parser.add_argument("--fault-once-source-read", action="store_true", help="Controlled validation: fail each Run's first source_read before filesystem access.")
     parser.add_argument("--hold-first-tool", choices=["source_read", "artifact_write"], help="Controlled validation: hold the service's first matching read before access, or publish before result acknowledgement.")
     return parser
@@ -133,7 +136,7 @@ def main() -> None:
     try:
         app = create_app(arguments.store.resolve(), model_settings=settings, fault_once_source_read=arguments.fault_once_source_read,
                          hold_first_tool=arguments.hold_first_tool, access_token=token, mcp_config=arguments.mcp_config,
-                         skills_dir=arguments.skills_dir, prices=prices)
+                         skills_dir=arguments.skills_dir, prices=prices, hooks_config=arguments.hooks_config)
     except ValueError as error:
         cli.error(str(error))
     shown = "<the value of " + TOKEN_ENV + ">" if configured else token

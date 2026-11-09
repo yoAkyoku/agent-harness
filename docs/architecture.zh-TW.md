@@ -65,6 +65,10 @@ Token 用量來自每次回覆：Chat Completions 供應商回報 `prompt_tokens
 
 `instructions.py` 只在 Run 選用時讀取工作區根目錄的 `AGENTS.md`。檔案必須是一般檔案（拒絕連結）、UTF-8、最多 8 KiB；空白檔案視為沒有指令。受理時會把文字、大小與 SHA-256 固定寫入 Run 的政策，因此 checkpoint 會一併保存，續做時即使檔案已變更也沿用同一份文字。runtime 把文字附加在系統訊息後，標頭註明檔名與摘要，並說明它位於 harness 規則之下：可以調整做法、格式與用語，但工具、來源、批准與驗證器都不讀取它。`context.selected` 會記錄路徑、大小與摘要。
 
+## Hooks
+
+`hooks.py` 在啟動時載入 `--hooks-config`，只接受 HTTP webhook（有 `command` 的項目會被視為設定錯誤）。runtime 在所有內建守門（包括本步提供工具的檢查）之後、核准與派送之前執行 `before_tool` hooks，因此 hook 只會看到原本就會執行的呼叫，以及它們的正規化參數。每個相符 hook 的回覆都記錄為 `hook.decided`；任何一個 deny 會產生 `hook_denied`，這是會消耗修正額度、但不要求補做的修正（模型可以改做別的事）。Hooks 失敗時一律拒絕：端點連不上、逾時、非 200 回覆、無效 JSON、未知的決定或缺少憑證環境變數，都視為 deny。`after_tool` hooks 在 `tool.completed` 之後執行，收到結果摘要（不含來源文字），記錄為 `hook.notified`，失敗不會影響 Run。Hooks 不能修改參數，驗證器也從不參考它們。
+
 ## 無頭用戶端
 
 `agent_harness_demo.headless` 只是一般的觀察者：透過 HTTP API 建立工作區、Session 與 Run，再以 `flow=ack` 讀取持久事件串流，逐筆確認，串流中斷時從最後的 cursor 重新接上（已輸出的序號會略過）。它原樣輸出事件為 NDJSON，並把終止狀態對應成退出碼。觀察者從不擁有執行，所以用戶端結束時 Run 仍會繼續。重新連線的路徑目前還沒有測試。

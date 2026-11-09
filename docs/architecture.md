@@ -102,6 +102,10 @@ Plan approval (`require_plan_approval`) reuses the same mechanism. `Tools` remem
 
 `instructions.py` reads the workspace's root `AGENTS.md` only for a Run that opts in. The file must be a regular file (a link is refused), UTF-8 and at most 8 KiB; an empty file counts as none. Admission pins the text, size and SHA-256 into the Run's policy, so the checkpoint carries them and a resume uses the same text even if the file has changed. The runtime appends the text to the system message under a header that names the file and its digest and places it below the harness rules: it may shape method, format and wording, but tools, sources, approvals and verifiers do not read it. `context.selected` records the path, size and digest.
 
+## Hooks
+
+`hooks.py` loads `--hooks-config` at startup and refuses anything that is not an HTTP webhook (a `command` entry is a config error). In the runtime, `before_tool` hooks run after every built-in guard, including the offered-tool check, and before approval and dispatch, so a hook only sees calls that would otherwise run, with their canonical arguments. Each matching hook's answer is recorded as `hook.decided`; any deny raises `hook_denied`, a correction that spends the correction budget but is not owed (the model may do something else). Hooks fail closed: an unreachable endpoint, a timeout, a non-200 answer, invalid JSON, an unknown decision or a missing credential variable all count as deny. `after_tool` hooks run after `tool.completed` with a result summary (no source text) and are recorded as `hook.notified`; their failures never affect the Run. Hooks cannot change arguments, and verifiers never consult them.
+
 ## Headless clients
 
 `agent_harness_demo.headless` is an ordinary observer: it creates the workspace, Session and Run through the HTTP API, then reads the durable stream with `flow=ack`, acknowledging each event and reconnecting from its last cursor (events at or below it are skipped). It prints events unchanged as NDJSON and maps the terminal status to an exit code. Because observers never own execution, a client that exits leaves the Run running. The reconnect path is not covered by a test yet.

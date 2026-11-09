@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 from .checkpoints import resume_blockers
 from .event_stream import stream_run
 from .implementation import source_identity
+from .hooks import HookRunner
 from .instructions import read_instructions
 from .token_usage import session_usage
 from .uploads import save_upload, upload_limit
@@ -130,6 +131,8 @@ def create_app(
     mcp_config: Path | None = None,
     skills_dir: Path | None = None,
     prices: dict[str, dict[str, float]] | None = None,
+    hooks_config: Path | None = None,
+    hooks_transport: httpx.AsyncBaseTransport | None = None,
 ) -> FastAPI:
     """Build the workbench app.
 
@@ -159,6 +162,7 @@ def create_app(
         validation["hold_first_tool"] = hold_first_tool
     mcp = McpHub.from_config(mcp_config) if mcp_config is not None else None
     skills = SkillLibrary.from_directory(skills_dir) if skills_dir is not None else None
+    hooks = HookRunner.from_config(hooks_config, hooks_transport) if hooks_config is not None else None
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -179,7 +183,7 @@ def create_app(
                     claude = AnthropicAdapter(settings, transport=anthropic_transport)
                     await claude.prepare()
                     model = claude
-                    runtime = Runtime(storage, model, hold_first_tool=hold_first_tool, mcp=mcp, skills=skills)
+                    runtime = Runtime(storage, model, hold_first_tool=hold_first_tool, mcp=mcp, skills=skills, hooks=hooks)
                     try:
                         yield
                     finally:
@@ -191,7 +195,7 @@ def create_app(
                         adapter = ModelAdapter(client, settings, transport_fixture=transport is not None)
                         await adapter.prepare()
                         model = adapter
-                        runtime = Runtime(storage, model, hold_first_tool=hold_first_tool, mcp=mcp, skills=skills)
+                        runtime = Runtime(storage, model, hold_first_tool=hold_first_tool, mcp=mcp, skills=skills, hooks=hooks)
                         try:
                             yield
                         finally:
@@ -199,6 +203,8 @@ def create_app(
             finally:
                 if mcp is not None:
                     await mcp.close()
+                if hooks is not None:
+                    await hooks.close()
                 await storage.close()
         finally:
             await asyncio.to_thread(lease.close)
@@ -224,7 +230,7 @@ def create_app(
                 "validation": validation, "implementation": implementation,
                 "mcp": mcp.status() if mcp is not None else {"servers": {}},
                 "skills": skills.status() if skills is not None else {"available": [], "excluded": []},
-                "prices": prices or {}}
+                "prices": prices or {}, "hooks": hooks.status() if hooks is not None else []}
 
     @app.post("/api/workspaces", status_code=201)
     async def add_workspace(body: WorkspaceInput) -> dict[str, Any]:
