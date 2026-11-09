@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 from .checkpoints import resume_blockers
 from .event_stream import stream_run
 from .implementation import source_identity
+from .instructions import read_instructions
 from .mcp_hub import MODEL_NAME, McpHub
 from .skills import SKILL_NAME, SkillLibrary
 from .local import MIN_TOKEN_LENGTH, AccessTokenMiddleware, LocalOriginMiddleware, SecurityHeadersMiddleware
@@ -67,6 +68,8 @@ class RunInput(BaseModel):
     require_publish_approval: bool = Field(default=False, strict=True)
     # Pause at the plan: nothing runs until the user approves it, and each revised plan needs approval too.
     require_plan_approval: bool = Field(default=False, strict=True)
+    # Apply the workspace's AGENTS.md; its text and SHA-256 are pinned into the Run at admission.
+    project_instructions: bool = Field(default=False, strict=True)
     publication_workflow: Literal["direct", "draft_review"] = "direct"
     completion_workflow: Literal["model_summary", "artifact_receipt"] = "model_summary"
     # Read-only MCP tools this Run may use, chosen like its sources (names from /api/config).
@@ -236,6 +239,17 @@ def create_app(
         sources = await asyncio.to_thread(catalog, Path(workspace["path"]))
         return {"sources": sources}
 
+    @app.get("/api/workspaces/{workspace_id}/instructions")
+    async def workspace_instructions(workspace_id: str) -> dict[str, Any]:
+        """The workspace's AGENTS.md, which a Run applies only when it opts in."""
+        workspace = await storage.workspace(workspace_id)
+        if not workspace:
+            raise HTTPException(404, "Workspace not found.")
+        try:
+            return {"instructions": await asyncio.to_thread(read_instructions, Path(workspace["path"])), "error": None}
+        except RunFailure as error:
+            return {"instructions": None, "error": {"code": error.code, "message": error.message}}
+
     @app.get("/api/workspaces/{workspace_id}/source")
     async def preview_source(workspace_id: str, path: str = Query(max_length=500)) -> dict[str, Any]:
         workspace = await storage.workspace(workspace_id)
@@ -317,8 +331,9 @@ def create_app(
         for optional in ("model", "effort"):
             if effective[optional] is None:
                 del effective[optional]
-        if not body.require_plan_approval:
-            del effective["require_plan_approval"]
+        for flag in ("require_plan_approval", "project_instructions"):
+            if not effective[flag]:
+                del effective[flag]
         if not body.skills:
             del effective["skills"]
         else:
@@ -339,6 +354,11 @@ def create_app(
             policy: dict[str, Any] = {"require_publish_approval": body.require_publish_approval}
             if body.require_plan_approval:
                 policy["require_plan_approval"] = True
+            if body.project_instructions:
+                instructions = await asyncio.to_thread(read_instructions, root)
+                if instructions is None:
+                    raise RunFailure("project_instructions_unavailable", "This workspace has no AGENTS.md with instructions.")
+                policy["project_instructions"] = instructions
             if body.publication_workflow == "draft_review":
                 policy["publication_workflow"] = body.publication_workflow
             if body.completion_workflow == "artifact_receipt":

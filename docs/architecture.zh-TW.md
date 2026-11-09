@@ -55,6 +55,10 @@ Runtime 只依賴 `model.py` 的 `DecisionModel` 介面（`request_body`、`cont
 
 `skills.py` 在啟動時讀取一次 `--skills-dir`。`SKILL.md`（UTF-8、最多 32 KiB）的 frontmatter 有與資料夾同名的 kebab-case `name`，以及最多 1,024 字元的 `description`，才算有效；其餘會連同原因排除。Run 在受理時選用 skills（存在政策中，續做時保留）。系統訊息為每個選用的 skill 列一行；`skill_load` 回傳指示內容與所讀 `SKILL.md` 的 SHA-256，因此 Context 只會放入模型選擇載入的 skill 全文。skill 指示只規範做法，不是來源，不能被引用。skill 資料夾中的腳本會被忽略，因為 harness 沒有 shell。
 
+## 專案指令
+
+`instructions.py` 只在 Run 選用時讀取工作區根目錄的 `AGENTS.md`。檔案必須是一般檔案（拒絕連結）、UTF-8、最多 8 KiB；空白檔案視為沒有指令。受理時會把文字、大小與 SHA-256 固定寫入 Run 的政策，因此 checkpoint 會一併保存，續做時即使檔案已變更也沿用同一份文字。runtime 把文字附加在系統訊息後，標頭註明檔名與摘要，並說明它位於 harness 規則之下：可以調整做法、格式與用語，但工具、來源、批准與驗證器都不讀取它。`context.selected` 會記錄路徑、大小與摘要。
+
 ## 無頭用戶端
 
 `agent_harness_demo.headless` 只是一般的觀察者：透過 HTTP API 建立工作區、Session 與 Run，再以 `flow=ack` 讀取持久事件串流，逐筆確認，串流中斷時從最後的 cursor 重新接上（已輸出的序號會略過）。它原樣輸出事件為 NDJSON，並把終止狀態對應成退出碼。觀察者從不擁有執行，所以用戶端結束時 Run 仍會繼續。重新連線的路徑目前還沒有測試。

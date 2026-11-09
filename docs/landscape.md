@@ -26,7 +26,7 @@ The point is not feature parity. Those products are coding agents or browsers wi
 | Isolation | Codex and Claude Code sandbox shells and file writes; opencode and DSH say plainly that permissions are not isolation and recommend a VM or container | No shell and no workspace writes: sources are read-only, the only effect is publishing an artifact into the store |
 | Untrusted content | Browsers treat page content as tainted, use an isolated critic, keep secrets out of model context | Source text, memory and excerpts are labelled as untrusted data; API keys are read from the environment and never enter a request |
 | Context management | Rolling summaries and compaction near the limit (opencode, DSH, Claude Code) | Every request is measured first; lossless moves, then labelled lossy omissions, then a stop — never silent truncation or summarisation |
-| Instructions and memory | `AGENTS.md` / `CLAUDE.md` chains | User-saved, versioned memories with optimistic concurrency |
+| Instructions and memory | `AGENTS.md` / `CLAUDE.md` chains | Opt-in workspace `AGENTS.md`, pinned with its SHA-256 when the Run starts; user-saved, versioned memories with optimistic concurrency |
 | Extensibility | Hooks, plugins, MCP, subagents | Fixed built-in tools, user-allowed MCP tools (read-only, or approval-each-time) and skills, all selected per Run; providers behind one `DecisionModel` protocol |
 | Verification | Mostly left to the user or an auto-reviewer model | Evidence-only verifiers that never see the task text |
 
@@ -57,6 +57,7 @@ The products' mechanisms were used as a checklist against the code. Each item re
 | 13 | Revisions kept every version, but there was no way to see what changed between them. | Codex turn diffs; Claude Code checkpoints | A diff endpoint and preview toggle compare any two versions in a Session (default: against the parent), re-hashing both first. |
 | 14 | The model and effort were fixed when the workbench started. | Model and effort pickers in Claude, Codex and opencode | Remote providers can offer alternative models and Claude its effort levels; each Run chooses (workbench selectors, `model` / `effort` in the API), records the choice, and keeps it on resume. Local models stay fixed because each needs its own verification. |
 | 15 | The plan was public but not something the user could approve before work began. | Claude Code plan mode, opencode `plan` agent, plan-first agentic browsers | Opt-in plan approval: the Run pauses at its plan, “request changes” sends it back with the user's note (outside the correction budget), a revised plan needs a new approval, and a resume keeps the approved plan. |
+| 16 | A workspace could not carry standing instructions; each task had to repeat its house rules. | `AGENTS.md` in Codex, opencode and DSH; `CLAUDE.md` in Claude Code | A Run can apply the workspace's `AGENTS.md` (8 KiB, UTF-8, regular file). The text and SHA-256 are pinned at admission and kept on resume, and they sit below the harness rules, so they cannot add sources, tools or approvals. One root file only, no directory chain. |
 
 ## Already in place
 

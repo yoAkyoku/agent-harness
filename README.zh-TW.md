@@ -74,6 +74,10 @@ docker run --rm -p 127.0.0.1:8787:8787 -e ANTHROPIC_API_KEY agent-harness --prov
 
 勾選「先讓我核准計畫，再開始讀取來源與執行」，或在 API 送出 `"require_plan_approval": true`，Run 會停在計畫這一步：你核准之前，其他工具都不會執行。按「要求修改」會把計畫連同你的修改意見（選填）退回模型，由模型重新提出。之後模型若修改計畫，需要再次核准；改回已核准的計畫則不需要。要求修改是你的決定，因此不會消耗模型的錯誤修正額度。續做的 Run 會保留你核准過的計畫。
 
+### 專案指令（AGENTS.md）
+
+把工作區的固定做法寫在根目錄的 `AGENTS.md`（UTF-8，最多 8 KiB）。資料夾有這個檔案時，工作台會顯示「套用工作區的 AGENTS.md」勾選框與內容預覽；API 使用 `"project_instructions": true`，無頭模式用 `--project-instructions`。Run 開始時會固定記錄這份文字與 SHA-256，之後修改檔案不會影響執行中或續做的 Run，事件串流也會記錄套用的是哪個版本。這些指令只調整做法，放在 harness 規則之下，不能增加來源、工具或批准。
+
 ### 比較版本
 
 修改會發布新版本並保留原稿。在預覽窗格按「與上一版比較」，會顯示統一差異格式與新增、刪除的行數；`GET /api/runs/{run}/artifacts/{artifact}/diff` 回傳相同內容，預設對照上一版，也可用 `?against=` 指定同一對話中的其他成果。兩個版本都必須仍符合記錄的 SHA-256。
@@ -120,7 +124,7 @@ for file in src/agent_harness_demo/static/*.js; do node --check "$file"; done
 
 ## 目錄
 
-- `src/agent_harness_demo/`：harness 本體。`runtime.py`（循環）、`context.py`（預算與裁切）、`tools.py`、`verifiers.py`、`storage.py`、`checkpoints.py`、`event_stream.py`、`model.py` 與 `anthropic_adapter.py`（供應商）、`mcp_hub.py`（MCP 工具）、`headless.py`（NDJSON 用戶端）、`web.py`（API）、`static/`（工作台）。
+- `src/agent_harness_demo/`：harness 本體。`runtime.py`（循環）、`context.py`（預算與裁切）、`tools.py`、`verifiers.py`、`storage.py`、`checkpoints.py`、`event_stream.py`、`model.py` 與 `anthropic_adapter.py`（供應商）、`mcp_hub.py`（MCP 工具）、`skills.py`（Skills）、`instructions.py`（AGENTS.md）、`headless.py`（NDJSON 用戶端）、`web.py`（API）、`static/`（工作台）。
 - `tests/`：公開介面測試與 fixtures，包含錄製的模型執行紀錄。
 - `evaluation/`：固定題組，真值在任何模型執行前寫定。
 - `scripts/`：對執行中的工作台跑題組，保存每個事件、成果與評分的記錄器。

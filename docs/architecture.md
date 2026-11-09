@@ -92,6 +92,10 @@ Plan approval (`require_plan_approval`) reuses the same mechanism. `Tools` remem
 
 `skills.py` reads `--skills-dir` once at startup. A skill is valid when its `SKILL.md` (at most 32 KiB, UTF-8) has frontmatter with a kebab-case `name` equal to its folder and a `description` of at most 1,024 characters; anything else is excluded with a reason. A Run selects skills at admission (stored in its policy, so resumes keep them). Its system message then lists one line per selected skill, and `skill_load` returns the instructions with the SHA-256 of the `SKILL.md` it read, so the context holds full instructions only for skills the model chose to load. Skill instructions guide how to work; they are not sources and cannot be cited. Scripts in skill folders are ignored because the harness has no shell.
 
+## Project instructions
+
+`instructions.py` reads the workspace's root `AGENTS.md` only for a Run that opts in. The file must be a regular file (a link is refused), UTF-8 and at most 8 KiB; an empty file counts as none. Admission pins the text, size and SHA-256 into the Run's policy, so the checkpoint carries them and a resume uses the same text even if the file has changed. The runtime appends the text to the system message under a header that names the file and its digest and places it below the harness rules: it may shape method, format and wording, but tools, sources, approvals and verifiers do not read it. `context.selected` records the path, size and digest.
+
 ## Headless clients
 
 `agent_harness_demo.headless` is an ordinary observer: it creates the workspace, Session and Run through the HTTP API, then reads the durable stream with `flow=ack`, acknowledging each event and reconnecting from its last cursor (events at or below it are skipped). It prints events unchanged as NDJSON and maps the terminal status to an exit code. Because observers never own execution, a client that exits leaves the Run running. The reconnect path is not covered by a test yet.

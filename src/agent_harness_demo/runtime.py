@@ -14,6 +14,7 @@ from typing import Any, Literal, TypeVar
 from .context import added_message, compact_tool_catalog, completed_tool_group, encode_draft_receipts, encode_duplicate_plan, executor_state_message, omit_inspection_hints, omit_runtime_guidance, prune_resolved_tool_failures, publication_finalization_prefix, published_draft_group
 from .contracts import Decision, PendingCorrection, RunCancelled, RunFailure, RunLimits, ToolCall, canonical_tool_arguments
 from .mcp_hub import McpHub
+from .instructions import instructions_message
 from .skills import SkillLibrary, catalog_message, loader_definition
 from .model import DecisionModel, ModelResponseError
 from .storage import Record, Store
@@ -320,6 +321,9 @@ class Runtime:
             )
         if selected_skills:
             messages[0]["content"] += catalog_message(selected_skills)
+        project_instructions = run.get("policy", {}).get("project_instructions")
+        if project_instructions:
+            messages[0]["content"] += instructions_message(project_instructions)
         system_content = messages[0]["content"]
         history_turns = list(run.get("context", {}).get("turns", []))
         messages[1:1] = run.get("context", {}).get("history", [])
@@ -438,6 +442,8 @@ class Runtime:
             "history_run_ids": run.get("context", {}).get("history_run_ids", []),
             "omitted": run.get("context", {}).get("omitted", []),
             "base_artifact_id": run["base_artifact"]["id"] if run.get("base_artifact") else None,
+            **({"project_instructions": {key: project_instructions[key] for key in ("path", "sha256", "bytes")}}
+               if project_instructions else {}),
         })
         for step in range(1, limits.max_steps + 1):
             await self._check_cancel(identity)

@@ -54,6 +54,8 @@ def parser() -> argparse.ArgumentParser:
                      help="An allowed read-only MCP tool for this Run, such as mcp__notes__search; repeat for more.")
     cli.add_argument("--skill", dest="skills", action="append", default=[],
                      help="An installed skill this Run may load; repeat for more.")
+    cli.add_argument("--project-instructions", action="store_true",
+                     help="Apply the workspace's AGENTS.md to this Run.")
     cli.add_argument("--max-steps", type=int, help="Model decision limit for this Run.")
     cli.add_argument("--max-tool-calls", type=int, help="Tool call limit for this Run.")
     cli.add_argument("--submission-key", help="Re-sending the same key returns the original Run instead of starting another.")
@@ -131,6 +133,8 @@ async def run(arguments: argparse.Namespace, task: str, out: TextIO) -> int:
         body["mcp_tools"] = arguments.mcp_tools
     if arguments.skills:
         body["skills"] = arguments.skills
+    if arguments.project_instructions:
+        body["project_instructions"] = True
     async with httpx.AsyncClient(base_url=base, headers=headers, trust_env=False, timeout=30) as client:
         workspace = await _post(client, "/api/workspaces", {"path": str(Path(arguments.workspace).resolve())})
         session = await _post(client, "/api/sessions", {"workspace_id": workspace["id"]})

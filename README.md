@@ -74,6 +74,10 @@ Remote providers cost money per call. Claude defaults to `claude-opus-5-5` at ef
 
 Tick “先讓我核准計畫，再開始讀取來源與執行” (approve the plan before reading sources and running), or send `"require_plan_approval": true`, and the Run pauses at its plan: nothing else runs until you approve it. “要求修改” (request changes) sends the plan back to the model with your optional note, and the model proposes another. A plan the model revises later needs a new approval; going back to the approved plan does not. A change request is your decision, so it does not use up the model's correction budget. A resumed Run keeps the plan you approved.
 
+### Project instructions (AGENTS.md)
+
+Put house rules for a workspace in an `AGENTS.md` at its root (UTF-8, at most 8 KiB). When the folder has one, the workbench shows it with a “套用工作區的 AGENTS.md” (apply the workspace's AGENTS.md) checkbox and a preview; the API takes `"project_instructions": true`, and headless mode `--project-instructions`. The Run pins the text and its SHA-256 when it starts, so editing the file later does not change a running or resumed Run, and the event stream records which version applied. The instructions shape how the work is done; they are placed below the harness rules and cannot add sources, tools or approvals.
+
 ### Comparing versions
 
 A revision publishes a new version and keeps the original. In the preview pane, "與上一版比較" (compare with the previous version) shows a unified diff with added and removed line counts; `GET /api/runs/{run}/artifacts/{artifact}/diff` returns the same, against the parent version or `?against=` any other artifact of the Session. Both versions must still match their recorded SHA-256.
@@ -120,7 +124,7 @@ Tests go through the public HTTP/WebSocket interface and replace only the model'
 
 ## Repository map
 
-- `src/agent_harness_demo/` — the harness: `runtime.py` (loop), `context.py` (budget and pruning), `tools.py`, `verifiers.py`, `storage.py`, `checkpoints.py`, `event_stream.py`, `model.py` and `anthropic_adapter.py` (providers), `mcp_hub.py` (MCP tools), `headless.py` (NDJSON client), `web.py` (API), `static/` (workbench).
+- `src/agent_harness_demo/` — the harness: `runtime.py` (loop), `context.py` (budget and pruning), `tools.py`, `verifiers.py`, `storage.py`, `checkpoints.py`, `event_stream.py`, `model.py` and `anthropic_adapter.py` (providers), `mcp_hub.py` (MCP tools), `skills.py` (skills), `instructions.py` (AGENTS.md), `headless.py` (NDJSON client), `web.py` (API), `static/` (workbench).
 - `tests/` — public-interface tests and fixtures, including recorded model runs.
 - `evaluation/` — fixed task suites with truth written before any model run.
 - `scripts/` — recorders that run a suite against a live workbench and save every event, artifact and score.
