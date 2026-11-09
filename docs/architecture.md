@@ -42,7 +42,7 @@ Steps 1, 2 and 5 lose information and are recorded as such; the context as a who
 
 The adapter normalises text and tool requests and never executes a streamed call whose arguments are incomplete. `Tools.prepare` validates the schema, workspace scope and evidence references and produces the effective arguments. When approval is required, the exact pending operation and its digest are stored and the run waits; an approval applies once, to that Run, call and argument set. The dispatch intent is persisted before the tool runs. The real result goes back to the model, which chooses the next step. Correctable errors carry the remaining budget and `correctable_fields`; operations with unknown effects are not retried.
 
-Artifacts are stored with an immutable identity, SHA-256 and exact bytes. A revision pins its completed base and adds a version instead of overwriting.
+Artifacts are stored with an immutable identity, SHA-256 and exact bytes. A revision pins its completed base and adds a version instead of overwriting. Any two versions in a Session can be compared as a unified diff (by default a version against its parent); both are re-hashed before comparing, and only the first two diff lines are file headers, so a removed `---` rule still counts as a removed line.
 
 ## Verifiers
 

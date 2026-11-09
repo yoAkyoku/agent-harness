@@ -70,6 +70,10 @@ docker run --rm -p 127.0.0.1:8787:8787 -e ANTHROPIC_API_KEY agent-harness --prov
 
 遠端模型依呼叫計費。Claude 預設 `claude-opus-5-5`、effort `low`，可用 `--effort` 與 `--context-window` 調整。因為 harness 會刻意改寫歷史，Claude 的私密推理不會被重送，詳見[架構](docs/architecture.zh-TW.md)。
 
+### 比較版本
+
+修改會發布新版本並保留原稿。在預覽窗格按「與上一版比較」，會顯示統一差異格式與新增、刪除的行數；`GET /api/runs/{run}/artifacts/{artifact}/diff` 回傳相同內容，預設對照上一版，也可用 `?against=` 指定同一對話中的其他成果。兩個版本都必須仍符合記錄的 SHA-256。
+
 ### 無頭模式
 
 從腳本或 CI 對執行中的工作台跑一個任務。每個已保存事件輸出成一行 JSON，最後一行 `headless.result` 附上終止狀態與成果連結：

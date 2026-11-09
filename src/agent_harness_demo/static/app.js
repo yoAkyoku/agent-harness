@@ -46,7 +46,8 @@ function resetPlan() {
   state.planSequence = 0; state.correctionSequence = 0;
   $("plan").hidden = true; $("plan-steps").replaceChildren(); renderPlanContext();
 }
-function resetPreview() { state.previewArtifact = null; $("revise-artifact").hidden = true; $("preview-empty").hidden = false; $("preview-content").hidden = true; $("preview-heading").textContent = "成果預覽"; $("preview-kind").textContent = "等待成果"; }
+function hideDiff() { $("preview-diff").hidden = true; $("preview-text").hidden = false; $("compare-artifact").textContent = "與上一版比較"; }
+function resetPreview() { state.previewArtifact = null; $("revise-artifact").hidden = true; $("compare-artifact").hidden = true; hideDiff(); $("preview-empty").hidden = false; $("preview-content").hidden = true; $("preview-heading").textContent = "成果預覽"; $("preview-kind").textContent = "等待成果"; }
 function newTask() {
   if (state.initializing || state.busy || state.pendingSubmission) return;
   closeStream(); state.session = null; state.run = null; state.approval = null; state.runs = []; state.base = null;
@@ -132,7 +133,7 @@ function renderSources() {
 }
 async function previewSource(source) {
   const value = await api(`/api/workspaces/${state.workspace.id}/source?path=${encodeURIComponent(source.path)}`);
-  state.previewArtifact = null; $("revise-artifact").hidden = true;
+  state.previewArtifact = null; $("revise-artifact").hidden = true; $("compare-artifact").hidden = true; hideDiff();
   $("preview-heading").textContent = "來源預覽"; $("preview-kind").textContent = "任務輸入";
   $("preview-empty").hidden = true; $("preview-content").hidden = false;
   $("preview-name").textContent = source.path; $("preview-meta").textContent = `${bytes(value.bytes)} / SHA-256 ${value.sha256.slice(0, 12)}`;
@@ -487,10 +488,33 @@ async function showArtifact(artifact, generation) {
   $("revise-artifact").disabled = state.busy;
   $("preview-meta").textContent += ` / v${artifact.version || 1}${artifact.parent_artifact_id ? ` / 基底 ${artifact.parent_artifact_id.slice(0, 8)}` : ""}`;
   $("preview-text").textContent = text; $("download").href = artifact.download_url; $("download").hidden = false;
+  $("compare-artifact").hidden = !artifact.parent_artifact_id; hideDiff();
+}
+async function toggleDiff() {
+  const artifact = state.previewArtifact;
+  if (!artifact?.parent_artifact_id) return;
+  if (!$("preview-diff").hidden) { hideDiff(); return; }
+  const diff = await api(`/api/runs/${artifact.run_id}/artifacts/${artifact.id}/diff`);
+  if (state.previewArtifact !== artifact) return;
+  const view = $("preview-diff"); view.replaceChildren();
+  const summary = document.createElement("span"); summary.className = "diff-summary";
+  summary.textContent = diff.identical ? `v${diff.from.version} 與 v${diff.to.version} 內容相同`
+    : `v${diff.from.version} → v${diff.to.version}：新增 ${diff.added} 行、刪除 ${diff.removed} 行`;
+  view.append(summary);
+  const lines = diff.diff.replace(/\n$/, "").split("\n");
+  lines.forEach((line, index) => {
+    const row = document.createElement("span");
+    // Only the first two lines are file headers; a removed "---" rule appears as "----".
+    row.className = index < 2 ? "diff-file" : line.startsWith("+") ? "diff-add"
+      : line.startsWith("-") ? "diff-del" : line.startsWith("@@") ? "diff-hunk" : "";
+    row.textContent = line || " "; view.append(row);
+  });
+  view.hidden = false; $("preview-text").hidden = true; $("compare-artifact").textContent = "顯示這一版全文";
 }
 $("workspace-form").addEventListener("submit", (event) => { event.preventDefault(); loadWorkspace($("workspace-path").value).catch(showError); });
 $("use-demo").addEventListener("click", () => loadWorkspace(state.config.demo_path).catch(showError));
 $("new-task").addEventListener("click", newTask);
+$("compare-artifact").addEventListener("click", () => toggleDiff().catch(showError));
 $("task-form").addEventListener("submit", startTask);
 $("reload-run").addEventListener("click", async () => {
   const identity = state.run?.id, generation = state.generation;

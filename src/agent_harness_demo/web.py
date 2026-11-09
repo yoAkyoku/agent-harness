@@ -1,6 +1,7 @@
 """The public HTTP/WebSocket interface for the local workbench."""
 
 import asyncio
+import difflib
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 import hashlib
@@ -485,6 +486,43 @@ def create_app(
             "Content-Disposition": f"attachment; filename*=UTF-8''{quote(artifact['name'])}",
             "X-Content-Type-Options": "nosniff",
         })
+
+    async def verified_text(artifact: dict[str, Any]) -> str:
+        try:
+            raw: bytes = await asyncio.to_thread((storage.directory / "artifacts" / str(artifact["id"])).read_bytes)
+        except OSError:
+            raise HTTPException(409, "The saved artifact is unavailable.") from None
+        if hashlib.sha256(raw).hexdigest() != artifact["sha256"]:
+            raise HTTPException(409, "The saved artifact no longer matches its recorded hash.")
+        try:
+            return raw.decode("utf-8")
+        except UnicodeDecodeError:
+            raise HTTPException(409, "The saved artifact is not UTF-8 text.") from None
+
+    @app.get("/api/runs/{run_id}/artifacts/{artifact_id}/diff")
+    async def diff_artifact(run_id: str, artifact_id: str,
+                            against: Annotated[str | None, Query(pattern=r"^[a-f0-9]{32}$")] = None) -> dict[str, Any]:
+        """Unified diff from another version in the same Session (default: the parent) to this artifact."""
+        run = await get_run(run_id)
+        newer = await storage.artifact(run_id, artifact_id)
+        if newer is None:
+            raise HTTPException(404, "Artifact not found.")
+        other = against or newer.get("parent_artifact_id")
+        if other is None:
+            raise HTTPException(409, "This artifact has no earlier version to compare with.")
+        older = await storage.session_artifact(run["session_id"], other)
+        if older is None:
+            raise HTTPException(404, "The other version is not an artifact of this Session.")
+        before, after = await verified_text(older), await verified_text(newer)
+        lines = list(difflib.unified_diff(before.splitlines(keepends=True), after.splitlines(keepends=True),
+                                          fromfile=f"{older['name']} v{older['version']}",
+                                          tofile=f"{newer['name']} v{newer['version']}"))
+        changed = lines[2:]  # only the first two lines are file headers; a removed "---" rule reads "----"
+        summary = ("id", "run_id", "name", "version", "sha256")
+        return {"from": {key: older[key] for key in summary}, "to": {key: newer[key] for key in summary},
+                "identical": before == after, "diff": "".join(lines),
+                "added": sum(line.startswith("+") for line in changed),
+                "removed": sum(line.startswith("-") for line in changed)}
 
     @app.websocket("/api/runs/{run_id}/stream")
     async def stream(websocket: WebSocket, run_id: str, after: str = "0", flow: str = "") -> None:

@@ -762,6 +762,16 @@ class Store:
 
         return await self._run(save)
 
+    async def session_artifact(self, session_id: str, artifact_id: str) -> Record | None:
+        """An artifact published by any Run of the given Session."""
+        def get(connection: sqlite3.Connection) -> Record | None:
+            row = connection.execute(
+                "SELECT a.* FROM artifacts a JOIN runs r ON r.id=a.run_id WHERE r.session_id=? AND a.id=?",
+                (session_id, artifact_id)).fetchone()
+            return self._artifact(row) if row else None
+
+        return await self._run(get)
+
     async def artifact(self, run_id: str, artifact_id: str) -> Record | None:
         def get(connection: sqlite3.Connection) -> Record | None:
             row = connection.execute("SELECT * FROM artifacts WHERE run_id=? AND id=?", (run_id, artifact_id)).fetchone()

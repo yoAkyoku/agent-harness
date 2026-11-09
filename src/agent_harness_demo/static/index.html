@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' ws://127.0.0.1:* ws://localhost:*; img-src 'self' data:; object-src 'none'; base-uri 'none'">
   <title>Agent Harness Demo</title>
-  <link rel="stylesheet" href="/assets/styles.css?v=9.0.2">
-  <script type="module" src="/assets/app.js?v=11.7"></script>
+  <link rel="stylesheet" href="/assets/styles.css?v=9.0.3">
+  <script type="module" src="/assets/app.js?v=11.8"></script>
 </head>
 <body>
   <div class="workbench">
@@ -123,8 +123,10 @@
       <div id="preview-content" class="preview-content" hidden>
         <div class="file-header"><div><h3 id="preview-name"></h3><p id="preview-meta"></p></div><a id="download" class="download-button" hidden>下載</a></div>
         <button id="revise-artifact" class="subtle-button" type="button" hidden>以這個版本修改</button>
+        <button id="compare-artifact" class="subtle-button" type="button" hidden>與上一版比較</button>
         <div id="artifact-list" class="artifact-list"></div>
         <pre id="preview-text" tabindex="0"></pre>
+        <pre id="preview-diff" class="diff-view" tabindex="0" aria-label="與上一版的差異" hidden></pre>
       </div>
       <div class="preview-footnote">來源與模型輸出以純文字呈現。</div>
     </aside>
