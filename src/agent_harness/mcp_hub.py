@@ -16,11 +16,13 @@ from __future__ import annotations
 import asyncio
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
+import os
 import hashlib
 import json
 from pathlib import Path
 import re
 from typing import Any
+from urllib.parse import parse_qs, urlsplit
 
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError
@@ -37,6 +39,14 @@ MAX_SCHEMA_BYTES = 4096
 MAX_RESULT_BYTES = 65_536
 CALL_TIMEOUT_SECONDS = 30.0
 START_TIMEOUT_SECONDS = 20.0
+SIGN_IN_TIMEOUT_SECONDS = 600.0  # how long an OAuth sign-in waits for the user
+
+
+def _cause(error: BaseException) -> str:
+    """The underlying cause of a connection failure, not the task group that wrapped it."""
+    while isinstance(error, BaseExceptionGroup) and error.exceptions:
+        error = error.exceptions[0]
+    return f"{type(error).__name__}: {error}"[:300]
 
 
 def model_name(server: str, tool: str) -> str:
@@ -77,6 +87,9 @@ class _Server:
     url: str | None = None  # a remote server over Streamable HTTP instead of a local command
     bearer_env: str | None = None  # names of environment variables, never the secrets themselves
     header_env: dict[str, str] = field(default_factory=dict)
+    oauth: bool = False  # sign in through OAuth; tokens live only in the store's oauth/ folder
+    oauth_scope: str | None = None
+    authorization_url: str | None = None  # where the user signs in, while status is needs_sign_in
     status: str = "not_started"
     error: str | None = None
     tools: dict[str, McpTool] = field(default_factory=dict)
@@ -99,10 +112,20 @@ def _remote(name: str, entry: Record) -> _Server:
     """A remote server: an HTTPS URL (plain HTTP only to loopback) and credentials named by environment variable."""
     if "command" in entry:
         raise ValueError(f"MCP server {name!r}: use either command (a local server) or url (a remote one), not both.")
-    unknown = set(entry) - {"url", "bearerTokenEnv", "headerEnv", "allowedTools", "askTools"}
+    unknown = set(entry) - {"url", "bearerTokenEnv", "headerEnv", "oauth", "allowedTools", "askTools"}
     if unknown:
         raise ValueError(f"MCP server {name!r}: unknown keys {sorted(unknown)}; credentials are read from environment "
-                         "variables named by bearerTokenEnv or headerEnv, never written in the config.")
+                         "variables named by bearerTokenEnv or headerEnv, or obtained by signing in (oauth), "
+                         "never written in the config.")
+    oauth = entry.get("oauth", False)
+    if not (isinstance(oauth, bool) or (isinstance(oauth, dict) and set(oauth) <= {"scope"})):
+        raise ValueError(f"MCP server {name!r}: oauth is true or an object with an optional scope.")
+    scope = oauth.get("scope") if isinstance(oauth, dict) else None
+    if scope is not None and (not isinstance(scope, str) or not scope.strip() or len(scope) > 500):
+        raise ValueError(f"MCP server {name!r}: oauth scope must be a non-empty string.")
+    if oauth is not False and (entry.get("bearerTokenEnv") is not None or any(
+            str(header).lower() == "authorization" for header in (entry.get("headerEnv") or {}))):
+        raise ValueError(f"MCP server {name!r}: oauth signs in by itself; do not also set Authorization.")
     url = check_url(f"MCP server {name!r}", entry["url"])
     bearer = entry.get("bearerTokenEnv")
     if bearer is not None and (not isinstance(bearer, str) or not ENV_NAME.fullmatch(bearer)):
@@ -111,7 +134,45 @@ def _remote(name: str, entry: Record) -> _Server:
     if bearer is not None and any(header.lower() == "authorization" for header in header_env):
         raise ValueError(f"MCP server {name!r}: set Authorization with bearerTokenEnv or headerEnv, not both.")
     allowed, ask = _tool_lists(name, entry)
-    return _Server(name, None, [], None, None, allowed, ask, url=url, bearer_env=bearer, header_env=dict(header_env))
+    return _Server(name, None, [], None, None, allowed, ask, url=url, bearer_env=bearer, header_env=dict(header_env),
+                   oauth=oauth is not False, oauth_scope=scope)
+
+
+class _FileTokenStorage:
+    """The SDK's TokenStorage, kept in one JSON file per server under the store (never the config or the API)."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+
+    def _read(self) -> Record:
+        try:
+            value = json.loads(self.path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
+        return value if isinstance(value, dict) else {}
+
+    def _write(self, key: str, value: Any) -> None:
+        data = self._read() | {key: value.model_dump(mode="json", exclude_none=True)}
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = self.path.with_name(self.path.name + ".tmp")
+        temporary.write_text(json.dumps(data), encoding="utf-8")
+        os.replace(temporary, self.path)
+
+    async def get_tokens(self) -> Any:
+        from mcp.shared.auth import OAuthToken
+        data = self._read().get("tokens")
+        return OAuthToken.model_validate(data) if data else None
+
+    async def set_tokens(self, tokens: Any) -> None:
+        self._write("tokens", tokens)
+
+    async def get_client_info(self) -> Any:
+        from mcp.shared.auth import OAuthClientInformationFull
+        data = self._read().get("client_info")
+        return OAuthClientInformationFull.model_validate(data) if data else None
+
+    async def set_client_info(self, client_info: Any) -> None:
+        self._write("client_info", client_info)
 
 
 def load_config(path: Path) -> list[_Server]:
@@ -172,21 +233,37 @@ def _exclusion(server: _Server, tool: Any) -> str | None:
 
 
 class McpHub:
-    def __init__(self, servers: list[_Server]) -> None:
+    def __init__(self, servers: list[_Server], *, oauth_redirect_url: str | None = None,
+                 token_directory: Path | None = None) -> None:
+        if any(server.oauth for server in servers) and (oauth_redirect_url is None or token_directory is None):
+            raise ValueError("An MCP server signs in with OAuth, but the workbench has no OAuth callback address.")
         self._servers = {server.name: server for server in servers}
         self._stack = AsyncExitStack()
+        self._oauth_redirect_url = oauth_redirect_url
+        self._token_directory = token_directory
+        self._sign_ins: dict[str, tuple[str, asyncio.Future[Any]]] = {}  # OAuth state -> (server, waiting callback)
+        self._sessions: list[asyncio.Task[None]] = []
+        self._closing = asyncio.Event()
 
     @classmethod
-    def from_config(cls, path: Path) -> McpHub:
-        return cls(load_config(path))
+    def from_config(cls, path: Path, *, oauth_redirect_url: str | None = None,
+                    token_directory: Path | None = None) -> McpHub:
+        return cls(load_config(path), oauth_redirect_url=oauth_redirect_url, token_directory=token_directory)
 
     async def start(self) -> None:
-        """Connect to every configured server; a server that fails is reported, not fatal."""
+        """Connect to every configured server; a server that fails is reported, not fatal.
+
+        OAuth servers connect in a task of their own, which may wait for the user to sign in.
+        """
         import httpx2
         from mcp import Client, StdioServerParameters  # the SDK is only needed when MCP is configured
         from mcp.client.streamable_http import streamable_http_client
 
         for server in self._servers.values():
+            if server.oauth:
+                server.status = "connecting"
+                self._sessions.append(asyncio.create_task(self._oauth_session(server)))
+                continue
             try:
                 async with asyncio.timeout(START_TIMEOUT_SECONDS):
                     if server.url is not None:
@@ -201,37 +278,114 @@ class McpHub:
                         assert server.command is not None
                         server.client = await self._stack.enter_async_context(Client(StdioServerParameters(
                             command=server.command, args=server.args, env=server.env, cwd=server.cwd)))
-                    listed: list[Any] = []
-                    cursor: str | None = None
-                    while True:
-                        page = await server.client.list_tools(cursor=cursor)
-                        listed.extend(page.tools)
-                        cursor = page.next_cursor
-                        if cursor is None:
-                            break
+                    await self._register_tools(server)
             except Exception as error:  # a broken third-party server must not stop the workbench
-                while isinstance(error, BaseExceptionGroup) and error.exceptions:  # report the cause, not the task group
-                    error = error.exceptions[0]  # type: ignore[assignment]
-                server.status, server.error = "unavailable", f"{type(error).__name__}: {error}"[:300]
+                server.status, server.error = "unavailable", _cause(error)
+
+    async def _register_tools(self, server: _Server) -> None:
+        listed: list[Any] = []
+        cursor: str | None = None
+        while True:
+            page = await server.client.list_tools(cursor=cursor)
+            listed.extend(page.tools)
+            cursor = page.next_cursor
+            if cursor is None:
+                break
+        for tool in sorted(listed, key=lambda item: item.name):
+            reason = _exclusion(server, tool)
+            if reason is not None:
+                server.excluded.append({"tool": tool.name, "reason": reason})
                 continue
-            for tool in sorted(listed, key=lambda item: item.name):
-                reason = _exclusion(server, tool)
-                if reason is not None:
-                    server.excluded.append({"tool": tool.name, "reason": reason})
-                    continue
-                name = model_name(server.name, tool.name)
-                description = " ".join((tool.description or "").split())[:MAX_DESCRIPTION_CHARS]
-                server.tools[name] = McpTool(name, server.name, tool.name, description, dict(tool.input_schema),
-                                             approval=tool.name in server.ask)
-            server.status = "connected"
+            name = model_name(server.name, tool.name)
+            description = " ".join((tool.description or "").split())[:MAX_DESCRIPTION_CHARS]
+            server.tools[name] = McpTool(name, server.name, tool.name, description, dict(tool.input_schema),
+                                         approval=tool.name in server.ask)
+        server.status = "connected"
+
+    async def _oauth_session(self, server: _Server) -> None:
+        """Own one OAuth server's connection for the app's lifetime: sign in if needed, then stay connected.
+
+        The SDK runs discovery, dynamic client registration, PKCE and the authorization code exchange.
+        When the user is needed, the authorization URL is published in the status and this task waits
+        for the workbench callback with the matching `state`.
+        """
+        import httpx2
+        from mcp import Client
+        from mcp.client.auth import OAuthClientProvider
+        from mcp.client.streamable_http import streamable_http_client
+        from mcp.shared.auth import OAuthClientMetadata
+
+        assert server.url is not None and self._token_directory is not None and self._oauth_redirect_url is not None
+        waiting: asyncio.Future[Any] | None = None
+
+        async def redirect(url: str) -> None:
+            nonlocal waiting
+            state = parse_qs(urlsplit(url).query).get("state", [""])[0]
+            if not state:
+                raise RuntimeError("the authorization URL carries no state")
+            waiting = asyncio.get_running_loop().create_future()
+            self._sign_ins[state] = (server.name, waiting)
+            server.status, server.authorization_url = "needs_sign_in", url
+
+        async def callback() -> Any:
+            assert waiting is not None
+            try:
+                return await asyncio.wait_for(waiting, SIGN_IN_TIMEOUT_SECONDS)
+            finally:
+                server.authorization_url = None
+                server.status = "connecting"
+
+        provider = OAuthClientProvider(
+            server_url=server.url,
+            client_metadata=OAuthClientMetadata.model_validate({
+                "client_name": "Agent Harness", "redirect_uris": [self._oauth_redirect_url],
+                "grant_types": ["authorization_code", "refresh_token"], "response_types": ["code"],
+                "token_endpoint_auth_method": "none", **({"scope": server.oauth_scope} if server.oauth_scope else {})}),
+            storage=_FileTokenStorage(self._token_directory / f"{server.name}.json"),
+            redirect_handler=redirect, callback_handler=callback)
+        try:
+            async with httpx2.AsyncClient(auth=provider, headers=read_headers(server.header_env),
+                                          timeout=httpx2.Timeout(30.0, read=300.0)) as http:
+                async with Client(streamable_http_client(server.url, http_client=http), mode="legacy") as client:
+                    server.client = client
+                    await self._register_tools(server)
+                    await self._closing.wait()
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:  # sign-in timed out, was refused, or the server failed
+            server.status, server.error = "unavailable", _cause(error)
+        finally:
+            server.client = None
+
+    def complete_sign_in(self, state: str, code: str, iss: str | None = None) -> str | None:
+        """Hand an authorization code to the session waiting for this `state`; the server name, or None."""
+        from mcp.shared.auth import AuthorizationCodeResult
+
+        entry = self._sign_ins.pop(state, None)
+        if entry is None or entry[1].done():
+            return None
+        name, waiting = entry
+        waiting.set_result(AuthorizationCodeResult.model_validate(
+            {"code": code, "state": state, **({"iss": iss} if iss else {})}))
+        return name
 
     async def close(self) -> None:
+        self._closing.set()
+        for _, waiting in self._sign_ins.values():
+            waiting.cancel()
+        if self._sessions:
+            done, pending = await asyncio.wait(self._sessions, timeout=5)
+            for task in pending:
+                task.cancel()
+            await asyncio.gather(*self._sessions, return_exceptions=True)
         await self._stack.aclose()
 
     def status(self) -> Record:
         return {"servers": {name: {
             "status": server.status, **({"error": server.error} if server.error else {}),
+            **({"authorization_url": server.authorization_url} if server.authorization_url else {}),
             "transport": "http" if server.url is not None else "stdio", **({"url": server.url} if server.url else {}),
+            **({"oauth": True} if server.oauth else {}),
             "tools": [{"name": tool.name, "description": tool.description,
                        "approval": "required" if tool.approval else "none"} for tool in server.tools.values()],
             "excluded": list(server.excluded),

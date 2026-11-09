@@ -123,7 +123,7 @@ uv run python -m agent_harness.headless --workspace ./docs --source notes.md --t
 uv run python -m agent_harness --mcp-config mcp.json --store .private/demo
 ```
 
-`/api/config` 會列出每個伺服器提供與排除的工具。Run 可在工作台勾選工具（標示唯讀或每次需核准），也可在 API 依名稱選用（`"mcp_tools": ["mcp__notes__search_notes"]`），無頭模式用 `--mcp-tool`。結果會成為像 `[mcp/notes/search_notes E2]` 的證據，和來源一樣受檢查。列在 `allowedTools` 的工具若自行宣告有副作用會被拒絕；改列在 `askTools` 才能在核准後使用。核准被拒或過期時，該呼叫永遠不會執行。伺服器只會收到最小的環境變數加上設定中的 `env`，不會拿到工作台權杖或 API 金鑰。遠端伺服器（`url`，Streamable HTTP）必須使用 HTTPS，或連到本機迴路位址的一般 HTTP。憑證不會寫在設定檔裡：`bearerTokenEnv` 指定存放 bearer token 的環境變數名稱，`headerEnv` 則把其他標頭對應到環境變數。缺少變數或權杖被拒絕的伺服器會標示為無法使用，但不會顯示權杖內容。不支援 OAuth 登入。
+`/api/config` 會列出每個伺服器提供與排除的工具。Run 可在工作台勾選工具（標示唯讀或每次需核准），也可在 API 依名稱選用（`"mcp_tools": ["mcp__notes__search_notes"]`），無頭模式用 `--mcp-tool`。結果會成為像 `[mcp/notes/search_notes E2]` 的證據，和來源一樣受檢查。列在 `allowedTools` 的工具若自行宣告有副作用會被拒絕；改列在 `askTools` 才能在核准後使用。核准被拒或過期時，該呼叫永遠不會執行。伺服器只會收到最小的環境變數加上設定中的 `env`，不會拿到工作台權杖或 API 金鑰。遠端伺服器（`url`，Streamable HTTP）必須使用 HTTPS，或連到本機迴路位址的一般 HTTP。憑證不會寫在設定檔裡：`bearerTokenEnv` 指定存放 bearer token 的環境變數名稱，`headerEnv` 則把其他標頭對應到環境變數。缺少變數或權杖被拒絕的伺服器會標示為無法使用，但不會顯示權杖內容。使用 OAuth 的伺服器改設 `"oauth": true`（或 `{"scope": "..."}`）：工作台會列出它需要登入並提供連結，你在供應商的頁面登入後，瀏覽器會被導回工作台。權杖只保存在儲存區的 `oauth/` 資料夾，不會出現在設定檔、API 或事件中，下次啟動會直接沿用。
 
 ### Hooks
 

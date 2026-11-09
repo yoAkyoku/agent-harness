@@ -116,6 +116,16 @@ function renderMcpTools() {
   $("mcp-tools").hidden = !servers.length;
   const list = $("mcp-tool-list"); list.replaceChildren();
   for (const [name, server] of servers) {
+    if (server.status === "needs_sign_in" || server.status === "connecting") {
+      // OAuth: the user signs in on the provider's page; this list refreshes until the server connects.
+      const note = document.createElement("p"); note.className = "mcp-unavailable";
+      note.textContent = server.status === "connecting" ? t("MCP 伺服器 {name} 連線中…", {name}) : t("MCP 伺服器 {name} 需要登入。", {name});
+      if (server.authorization_url) {
+        const link = document.createElement("a"); link.href = server.authorization_url; link.target = "_blank"; link.rel = "noopener noreferrer";
+        link.textContent = t("登入 {name}", {name}); note.append(" ", link);
+      }
+      list.append(note); watchMcpSignIn(); continue;
+    }
     if (server.status !== "connected") {
       const note = document.createElement("p"); note.className = "mcp-unavailable";
       note.textContent = t("MCP 伺服器 {name} 目前無法使用", {name}) + (server.error ? t("：{error}", {error: server.error}) : ""); list.append(note); continue;
@@ -133,6 +143,14 @@ function renderMcpTools() {
     }
   }
   updateControls();
+}
+let mcpWatch = null;
+function watchMcpSignIn() {
+  if (mcpWatch) return;
+  mcpWatch = setTimeout(async () => {
+    mcpWatch = null;
+    try { state.config = await api("/api/config"); renderMcpTools(); } catch { watchMcpSignIn(); }
+  }, 3000);
 }
 function selectMcpTools(names) { state.mcpSelected = new Set(names || []); renderMcpTools(); }
 function renderModelChoices() {

@@ -7,7 +7,7 @@ import secrets
 
 import uvicorn
 
-from .local import MIN_TOKEN_LENGTH, TOKEN_ENV
+from .local import MIN_TOKEN_LENGTH, OAUTH_CALLBACK_PATH, TOKEN_ENV
 from .web import create_app
 from .model import ModelSettings
 
@@ -160,7 +160,8 @@ def main() -> None:
                          hold_first_tool=arguments.hold_first_tool, access_token=token, mcp_config=arguments.mcp_config,
                          skills_dir=arguments.skills_dir, prices=prices, hooks_config=arguments.hooks_config,
                          allow_command_hooks=arguments.allow_command_hooks,
-                         ocr_command=ocr_command, ocr_languages=arguments.ocr_languages or "eng")
+                         ocr_command=ocr_command, ocr_languages=arguments.ocr_languages or "eng",
+                         oauth_redirect_url=f"http://127.0.0.1:{arguments.port}{OAUTH_CALLBACK_PATH}")
     except ValueError as error:
         cli.error(str(error))
     shown = "<the value of " + TOKEN_ENV + ">" if configured else token

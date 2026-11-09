@@ -5,6 +5,7 @@ import difflib
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 import hashlib
+import html
 import json
 import re
 from pathlib import Path
@@ -13,7 +14,7 @@ from typing import Annotated, Literal
 from urllib.parse import quote
 
 from fastapi import FastAPI, HTTPException, Query, Request, WebSocket
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 import httpx
 from pydantic import BaseModel, ConfigDict, Field
@@ -33,7 +34,7 @@ from .token_usage import session_usage
 from .uploads import save_upload, upload_limit
 from .mcp_hub import MODEL_NAME, McpHub
 from .skills import SKILL_NAME, SkillLibrary
-from .local import MIN_TOKEN_LENGTH, AccessTokenMiddleware, LocalOriginMiddleware, SecurityHeadersMiddleware
+from .local import MIN_TOKEN_LENGTH, OAUTH_CALLBACK_PATH, AccessTokenMiddleware, LocalOriginMiddleware, SecurityHeadersMiddleware
 from .model import DecisionModel, FixtureTransport, ModelAdapter, ModelSettings
 from .ownership import StoreLease
 from .runtime import Runtime
@@ -136,6 +137,7 @@ def create_app(
     allow_command_hooks: bool = False,
     ocr_command: list[str] | None = None,
     ocr_languages: str = "eng",
+    oauth_redirect_url: str | None = None,
 ) -> FastAPI:
     """Build the workbench app.
 
@@ -163,7 +165,8 @@ def create_app(
     validation: dict[str, Any] = {"fault_once_source_read": fault_once_source_read}
     if hold_first_tool is not None:
         validation["hold_first_tool"] = hold_first_tool
-    mcp = McpHub.from_config(mcp_config) if mcp_config is not None else None
+    mcp = (McpHub.from_config(mcp_config, oauth_redirect_url=oauth_redirect_url, token_directory=store_directory / "oauth")
+           if mcp_config is not None else None)
     skills = SkillLibrary.from_directory(skills_dir) if skills_dir is not None else None
     configure_ocr(ocr_command, ocr_languages)  # PDFs without a text layer go through OCR only when this is set
     hooks = (HookRunner.from_config(hooks_config, hooks_transport, allow_commands=allow_command_hooks)
@@ -245,6 +248,22 @@ def create_app(
         except RunFailure as error:
             raise HTTPException(422, error.message) from None
         return await storage.add_workspace(root)
+
+    @app.get(OAUTH_CALLBACK_PATH, response_class=HTMLResponse)
+    async def oauth_callback(code: str | None = Query(default=None, max_length=2048),
+                             state: str | None = Query(default=None, max_length=512),
+                             iss: str | None = Query(default=None, max_length=2048),
+                             error: str | None = Query(default=None, max_length=200)) -> HTMLResponse:
+        """Where an authorization server sends the browser back; the single-use state, not a cookie, protects it."""
+        def page(message: str, status: int) -> HTMLResponse:
+            return HTMLResponse(f"<!doctype html><meta charset=utf-8><title>Agent Harness</title><p>{html.escape(message)}</p>",
+                                status_code=status)
+        if error is not None:
+            return page(f"Sign-in was not completed: {error}.", 400)
+        server = mcp.complete_sign_in(state, code, iss) if mcp is not None and code and state else None
+        if server is None:
+            return page("This sign-in link is not valid or was already used.", 400)
+        return page(f"Signed in to the MCP server {server}. You can close this tab and return to the workbench.", 200)
 
     @app.get("/api/workspaces")
     async def list_workspaces() -> list[dict[str, Any]]:

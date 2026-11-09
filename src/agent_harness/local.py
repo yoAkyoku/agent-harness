@@ -10,6 +10,9 @@ from starlette.responses import JSONResponse, RedirectResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 TOKEN_ENV = "AGENT_HARNESS_TOKEN"
+# An OAuth server redirects the browser here cross-site, so no SameSite=Strict cookie arrives;
+# the route is guarded by the single-use OAuth state instead of the workbench token.
+OAUTH_CALLBACK_PATH = "/api/mcp/oauth/callback"
 MIN_TOKEN_LENGTH = 16
 SECURITY_HEADERS = {
     # The workbench is never meant to be embedded; refuse framing (clickjacking on approvals).
@@ -81,7 +84,8 @@ class AccessTokenMiddleware:
                 response.set_cookie(self.cookie, self.token.decode(), httponly=True, samesite="strict", path="/")
                 await response(scope, receive, send)
                 return
-        if self._presented(Headers(scope=scope)):
+        if self._presented(Headers(scope=scope)) or (
+                scope["type"] == "http" and scope["method"] == "GET" and scope["path"] == OAUTH_CALLBACK_PATH):
             await self.app(scope, receive, send)
             return
         if scope["type"] == "websocket":
