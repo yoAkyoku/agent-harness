@@ -46,7 +46,13 @@ def _cause(error: BaseException) -> str:
     """The underlying cause of a connection failure, not the task group that wrapped it."""
     while isinstance(error, BaseExceptionGroup) and error.exceptions:
         error = error.exceptions[0]
-    return f"{type(error).__name__}: {error}"[:300]
+    text = f"{type(error).__name__}: {error}"[:200]
+    if type(error).__name__ == "RemoteProtocolError":
+        # Seen in practice: security software that inspects HTTP rewrote MCP responses (even on loopback),
+        # dropping their bodies; the client then sees the connection close mid-response.
+        text += (" (if the server works elsewhere, local security software may be rewriting MCP HTTP traffic;"
+                 " see the README)")
+    return text
 
 
 def model_name(server: str, tool: str) -> str:

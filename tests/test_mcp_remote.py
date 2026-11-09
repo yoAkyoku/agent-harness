@@ -129,3 +129,15 @@ def test_remote_configs_are_validated(tmp_path: Path, entry: dict, message: str)
 def test_https_and_loopback_http_urls_are_accepted(tmp_path: Path) -> None:
     for url in ("https://mcp.example.com/mcp", "http://127.0.0.1:9000/mcp", "http://localhost:9000/mcp", "http://[::1]:9000/mcp"):
         assert load_config(_config(tmp_path, {"url": url}))[0].url == url
+
+
+def test_a_connection_cut_mid_response_points_at_local_interception() -> None:
+    from agent_harness.mcp_hub import _cause
+
+    class RemoteProtocolError(Exception):
+        pass
+
+    cut = _cause(ExceptionGroup("task group", [RemoteProtocolError("peer unexpectedly closed connection")]))
+    assert cut.startswith("RemoteProtocolError: peer unexpectedly closed connection")
+    assert "security software" in cut
+    assert "security software" not in _cause(ConnectionRefusedError("refused"))

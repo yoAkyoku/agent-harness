@@ -7,6 +7,8 @@ Results are cached by the file's hash, and OCR is limited in pages and time. The
 stand-in program in place of Tesseract; the real engine is not exercised here.
 """
 from pathlib import Path
+import os
+import shutil
 import subprocess
 import sys
 
@@ -135,3 +137,20 @@ def test_cli_validates_ocr_options(tmp_path: Path, arguments: list[str], message
     result = subprocess.run([sys.executable, "-m", "agent_harness", "--store", str(tmp_path / "store"), *arguments],
                             capture_output=True, text=True, timeout=60)
     assert result.returncode == 2 and message in result.stderr
+
+
+TESSERACT = shutil.which("tesseract")
+
+
+@pytest.mark.skipif(TESSERACT is None and not os.environ.get("REQUIRE_TESSERACT"),
+                    reason="Tesseract is not installed here; CI installs it on Ubuntu and requires this test.")
+def test_real_tesseract_reads_a_rendered_page() -> None:
+    """The real engine, end to end from a PDF page: render at 300 dpi, write PGM, run Tesseract, read stdout."""
+    assert TESSERACT, "REQUIRE_TESSERACT is set, but tesseract is not on PATH"
+    sources.configure_ocr([TESSERACT], "eng")
+    try:
+        text = sources._ocr_text(_pdf(["Revenue was 42 million in Q3."]), 1)
+    finally:
+        sources.configure_ocr(None)
+    assert text.startswith("[page 1, OCR]\n")
+    assert "Revenue was 42 million" in text

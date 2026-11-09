@@ -153,7 +153,9 @@ uv run mypy
 for file in src/agent_harness/static/*.js; do node --check "$file"; done
 ```
 
-Tests go through the public HTTP/WebSocket interface and replace only the model's HTTP transport, with real temporary SQLite stores and files. They include replays of recorded real-model runs (checking that context stays within an 8K-token budget without losing required data), real subprocess crashes for recovery, and store upgrades from earlier releases. No test calls a paid API. CI runs on Ubuntu and Windows.
+Tests go through the public HTTP/WebSocket interface and replace only the model's HTTP transport, with real temporary SQLite stores and files. They include replays of recorded real-model runs (checking that context stays within an 8K-token budget without losing required data), real subprocess crashes for recovery, and store upgrades from earlier releases. No test calls a paid API. CI runs on Ubuntu and Windows; on Ubuntu it installs Tesseract and requires the real-OCR test, and the OAuth sign-in tests run against the MCP SDK's own OAuth server.
+
+**Troubleshooting remote MCP.** If a remote MCP server fails with `RemoteProtocolError: peer unexpectedly closed connection` although it works elsewhere, check local security software. On one Windows machine, an HTTP-inspecting security product rewrote responses to requests carrying the `MCP-Protocol-Version` header, or to paths ending in `/mcp`, even on loopback, and dropped their bodies. The affected OAuth tests detect this and skip with that reason. The public DeepWiki MCP server over HTTPS worked on the same machine.
 
 ## Repository map
 

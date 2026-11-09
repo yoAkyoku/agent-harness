@@ -26,6 +26,9 @@ jobs:
           node-version: "20"
       - name: Install dependencies
         run: uv sync --locked
+      - name: Install Tesseract for the real OCR test
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng
       - name: Type-check
         run: uv run mypy
       - name: Check workbench JavaScript
@@ -34,6 +37,9 @@ jobs:
       - name: Run tests
         # Every model is replaced at its HTTP transport; no API key or model is needed.
         run: uv run pytest -q
+        env:
+          # On Linux the real OCR test must run, not skip.
+          REQUIRE_TESSERACT: ${{ runner.os == 'Linux' && '1' || '' }}
 
   docker:
     name: Docker image
