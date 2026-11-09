@@ -13,9 +13,9 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from agent_harness_demo.hooks import load_hooks
-from agent_harness_demo.model import ModelSettings
-from agent_harness_demo.web import create_app
+from agent_harness.hooks import load_hooks
+from agent_harness.model import ModelSettings
+from agent_harness.web import create_app
 from test_completion import CompletionPeer
 from test_workbench import finish, tool_reply
 
@@ -184,6 +184,6 @@ def test_cli_refuses_a_shell_command_hook(tmp_path: Path) -> None:
     import sys
 
     config = _config(tmp_path, [{"event": "before_tool", "command": "python check.py"}])
-    result = subprocess.run([sys.executable, "-m", "agent_harness_demo", "--store", str(tmp_path / "store"),
+    result = subprocess.run([sys.executable, "-m", "agent_harness", "--store", str(tmp_path / "store"),
                              "--hooks-config", str(config)], capture_output=True, text=True, timeout=60)
     assert result.returncode == 2 and "shell commands are not supported" in result.stderr

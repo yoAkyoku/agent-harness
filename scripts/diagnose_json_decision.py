@@ -10,10 +10,10 @@ from typing import Any
 import httpx
 from jsonschema import Draft202012Validator
 
-from agent_harness_demo.contracts import RunFailure
-from agent_harness_demo.context import request_budget
-from agent_harness_demo.implementation import source_identity
-from agent_harness_demo.model import ModelAdapter, ModelSettings
+from agent_harness.contracts import RunFailure
+from agent_harness.context import request_budget
+from agent_harness.implementation import source_identity
+from agent_harness.model import ModelAdapter, ModelSettings
 from validate_local_model import save
 
 
@@ -36,7 +36,7 @@ async def diagnose(output: Path) -> None:
         budget = request_budget(body, 8192, 1024, adapter.info["context_profile"])
         assert budget["upper_bound_tokens"] <= 8192
         revision = await asyncio.to_thread(subprocess.check_output, ["git", "rev-parse", "HEAD"], cwd=root, text=True)
-        implementation = await asyncio.to_thread(source_identity, root / "src/agent_harness_demo")
+        implementation = await asyncio.to_thread(source_identity, root / "src/agent_harness")
         await asyncio.to_thread(save, output / "request.json", body)
         await asyncio.to_thread(save, output / "manifest.json", {"scope": "Synthetic one-generation format diagnostic, not a quality case. No tool execution or workbench Run.",
             "git_revision": revision.strip(),

@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 import httpx
 import pytest
 
-from agent_harness_demo.web import create_app
+from agent_harness.web import create_app
 
 
 def controlled_recording(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, observed_failure: str | None = "failed", preplanned_read: bool = False, recovered_path: str | None = "handoff.md", split_evidence: bool = False) -> tuple[Path, str, dict[str, bytes]]:

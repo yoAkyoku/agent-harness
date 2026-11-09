@@ -1,6 +1,6 @@
 import pytest
 
-from agent_harness_demo import web
+from agent_harness import web
 from scripted import SERVICE_TOKEN
 
 

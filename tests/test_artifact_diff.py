@@ -5,7 +5,7 @@ from pathlib import Path
 import httpx
 from fastapi.testclient import TestClient
 
-from agent_harness_demo.web import create_app
+from agent_harness.web import create_app
 from test_workbench import ReportPeer, create_task, finish, tool_reply
 
 REVISION_TASK = "Retitle the base as Revised."

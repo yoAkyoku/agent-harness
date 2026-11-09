@@ -6,8 +6,8 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from agent_harness_demo.model import ModelSettings
-from agent_harness_demo.web import create_app
+from agent_harness.model import ModelSettings
+from agent_harness.web import create_app
 from test_approval import pending_approval
 from test_completion import CompletionPeer
 from test_workbench import create_task, finish
@@ -347,7 +347,7 @@ def test_json_publication_wait_can_be_cancelled_without_publishing(tmp_path: Pat
 def test_json_protocol_cli_requires_an_explicit_local_model(tmp_path: Path) -> None:
     import subprocess
     import sys
-    result = subprocess.run([sys.executable, "-m", "agent_harness_demo", "--decision-protocol", "json_tools",
+    result = subprocess.run([sys.executable, "-m", "agent_harness", "--decision-protocol", "json_tools",
                              "--store", str(tmp_path / "must-not-open")], capture_output=True, text=True, timeout=10)
     assert result.returncode == 2
     assert "--decision-protocol json_tools requires an explicit" in result.stderr

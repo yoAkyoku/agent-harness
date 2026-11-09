@@ -12,8 +12,8 @@ import sys
 import httpx
 from fastapi.testclient import TestClient
 
-from agent_harness_demo.model import ModelSettings
-from agent_harness_demo.web import create_app
+from agent_harness.model import ModelSettings
+from agent_harness.web import create_app
 from test_completion import CompletionPeer
 from test_workbench import finish, tool_reply
 
@@ -194,7 +194,7 @@ def test_cli_rejects_an_mcp_config_without_an_allowlist(tmp_path: Path) -> None:
 
     bad = tmp_path / "bad.json"
     bad.write_text(json.dumps({"mcpServers": {"notes": {"command": sys.executable, "args": [str(SERVER)]}}}), encoding="utf-8")
-    result = subprocess.run([sys.executable, "-m", "agent_harness_demo", "--store", str(tmp_path / "store"),
+    result = subprocess.run([sys.executable, "-m", "agent_harness", "--store", str(tmp_path / "store"),
                              "--mcp-config", str(bad)], capture_output=True, text=True, timeout=60)
     assert result.returncode == 2
     assert "allowedTools" in result.stderr

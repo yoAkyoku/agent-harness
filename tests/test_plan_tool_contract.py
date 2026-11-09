@@ -1,4 +1,4 @@
-from agent_harness_demo.tools import model_tools
+from agent_harness.tools import model_tools
 
 
 def test_plan_tool_limits_visible_plan_to_actions_before_source_inspection() -> None:

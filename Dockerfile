@@ -25,4 +25,4 @@ RUN useradd --create-home harness && mkdir -p /data /workspace && chown harness 
 USER harness
 VOLUME ["/data"]
 EXPOSE 8787
-ENTRYPOINT ["/app/.venv/bin/python", "-m", "agent_harness_demo", "--host", "0.0.0.0", "--port", "8787", "--store", "/data"]
+ENTRYPOINT ["/app/.venv/bin/python", "-m", "agent_harness", "--host", "0.0.0.0", "--port", "8787", "--store", "/data"]

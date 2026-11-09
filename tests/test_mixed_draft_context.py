@@ -7,8 +7,8 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from agent_harness_demo.model import ModelSettings
-from agent_harness_demo.web import create_app
+from agent_harness.model import ModelSettings
+from agent_harness.web import create_app
 from recorded_citations import bracket_bare_eids, bracket_draft_calls, sha256
 from test_completion import CompletionPeer
 from test_draft_review import expand_receipt_suffix

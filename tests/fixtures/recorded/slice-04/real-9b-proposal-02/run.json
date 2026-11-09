@@ -73,7 +73,7 @@
         "content": "# brief-summary.md\n\n## 目標\n讓客服在同一頁查看訂單進度、配送節點與異常紀錄。 [E1]\n\n## 本次範圍\n整理現有需求，保留資料來源，再將待確認事項交給團隊討論。 [E1]\n\n## 已知風險\n- 舊系統的配送狀態命名不一致 [E1]\n- 尚未核對所有歷史欄位 [E1]\n\n---\n*來源：brief.md (sha256: 052b349403397ce33e71bb4eb861f51777312cceba2be98730712c4ae2d0fe57)*\n\n## Verified tool evidence\n- [E1] brief.md:L1-L7 SHA-256 052b349403397ce33e71bb4eb861f51777312cceba2be98730712c4ae2d0fe57\n"
       },
       "scope": {
-        "workspace": "C:\\path\\to\\agent-harness\\src\\agent_harness_demo\\demo_sources",
+        "workspace": "C:\\path\\to\\agent-harness\\src\\agent_harness\\demo_sources",
         "artifact_directory": "C:\\path\\to\\agent-harness\\.private\\slice02\\artifacts",
         "effect": "immutable_artifact",
         "sources": [

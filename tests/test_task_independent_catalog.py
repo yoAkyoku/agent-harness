@@ -4,8 +4,8 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from agent_harness_demo.model import ModelSettings
-from agent_harness_demo.web import create_app
+from agent_harness.model import ModelSettings
+from agent_harness.web import create_app
 from test_completion import CompletionPeer
 from test_workbench import create_task, finish, tool_reply
 

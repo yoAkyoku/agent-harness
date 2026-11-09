@@ -14,8 +14,8 @@ from test_recovery import running_service
 
 def test_service_identity_is_frozen_until_restart_and_tracks_package_changes(tmp_path: Path) -> None:
     checkout = tmp_path / "checkout"
-    package = checkout / "src" / "agent_harness_demo"
-    shutil.copytree(Path(__file__).resolve().parents[1] / "src" / "agent_harness_demo", package,
+    package = checkout / "src" / "agent_harness"
+    shutil.copytree(Path(__file__).resolve().parents[1] / "src" / "agent_harness", package,
                     ignore=shutil.ignore_patterns("__pycache__"))
     store = tmp_path / "store"
     with running_service(store, package_root=checkout) as service:
@@ -49,7 +49,7 @@ def test_recorders_reject_an_earlier_service_before_run_admission(tmp_path: Path
     git("add", ".gitignore", "src", "scripts", "evaluation")
     git("-c", "user.name=Validation", "-c", "user.email=validation@example.invalid", "commit", "-qm", "Original package")
     with running_service(tmp_path / "store", package_root=checkout) as service:
-        source = checkout / "src" / "agent_harness_demo" / "tools.py"
+        source = checkout / "src" / "agent_harness" / "tools.py"
         source.write_bytes(source.read_bytes() + b"\n# A later committed checkout.\n")
         git("add", "src")
         git("-c", "user.name=Validation", "-c", "user.email=validation@example.invalid", "commit", "-qm", "Later package")

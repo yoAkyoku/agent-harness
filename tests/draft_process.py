@@ -35,8 +35,8 @@ from pathlib import Path
 import httpx,uvicorn
 sys.path.insert(0,sys.argv[4])
 sys.path.insert(0,sys.argv[6])
-from agent_harness_demo.web import create_app
-from agent_harness_demo.model import ModelSettings
+from agent_harness.web import create_app
+from agent_harness.model import ModelSettings
 from test_completion import CompletionPeer
 scripted=CompletionPeer([httpx.Response(200,json=value) for value in json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))])
 async def peer(request):

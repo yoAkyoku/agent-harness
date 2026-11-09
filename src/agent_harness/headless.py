@@ -1,6 +1,6 @@
 """Headless mode: run one task on a running workbench and print its events as NDJSON.
 
-    AGENT_HARNESS_TOKEN=... python -m agent_harness_demo.headless \\
+    AGENT_HARNESS_TOKEN=... python -m agent_harness.headless \\
         --workspace ./docs --source notes.md --task "Summarise the notes into summary.md"
 
 Every saved event is printed as one JSON line, exactly as the workbench streams it,
@@ -39,7 +39,7 @@ class HeadlessError(Exception):
 
 def parser() -> argparse.ArgumentParser:
     cli = argparse.ArgumentParser(
-        prog="python -m agent_harness_demo.headless",
+        prog="python -m agent_harness.headless",
         description="Run one task on a running workbench and print its events as NDJSON on stdout.",
         epilog=f"The access token is read from {TOKEN_ENV}. Exit codes: 0 completed, 1 failed, "
                "2 refused request or usage error, 3 cancelled, 4 interrupted.")

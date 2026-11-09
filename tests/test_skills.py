@@ -7,8 +7,8 @@ import sys
 import httpx
 from fastapi.testclient import TestClient
 
-from agent_harness_demo.model import ModelSettings
-from agent_harness_demo.web import create_app
+from agent_harness.model import ModelSettings
+from agent_harness.web import create_app
 from test_completion import CompletionPeer
 from test_mcp_tools import _start
 from test_workbench import finish, tool_reply
@@ -105,6 +105,6 @@ def test_unknown_or_excluded_skills_are_refused_at_admission(tmp_path: Path) -> 
 
 
 def test_cli_rejects_a_missing_skills_directory(tmp_path: Path) -> None:
-    result = subprocess.run([sys.executable, "-m", "agent_harness_demo", "--store", str(tmp_path / "store"),
+    result = subprocess.run([sys.executable, "-m", "agent_harness", "--store", str(tmp_path / "store"),
                              "--skills-dir", str(tmp_path / "nowhere")], capture_output=True, text=True, timeout=60)
     assert result.returncode == 2 and "skills directory" in result.stderr and "does not exist" in result.stderr

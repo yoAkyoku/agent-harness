@@ -30,7 +30,7 @@ def launch(store: Path, *extra: str, package_root: Path | None = None) -> tuple[
         port = reservation.getsockname()[1]
     store.parent.mkdir(parents=True, exist_ok=True)
     log = store.parent / f"service-{uuid4().hex}.log"
-    command = [sys.executable, "-m", "agent_harness_demo", "--store", str(store), "--port", str(port), *extra]
+    command = [sys.executable, "-m", "agent_harness", "--store", str(store), "--port", str(port), *extra]
     environment = os.environ.copy()
     if package_root is not None:
         environment["PYTHONPATH"] = str(package_root / "src")
@@ -239,7 +239,7 @@ def test_restart_checkpoint_contains_only_paired_confirmed_tool_history(tmp_path
 def test_replay_includes_recovery_metadata_after_an_older_terminal_event(tmp_path: Path) -> None:
     from fastapi.testclient import TestClient
     from starlette.websockets import WebSocketDisconnect
-    from agent_harness_demo.web import create_app
+    from agent_harness.web import create_app
     from test_workbench import create_task
     source = tmp_path / "source"
     source.mkdir()
@@ -297,7 +297,7 @@ def test_unverifiable_publication_remains_unknown_and_blocks_checkpoint(tmp_path
 def test_checkpoint_retains_calls_not_yet_reached_in_a_partial_model_batch(tmp_path: Path) -> None:
     import json
     from fastapi.testclient import TestClient
-    from agent_harness_demo.web import create_app
+    from agent_harness.web import create_app
     from test_workbench import create_task
     source = tmp_path / "source"
     source.mkdir()
@@ -323,7 +323,7 @@ def test_checkpoint_retains_calls_not_yet_reached_in_a_partial_model_batch(tmp_p
 def test_failed_store_initialization_releases_database_handle_before_ownership(tmp_path: Path) -> None:
     import sqlite3
     from fastapi.testclient import TestClient
-    from agent_harness_demo.web import create_app
+    from agent_harness.web import create_app
     store = tmp_path / "store"
     store.mkdir()
     database = store / "workspace.sqlite3"
@@ -370,8 +370,8 @@ def test_explicit_resume_creates_new_run_and_continues_after_confirmed_catalog(t
 
 def test_resume_restores_cited_evidence_but_requires_a_new_publish_approval(tmp_path: Path) -> None:
     from fastapi.testclient import TestClient
-    from agent_harness_demo.web import create_app
-    from agent_harness_demo.model import ModelSettings
+    from agent_harness.web import create_app
+    from agent_harness.model import ModelSettings
     from test_workbench import create_task, finish
     from test_local_model import LocalPeer
     from test_approval import pending_approval
@@ -410,8 +410,8 @@ def test_resume_restores_cited_evidence_but_requires_a_new_publish_approval(tmp_
 def test_resume_reuses_a_confirmed_tool_result_without_dispatching_it_again(tmp_path: Path) -> None:
     import json
     from fastapi.testclient import TestClient
-    from agent_harness_demo.web import create_app
-    from agent_harness_demo.model import ModelSettings
+    from agent_harness.web import create_app
+    from agent_harness.model import ModelSettings
     from test_workbench import create_task, finish, tool_reply
     from test_local_model import LocalPeer
     from test_approval import pending_approval
@@ -479,7 +479,7 @@ def test_resume_after_reconciled_publish_references_original_artifact_without_re
     ("missing_source", 409, "source_forbidden"), ("extra_scope", 422, None)])
 def test_resume_rejects_changed_checkpoint_or_scope_without_creating_run(tmp_path: Path, change: str, status: int, code: str | None) -> None:
     from fastapi.testclient import TestClient
-    from agent_harness_demo.web import create_app
+    from agent_harness.web import create_app
     from test_workbench import create_task
     source = tmp_path / "source"
     source.mkdir()
@@ -509,7 +509,7 @@ def test_resume_rejects_changed_checkpoint_or_scope_without_creating_run(tmp_pat
 
 def test_resume_rechecks_preserved_artifact_after_checkpoint_was_created(tmp_path: Path) -> None:
     from fastapi.testclient import TestClient
-    from agent_harness_demo.web import create_app
+    from agent_harness.web import create_app
     from test_workbench import create_task
     source = tmp_path / "source"
     source.mkdir()
@@ -563,7 +563,7 @@ def test_resume_cannot_hide_an_unresolved_correction_behind_an_inherited_artifac
     import asyncio
     import json
     from fastapi.testclient import TestClient
-    from agent_harness_demo.web import create_app
+    from agent_harness.web import create_app
     from test_workbench import create_task, finish, tool_reply
     source = tmp_path / "source"
     source.mkdir()
@@ -597,7 +597,7 @@ def test_resume_cannot_hide_an_unresolved_correction_behind_an_inherited_artifac
 
 def test_checkpoint_does_not_resurrect_an_already_corrected_error(tmp_path: Path) -> None:
     from fastapi.testclient import TestClient
-    from agent_harness_demo.web import create_app
+    from agent_harness.web import create_app
     from test_workbench import create_task, tool_reply
     source = tmp_path / "source"
     source.mkdir()
@@ -623,8 +623,8 @@ def test_checkpoint_does_not_resurrect_an_already_corrected_error(tmp_path: Path
 
 def test_resume_rejects_a_different_model_without_starting_generation(tmp_path: Path) -> None:
     from fastapi.testclient import TestClient
-    from agent_harness_demo.web import create_app
-    from agent_harness_demo.model import ModelSettings
+    from agent_harness.web import create_app
+    from agent_harness.model import ModelSettings
     from test_local_model import LocalPeer
     from test_workbench import create_task
     source = tmp_path / "source"
@@ -648,7 +648,7 @@ def test_resume_interrupted_before_new_model_reply_retains_unreached_work(tmp_pa
     import asyncio
     import json
     from fastapi.testclient import TestClient
-    from agent_harness_demo.web import create_app
+    from agent_harness.web import create_app
     from test_workbench import create_task
     source = tmp_path / "source"
     source.mkdir()
@@ -679,8 +679,8 @@ def test_resume_interrupted_before_new_model_reply_retains_unreached_work(tmp_pa
 @pytest.mark.parametrize("changed", ["stream", "context_capacity", "thinking"])
 def test_resume_requires_the_saved_model_execution_configuration(tmp_path: Path, changed: str) -> None:
     from fastapi.testclient import TestClient
-    from agent_harness_demo.web import create_app
-    from agent_harness_demo.model import ModelSettings
+    from agent_harness.web import create_app
+    from agent_harness.model import ModelSettings
     from test_local_model import LocalPeer
     from test_workbench import create_task
     from test_approval import pending_approval
@@ -716,7 +716,7 @@ def test_resume_requires_the_saved_model_execution_configuration(tmp_path: Path,
 def test_reused_plan_becomes_the_latest_plan_in_the_next_checkpoint(tmp_path: Path) -> None:
     import asyncio
     from fastapi.testclient import TestClient
-    from agent_harness_demo.web import create_app
+    from agent_harness.web import create_app
     from test_workbench import create_task, tool_reply
     source = tmp_path / "source"
     source.mkdir()
@@ -805,7 +805,7 @@ def test_legacy_checkpoint_with_incomplete_confirmed_intent_blocks_resume(tmp_pa
 def test_resume_reuses_raw_read_when_model_declares_empty_label_intent(tmp_path: Path) -> None:
     import json
     from fastapi.testclient import TestClient
-    from agent_harness_demo.web import create_app
+    from agent_harness.web import create_app
     from test_workbench import finish, tool_reply
     source = tmp_path / "source"
     source.mkdir()

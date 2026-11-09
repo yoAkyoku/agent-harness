@@ -36,7 +36,7 @@ flowchart LR
 | 即時串流 | 事件先寫入 SQLite 再推送；WebSocket 以 cursor／ACK 補讀與去重；相同提交 key 回到原 Run。 |
 | Context 工程 | 每次請求先計量；超出預算時依序做無損搬移、標明的有損省略，仍超出就明確停止，不默默截斷。 |
 | 記憶與 Routing | 使用者明確保存的版本化記憶，依作用範圍與相關性選入；工具目錄只依來源類型提供。 |
-| 工具政策與驗證 | Schema 與來源版本驗證、單次操作批准（執行前核准計畫、發布成果、可能變更資料的工具）、派發前先保存意圖。發布前由**拿不到任務文字**的[驗證器](src/agent_harness_demo/verifiers.py)檢查：計算值是否引用產生它的計算、同一欄位是否混放不同來源角色的值、完成回覆是否與已發布成果一致。 |
+| 工具政策與驗證 | Schema 與來源版本驗證、單次操作批准（執行前核准計畫、發布成果、可能變更資料的工具）、派發前先保存意圖。發布前由**拿不到任務文字**的[驗證器](src/agent_harness/verifiers.py)檢查：計算值是否引用產生它的計算、同一欄位是否混放不同來源角色的值、完成回覆是否與已發布成果一致。 |
 | 不綁定供應商 | 同一個循環可跑本機 Ollama 模型、任何 OpenAI 相容端點，或透過官方 Anthropic SDK 的 Claude。 |
 
 驗證器只拿得到成果與工具證據，所以 harness 無法為特定題目寫答案規則。[評估紀錄](docs/evaluation.md)說明了這為什麼重要：移除早期針對案例的規則後，固定六例從 6/6 掉到 3/6，之後只用通用機制重新拉回。
@@ -47,7 +47,7 @@ flowchart LR
 
 ```bash
 uv sync --locked
-uv run python -m agent_harness_demo --store .private/demo --port 8787
+uv run python -m agent_harness --store .private/demo --port 8787
 ```
 
 開啟它印出的網址（`http://127.0.0.1:8787/?token=…`），按「使用範例資料」。工作台介面提供英文與繁體中文（標誌下方的切換選單；在你選擇之前依瀏覽器語言決定），來自檔案或模型的文字則維持原文。每次啟動都會產生存取權杖（或使用 `AGENT_HARNESS_TOKEN`）；瀏覽器會把它換成 cookie，腳本則以 `Authorization: Bearer <token>` 送出，同機的其他程序無法使用 API。不指定模型時由清楚標示的固定腳本回應，不需要任何模型或 API key 就能操作工作台、批准、取消與事件串流。
@@ -57,14 +57,14 @@ uv run python -m agent_harness_demo --store .private/demo --port 8787
 ```bash
 # Claude（官方 SDK）。API key 從環境變數讀取，不會出現在指令參數。
 export ANTHROPIC_API_KEY=...
-uv run python -m agent_harness_demo --provider anthropic --store .private/claude
+uv run python -m agent_harness --provider anthropic --store .private/claude
 
 # 任何 OpenAI 相容的 Chat Completions 端點
 export OPENAI_API_KEY=...
-uv run python -m agent_harness_demo --provider openai --model <model> --base-url https://api.openai.com/v1 --store .private/openai
+uv run python -m agent_harness --provider openai --model <model> --base-url https://api.openai.com/v1 --store .private/openai
 
 # 已安裝的本機 Ollama 模型
-uv run python -m agent_harness_demo --model qwen3.5:9b-q4_K_M --decision-protocol json_tools --store .private/local
+uv run python -m agent_harness --model qwen3.5:9b-q4_K_M --decision-protocol json_tools --store .private/local
 ```
 
 本機路徑需要 Ollama 0.40.10 搭配 Qwen3.5 模型，因為 Context 上限只針對該 renderer 驗證過；其他本機模型會以 `context_profile_unsupported` 直接拒絕，而不是猜測。
@@ -103,7 +103,7 @@ docker run --rm -p 127.0.0.1:8787:8787 -e ANTHROPIC_API_KEY agent-harness --prov
 
 ```bash
 export AGENT_HARNESS_TOKEN=...   # 工作台啟動時使用的權杖
-uv run python -m agent_harness_demo.headless --workspace ./docs --source notes.md --task "把筆記整理成 summary.md"
+uv run python -m agent_harness.headless --workspace ./docs --source notes.md --task "把筆記整理成 summary.md"
 ```
 
 退出碼：`0` 完成、`1` 失敗、`2` 請求被拒或用法錯誤、`3` 已取消、`4` 已中斷。用戶端逐筆確認事件，串流中斷時從上次的 cursor 重新接上；結束用戶端不會停止 Run。
@@ -120,7 +120,7 @@ uv run python -m agent_harness_demo.headless --workspace ./docs --source notes.m
 ```
 
 ```bash
-uv run python -m agent_harness_demo --mcp-config mcp.json --store .private/demo
+uv run python -m agent_harness --mcp-config mcp.json --store .private/demo
 ```
 
 `/api/config` 會列出每個伺服器提供與排除的工具。Run 可在工作台勾選工具（標示唯讀或每次需核准），也可在 API 依名稱選用（`"mcp_tools": ["mcp__notes__search_notes"]`），無頭模式用 `--mcp-tool`。結果會成為像 `[mcp/notes/search_notes E2]` 的證據，和來源一樣受檢查。列在 `allowedTools` 的工具若自行宣告有副作用會被拒絕；改列在 `askTools` 才能在核准後使用。核准被拒或過期時，該呼叫永遠不會執行。伺服器只會收到最小的環境變數加上設定中的 `env`，不會拿到工作台權杖或 API 金鑰。遠端伺服器（`url`，Streamable HTTP）必須使用 HTTPS，或連到本機迴路位址的一般 HTTP。憑證不會寫在設定檔裡：`bearerTokenEnv` 指定存放 bearer token 的環境變數名稱，`headerEnv` 則把其他標頭對應到環境變數。缺少變數或權杖被拒絕的伺服器會標示為無法使用，但不會顯示權杖內容。不支援 OAuth 登入。
@@ -147,14 +147,14 @@ uv run python -m agent_harness_demo --mcp-config mcp.json --store .private/demo
 ```bash
 uv run pytest -q
 uv run mypy
-for file in src/agent_harness_demo/static/*.js; do node --check "$file"; done
+for file in src/agent_harness/static/*.js; do node --check "$file"; done
 ```
 
 測試只走公開的 HTTP／WebSocket 介面，並只替換模型的 HTTP transport，使用真實的暫存 SQLite 與檔案。內容包括真實模型錄製紀錄的回放（確認 Context 在 8K token 內不遺失必要資料）、真子程序中斷後的恢復，以及從舊版本升級資料。沒有任何測試會呼叫付費 API。CI 在 Ubuntu 與 Windows 上執行。
 
 ## 目錄
 
-- `src/agent_harness_demo/`：harness 本體。`runtime.py`（循環）、`context.py`（預算與裁切）、`tools.py`、`verifiers.py`、`storage.py`、`checkpoints.py`、`event_stream.py`、`model.py` 與 `anthropic_adapter.py`（供應商）、`mcp_hub.py`（MCP 工具）、`skills.py`（Skills）、`instructions.py`（AGENTS.md）、`uploads.py`、`hooks.py`、`remote.py`（端點與憑證規則）、`headless.py`（NDJSON 用戶端）、`web.py`（API）、`static/`（工作台）。
+- `src/agent_harness/`：harness 本體。`runtime.py`（循環）、`context.py`（預算與裁切）、`tools.py`、`verifiers.py`、`storage.py`、`checkpoints.py`、`event_stream.py`、`model.py` 與 `anthropic_adapter.py`（供應商）、`mcp_hub.py`（MCP 工具）、`skills.py`（Skills）、`instructions.py`（AGENTS.md）、`uploads.py`、`hooks.py`、`remote.py`（端點與憑證規則）、`headless.py`（NDJSON 用戶端）、`web.py`（API）、`static/`（工作台）。
 - `tests/`：公開介面測試與 fixtures，包含錄製的模型執行紀錄。
 - `evaluation/`：固定題組，真值在任何模型執行前寫定。
 - `scripts/`：對執行中的工作台跑題組，保存每個事件、成果與評分的記錄器。

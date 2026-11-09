@@ -11,8 +11,8 @@ import httpx2
 import pytest
 from fastapi.testclient import TestClient
 
-from agent_harness_demo.model import ModelSettings
-from agent_harness_demo.web import create_app
+from agent_harness.model import ModelSettings
+from agent_harness.web import create_app
 from test_workbench import create_task, finish, tool_reply
 
 REPORT = "Revenue was 42. [facts.md E1]"

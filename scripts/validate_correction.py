@@ -10,7 +10,7 @@ import time
 
 import httpx
 
-from agent_harness_demo.implementation import source_identity
+from agent_harness.implementation import source_identity
 from validate_local_model import save, workbench_headers
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -34,7 +34,7 @@ def main() -> None:
     with httpx.Client(base_url=f"http://127.0.0.1:{args.port}", trust_env=False, timeout=15, headers=workbench_headers(),
                       limits=httpx.Limits(max_keepalive_connections=0)) as client:
         config = client.get("/api/config").raise_for_status().json()
-        assert config.get("implementation") == source_identity(ROOT / "src" / "agent_harness_demo"), "Service implementation differs or is unidentified; restart this checkout before admitting a validation Run."
+        assert config.get("implementation") == source_identity(ROOT / "src" / "agent_harness"), "Service implementation differs or is unidentified; restart this checkout before admitting a validation Run."
         assert config["model"]["name"] == "qwen3.5:9b-q4_K_M" and config["model"]["transport_fixture"] is False
         assert config["model"].get("decision_protocol", "native") == args.decision_protocol, "Controlled service protocol does not match the explicit selection."
         assert config["validation"] == {"fault_once_source_read": True}

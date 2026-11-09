@@ -1,6 +1,6 @@
 import pytest
 
-from agent_harness_demo.__main__ import build_settings, parser
+from agent_harness.__main__ import build_settings, parser
 
 
 def settings(*flags: str):

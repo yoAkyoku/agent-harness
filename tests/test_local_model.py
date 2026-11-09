@@ -6,9 +6,9 @@ from fastapi.testclient import TestClient
 import httpx
 import pytest
 
-from agent_harness_demo.model import ModelSettings
+from agent_harness.model import ModelSettings
 from scripted import planning
-from agent_harness_demo.web import create_app
+from agent_harness.web import create_app
 from test_workbench import ReportPeer, create_task, finish, tool_reply
 
 
@@ -175,7 +175,7 @@ def test_explicit_thinking_profile_is_recorded_without_exposing_reasoning(tmp_pa
 
 @pytest.mark.parametrize("values", [None, [False], ["low", "high"], [0, 1]])
 def test_thinking_opt_in_rejects_unverified_controls_before_generation(tmp_path: Path, values: object) -> None:
-    from agent_harness_demo.contracts import RunFailure
+    from agent_harness.contracts import RunFailure
     scripted = LocalPeer()
     async def peer(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/api/version":

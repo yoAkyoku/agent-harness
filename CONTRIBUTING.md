@@ -6,7 +6,7 @@
 uv sync --locked
 uv run pytest -q
 uv run mypy
-for file in src/agent_harness_demo/static/*.js; do node --check "$file"; done
+for file in src/agent_harness/static/*.js; do node --check "$file"; done
 ```
 
 ## Principles

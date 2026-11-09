@@ -19,7 +19,7 @@ def _headless(url: str, *arguments: str, token: bool = True) -> subprocess.Compl
     environment = os.environ.copy()
     if not token:
         environment.pop("AGENT_HARNESS_TOKEN", None)
-    return subprocess.run([sys.executable, "-m", "agent_harness_demo.headless", "--url", url, *arguments],
+    return subprocess.run([sys.executable, "-m", "agent_harness.headless", "--url", url, *arguments],
                           capture_output=True, text=True, encoding="utf-8", env=environment, timeout=120)
 
 

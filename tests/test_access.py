@@ -5,9 +5,9 @@ import pytest
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
-from agent_harness_demo import web
-from agent_harness_demo.local import token_cookie_name
-from agent_harness_demo.web import create_app
+from agent_harness import web
+from agent_harness.local import token_cookie_name
+from agent_harness.web import create_app
 
 TOKEN = "test-token-0123456789abcdef"
 LOCAL = "http://127.0.0.1:8787"

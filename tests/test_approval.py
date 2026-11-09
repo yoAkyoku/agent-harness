@@ -6,7 +6,7 @@ import httpx
 from fastapi.testclient import TestClient
 
 from scripted import planning
-from agent_harness_demo.web import create_app
+from agent_harness.web import create_app
 from test_workbench import ReportPeer, create_task, finish
 from test_analysis_task import AnalysisPeer
 

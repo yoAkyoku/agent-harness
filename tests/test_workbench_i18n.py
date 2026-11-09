@@ -6,7 +6,7 @@ import re
 from html.parser import HTMLParser
 from pathlib import Path
 
-STATIC = Path(__file__).resolve().parents[1] / "src" / "agent_harness_demo" / "static"
+STATIC = Path(__file__).resolve().parents[1] / "src" / "agent_harness" / "static"
 SCRIPTS = ("app.js", "memory.js", "run-stream.js")
 CJK = re.compile("[\u3000-\u303f\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff00-\uffef]")
 PLACEHOLDER = re.compile(r"\{(\w+)\}")

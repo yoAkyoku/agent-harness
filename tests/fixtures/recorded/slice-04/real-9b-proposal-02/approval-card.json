@@ -15,7 +15,7 @@
           "sha256": "052b349403397ce33e71bb4eb861f51777312cceba2be98730712c4ae2d0fe57"
         }
       ],
-      "workspace": "C:\\path\\to\\agent-harness\\src\\agent_harness_demo\\demo_sources"
+      "workspace": "C:\\path\\to\\agent-harness\\src\\agent_harness\\demo_sources"
     },
     "tool": "artifact_write"
   },

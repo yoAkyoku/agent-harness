@@ -30,7 +30,7 @@ jobs:
         run: uv run mypy
       - name: Check workbench JavaScript
         shell: bash
-        run: for file in src/agent_harness_demo/static/*.js; do node --check "$file"; done
+        run: for file in src/agent_harness/static/*.js; do node --check "$file"; done
       - name: Run tests
         # Every model is replaced at its HTTP transport; no API key or model is needed.
         run: uv run pytest -q

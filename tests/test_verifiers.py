@@ -1,7 +1,7 @@
 import inspect
 
-from agent_harness_demo import verifiers
-from agent_harness_demo.verifiers import calculation_citations, verify_artifact
+from agent_harness import verifiers
+from agent_harness.verifiers import calculation_citations, verify_artifact
 
 EVIDENCE = {
     "E1": {"path": "metrics.csv", "columns": ["week", "orders"], "sample": []},

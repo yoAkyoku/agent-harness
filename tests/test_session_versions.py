@@ -5,7 +5,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from agent_harness_demo.web import create_app
+from agent_harness.web import create_app
 from test_workbench import ReportPeer, create_task, finish, tool_reply
 
 
@@ -349,7 +349,7 @@ def qwen_metadata() -> dict:
 
 def test_qwen_budget_verifies_renderer_profile_and_counts_tool_preamble(tmp_path: Path) -> None:
     from test_local_model import LocalPeer
-    from agent_harness_demo.model import ModelSettings
+    from agent_harness.model import ModelSettings
     peer = LocalPeer()
     async def qwen(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/api/version":
@@ -380,8 +380,8 @@ def test_qwen_budget_verifies_renderer_profile_and_counts_tool_preamble(tmp_path
 ])
 def test_unverified_qwen_profile_is_rejected_at_startup(tmp_path: Path, field: str, value: object) -> None:
     from test_local_model import LocalPeer
-    from agent_harness_demo.model import ModelSettings
-    from agent_harness_demo.contracts import RunFailure
+    from agent_harness.model import ModelSettings
+    from agent_harness.contracts import RunFailure
     peer = LocalPeer()
     metadata = qwen_metadata()
     if field.startswith("tokenizer."):
@@ -405,7 +405,7 @@ def test_unverified_qwen_profile_is_rejected_at_startup(tmp_path: Path, field: s
 @pytest.mark.parametrize("thinking", [False, True])
 def test_qwen_render_bound_matches_independent_unicode_multicall_golden(tmp_path: Path, thinking: bool) -> None:
     from test_local_model import LocalPeer
-    from agent_harness_demo.model import ModelSettings
+    from agent_harness.model import ModelSettings
     peer = LocalPeer()
     requests: list[dict] = []
     async def qwen(request: httpx.Request) -> httpx.Response:
@@ -535,7 +535,7 @@ def recorded_publication_accepted(request: dict) -> bool:
 @pytest.mark.parametrize('fixture_name', ['qwen35-analysis-context.json', 'qwen35-analysis-publication-context.json', 'qwen35-analysis-variant-publication.json', 'qwen35-analysis-missing-publication.json', 'qwen35-analysis-sample-contract-publication.json', 'qwen35-analysis-plan-catalog-publication.json'])
 def test_acknowledged_analysis_evidence_can_fit_without_losing_latest_tool_result(tmp_path: Path, fixture_name: str) -> None:
     from test_local_model import LocalPeer
-    from agent_harness_demo.model import ModelSettings
+    from agent_harness.model import ModelSettings
     fixture = json.loads((Path(__file__).parent/'fixtures'/fixture_name).read_text(encoding='utf-8'))
     published = any(call['function']['name']=='artifact_write' for message in fixture['messages'] for call in message.get('tool_calls',[]))
     publish_index = next((index for index,message in enumerate(fixture['messages'])
@@ -650,7 +650,7 @@ def test_acknowledged_analysis_evidence_can_fit_without_losing_latest_tool_resul
 
 def test_pending_arithmetic_correction_and_latest_inspection_fit_without_becoming_success(tmp_path: Path) -> None:
     from test_local_model import LocalPeer
-    from agent_harness_demo.model import ModelSettings
+    from agent_harness.model import ModelSettings
     fixture = json.loads((Path(__file__).parent / 'fixtures/qwen35-arithmetic-correction-context.json').read_text(encoding='utf-8'))
     source = tmp_path / 'source'
     source.mkdir()

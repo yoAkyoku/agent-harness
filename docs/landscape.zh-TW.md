@@ -50,7 +50,7 @@
 | 6 | 引用預覽和發布用不同規則判定伺服器產生的證據附錄，模型自寫的標題可能讓一項檢查看不到正文、另一項卻看得到。 | — | 兩者改用同一個判定函式。 |
 | 7 | 修正 #1 時發現：未開本機思考模式的原生模型（包含 Claude 與 OpenAI 相容轉接器）從不會被提供 `task_finish`，而是以純文字結束，因此遠端模型從不經過完成回覆檢查。 | Claude Code 與 Codex 以型別化的結果結束一回合；DSH 記錄回合結束的原因 | 遠端轉接器在發布後會被提供 `task_finish`；有提供 `task_finish` 時，發布後的純文字結束同樣經過 `completion_summary` 檢查，不符的回覆不放入下一次請求，改為只開放 `task_finish` 的可修正步驟。 |
 | 8 | 執行中的 Run 只能取消，使用者無法在不重來的情況下補充或修正指示。 | Codex steer/queue、opencode `delivery: steer \| queue`、DSH inbox 的 `steer`／`followup` | `POST /api/runs/{id}/messages` 以 `message_id` 冪等受理訊息；Runtime 在下一個步驟邊界以使用者回合送達，記錄 `message.queued`／`message.delivered`；沒送到模型的訊息以 `message.undelivered` 回報。 |
-| 9 | 腳本與 CI 只能自行撰寫 HTTP 呼叫來驅動 harness。 | Claude Code `-p --output-format stream-json`、`opencode run --format json` | `python -m agent_harness_demo.headless` 提交任務，把每個已保存事件輸出為 NDJSON，最後輸出 `headless.result`；逐筆確認事件、從 cursor 重新連線，退出碼 0 完成／1 失敗／2 被拒／3 取消／4 中斷。 |
+| 9 | 腳本與 CI 只能自行撰寫 HTTP 呼叫來驅動 harness。 | Claude Code `-p --output-format stream-json`、`opencode run --format json` | `python -m agent_harness.headless` 提交任務，把每個已保存事件輸出為 NDJSON，最後輸出 `headless.result`；逐筆確認事件、從 cursor 重新連線，退出碼 0 完成／1 失敗／2 被拒／3 取消／4 中斷。 |
 | 10 | 工具集固定，無法接上外部工具。 | Claude、Codex、opencode、DSH 的 MCP 伺服器 | 使用者設定的 stdio MCP 伺服器；只提供列在允許清單、且未宣告副作用的工具，Run 選用特定工具，結果成為被引用的證據，伺服器拿不到工作台的秘密。 |
 | 11 | 只有發布能要求核准，任何有副作用的外部工具都只能拒絕。 | Claude Code 的 deny → ask → allow 規則、Codex 的型別化核准、DSH 失敗即關閉的結果 | `askTools` 讓有副作用的 MCP 工具只在單次核准後執行，核准綁定確切參數與範圍；否則派送一律拒絕，結果遺失時成為效果未知並阻擋自動續做。 |
 | 12 | 無法把某類工作的做法包裝成可重複使用的指示。 | Claude 與 Codex 的 Agent Skills；opencode、DSH 的 AGENTS.md | `--skills-dir` 載入 `SKILL.md` 形式的 skills；Run 只看到選用 skill 的名稱與說明，需要時以 `skill_load` 載入指示（附雜湊），任務以 `/skill名稱` 開頭也能選用。 |
@@ -78,7 +78,6 @@
 3. **OAuth 連接器。** 遠端 MCP 伺服器的憑證來自環境變數；要透過 OAuth 登入，需要決定接哪些服務、權杖如何保存。
 4. **執行 shell 指令的 hooks。** Hooks 目前只有 HTTP webhook；要執行本機指令，需要先決定沙箱方式。
 5. **掃描 PDF 的 OCR。** 沒有文字層的文件目前會被拒絕。
-6. **套件名稱。** 套件仍叫 `agent_harness_demo`；改名會破壞 import、指令與 Docker 映像。
 
 ## 來源
 

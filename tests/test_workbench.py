@@ -8,7 +8,7 @@ import httpx
 import pytest
 
 from scripted import planning
-from agent_harness_demo.web import create_app
+from agent_harness.web import create_app
 
 
 def test_workspace_and_source_catalog_survive_reopening(tmp_path: Path) -> None:

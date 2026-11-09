@@ -4,9 +4,9 @@ from pathlib import Path
 import httpx
 from fastapi.testclient import TestClient
 
-from agent_harness_demo.model import ModelSettings
-from agent_harness_demo.verifiers import consistent_source_roles
-from agent_harness_demo.web import create_app
+from agent_harness.model import ModelSettings
+from agent_harness.verifiers import consistent_source_roles
+from agent_harness.web import create_app
 from test_completion import CompletionPeer
 from test_completion_grounding import json_decision_reply
 from test_workbench import create_task, finish

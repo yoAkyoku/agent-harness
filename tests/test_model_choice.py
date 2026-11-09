@@ -8,9 +8,9 @@ import httpx2
 import pytest
 from fastapi.testclient import TestClient
 
-from agent_harness_demo.__main__ import build_settings, parser
-from agent_harness_demo.model import ModelSettings
-from agent_harness_demo.web import create_app
+from agent_harness.__main__ import build_settings, parser
+from agent_harness.model import ModelSettings
+from agent_harness.web import create_app
 from test_remote_providers import REPORT, _message, _source, _tool_use
 from test_workbench import finish, text_reply, tool_reply
 

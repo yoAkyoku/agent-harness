@@ -12,7 +12,7 @@ from uuid import uuid4
 
 import httpx
 
-from agent_harness_demo.implementation import source_identity
+from agent_harness.implementation import source_identity
 from validate_local_model import save, workbench_headers
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -105,7 +105,7 @@ def main() -> None:
     output.mkdir(parents=True, exist_ok=True)
     revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
     implementation_status = subprocess.check_output(['git', 'status', '--porcelain', '--', 'src', 'scripts', 'evaluation', 'pyproject.toml', 'uv.lock'], cwd=ROOT, text=True)
-    candidate_source_identity = source_identity(ROOT / 'src' / 'agent_harness_demo')
+    candidate_source_identity = source_identity(ROOT / 'src' / 'agent_harness')
     recorder_sha256 = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
     if implementation_status and not args.allow_dirty_candidate:
         parser.error('Commit implementation/input changes before starting a fixed quality batch, or opt into a fingerprinted local candidate.')
@@ -114,7 +114,7 @@ def main() -> None:
     with httpx.Client(base_url=args.base_url, trust_env=False, timeout=15, headers=workbench_headers(),
                       limits=httpx.Limits(max_keepalive_connections=0)) as client:
         config = client.get('/api/config').raise_for_status().json()
-        assert config.get('implementation') == source_identity(ROOT / 'src' / 'agent_harness_demo'), 'Service implementation differs or is unidentified; restart this checkout before admitting a validation Run.'
+        assert config.get('implementation') == source_identity(ROOT / 'src' / 'agent_harness'), 'Service implementation differs or is unidentified; restart this checkout before admitting a validation Run.'
         assert config['model']['name'] == selected_model and config['model']['transport_fixture'] is False, 'Service does not match the explicitly selected model.'
         assert config['model']['digest'] == INSTALLED_MODEL_DIGESTS[selected_model]
         assert config['model'].get('decision_protocol', 'native') == args.decision_protocol, 'Service decision protocol differs from this batch selection.'

@@ -5,7 +5,7 @@
 # their SHA-256, so never convert line endings in these.
 evaluation/** -text
 tests/fixtures/** -text
-src/agent_harness_demo/demo_sources/** -text
+src/agent_harness/demo_sources/** -text
 docs/evaluation/records/** -text
 docs/validation/** -text
 downloads/** -text

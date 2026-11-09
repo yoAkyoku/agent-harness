@@ -29,7 +29,7 @@
     ],
     "reasoning_effort": "none"
   },
-  "demo_path": "C:\\path\\to\\agent-harness\\src\\agent_harness_demo\\demo_sources",
+  "demo_path": "C:\\path\\to\\agent-harness\\src\\agent_harness\\demo_sources",
   "validation": {
     "fault_once_source_read": false
   }

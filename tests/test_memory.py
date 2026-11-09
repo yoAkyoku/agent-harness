@@ -5,7 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from scripted import planning
-from agent_harness_demo.web import create_app
+from agent_harness.web import create_app
 
 
 def test_user_can_save_and_reopen_a_workspace_memory_with_provenance(tmp_path: Path) -> None:

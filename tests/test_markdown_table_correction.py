@@ -4,7 +4,7 @@ from pathlib import Path
 import httpx
 import pytest
 from fastapi.testclient import TestClient
-from agent_harness_demo.web import create_app
+from agent_harness.web import create_app
 from scripted import planning
 from test_workbench import create_task, finish, tool_reply
 
