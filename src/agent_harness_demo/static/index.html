@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' ws://127.0.0.1:* ws://localhost:*; img-src 'self' data:; object-src 'none'; base-uri 'none'">
   <title>Agent Harness Demo</title>
-  <link rel="stylesheet" href="/assets/styles.css?v=9.0.6">
-  <script type="module" src="/assets/app.js?v=12.2"></script>
+  <link rel="stylesheet" href="/assets/styles.css?v=9.0.7">
+  <script type="module" src="/assets/app.js?v=12.4"></script>
 </head>
 <body>
   <div class="workbench">
@@ -15,6 +15,7 @@
         <svg viewBox="0 0 32 32" aria-hidden="true"><path d="m16 3 12 7v12l-12 7L4 22V10Z"/><path d="M10 21V11h5a4 4 0 0 1 0 8h-5m8-8 5 10"/></svg>
         <span>Agent Harness<small>本機任務工作台</small></span>
       </a>
+      <div class="lang-switch"><label for="lang-select">介面語言</label><select id="lang-select"><option value="en" lang="en" translate="no">English</option><option value="zh-TW" lang="zh-Hant" translate="no">繁中</option></select></div>
       <button id="new-task" class="new-task" type="button"><span aria-hidden="true">＋</span> 新任務</button>
       <section class="workspace-section" aria-labelledby="workspace-heading">
         <h2 id="workspace-heading">工作資料夾</h2>

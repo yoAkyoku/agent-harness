@@ -41,7 +41,7 @@ uv sync --locked
 uv run python -m agent_harness_demo --store .private/demo --port 8787
 ```
 
-開啟它印出的網址（`http://127.0.0.1:8787/?token=…`），按「使用範例資料」。每次啟動都會產生存取權杖（或使用 `AGENT_HARNESS_TOKEN`）；瀏覽器會把它換成 cookie，腳本則以 `Authorization: Bearer <token>` 送出，同機的其他程序無法使用 API。不指定模型時由清楚標示的固定腳本回應，不需要任何模型或 API key 就能操作工作台、批准、取消與事件串流。
+開啟它印出的網址（`http://127.0.0.1:8787/?token=…`），按「使用範例資料」。工作台介面提供英文與繁體中文（標誌下方的切換選單；在你選擇之前依瀏覽器語言決定），來自檔案或模型的文字則維持原文。每次啟動都會產生存取權杖（或使用 `AGENT_HARNESS_TOKEN`）；瀏覽器會把它換成 cookie，腳本則以 `Authorization: Bearer <token>` 送出，同機的其他程序無法使用 API。不指定模型時由清楚標示的固定腳本回應，不需要任何模型或 API key 就能操作工作台、批准、取消與事件串流。
 
 使用真實模型：
 

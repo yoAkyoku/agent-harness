@@ -1,10 +1,13 @@
-import {observeEvents} from "/assets/run-stream.js?v=7.0";
-import {memoryPanel} from "/assets/memory.js?v=6.0";
+import {observeEvents} from "/assets/run-stream.js?v=7.1";
+import {memoryPanel} from "/assets/memory.js?v=6.1";
+import {lang, saveLang, t, translatePage} from "/assets/i18n.js?v=1.0";
 const $ = (id) => document.getElementById(id);
+translatePage();
+const locale = lang === "en" ? "en-US" : "zh-TW";
 const state = {config: null, workspace: null, session: null, run: null, approval: null, sources: [], selected: new Set(), busy: false, socket: null, generation: 0, approvalPending: false, cancelPending: false, runs: [], base: null, previewArtifact: null, pendingSubmission: null, initializing: true, planSequence: 0, correctionSequence: 0, mcpSelected: new Set(), skillSelected: new Set()};
-const toolNames = {workspace_list: "列出允許的來源", source_read: "讀取來源", base_artifact_read: "讀取修改基底", artifact_write: "保存成果", artifact_draft: "保存待核對草稿（尚未發布）", plan_update: "更新計畫", table_inspect: "檢查表格", table_aggregate: "計算欄位", number_calculate: "計算比例", task_finish: "提交完成回覆"};
-const statusNames = {queued: "等待執行", running: "執行中", waiting_approval: "等待你的確認", cancel_requested: "正在取消", cancelled: "已取消", completed: "已完成", failed: "未完成", interrupted: "執行已中斷"};
-const effortNames = {low: "低", medium: "中", high: "高", xhigh: "很高", max: "最高"};
+const toolNames = {workspace_list: t("列出允許的來源"), source_read: t("讀取來源"), base_artifact_read: t("讀取修改基底"), artifact_write: t("保存成果"), artifact_draft: t("保存待核對草稿（尚未發布）"), plan_update: t("更新計畫"), table_inspect: t("檢查表格"), table_aggregate: t("計算欄位"), number_calculate: t("計算比例"), task_finish: t("提交完成回覆")};
+const statusNames = {queued: t("等待執行"), running: t("執行中"), waiting_approval: t("等待你的確認"), cancel_requested: t("正在取消"), cancelled: t("已取消"), completed: t("已完成"), failed: t("未完成"), interrupted: t("執行已中斷")};
+const effortNames = {low: t("低"), medium: t("中"), high: t("高"), xhigh: t("很高"), max: t("最高")};
 const activeStatuses = new Set(["queued", "running", "waiting_approval", "cancel_requested"]);
 
 async function api(path, body) {
@@ -12,7 +15,7 @@ async function api(path, body) {
   const value = await response.json();
   if (!response.ok) {
     const detail = value.detail;
-    const message = typeof detail === "string" ? detail : detail?.message || (Array.isArray(detail) ? detail.map((item) => item.msg).join("；") : "請重新確認輸入。");
+    const message = typeof detail === "string" ? detail : detail?.message || (Array.isArray(detail) ? detail.map((item) => item.msg).join(t("；")) : t("請重新確認輸入。"));
     const error = new Error(message); error.status = response.status; throw error;
   }
   return value;
@@ -26,8 +29,8 @@ function updateControls() {
   const locked = state.initializing || state.busy || Boolean(state.pendingSubmission);
   memories.setBusy(locked);
   $("start-task").disabled = state.initializing || state.busy || (!state.pendingSubmission && (!state.workspace || !state.selected.size));
-  $("start-task").firstChild.textContent = state.busy ? "執行中 " : state.pendingSubmission ? "重試這次提交 " : state.base ? "建立修改版本 " : "開始任務 ";
-  for (const id of ["new-task", "use-demo", "workspace-path", "task-input", "require-plan-approval", "require-publish-approval", "publication-workflow", "completion-workflow", "run-history", "base-artifact", "revise-artifact"]) $(id).disabled = locked;
+  $("start-task").firstChild.textContent = (state.busy ? t("執行中") : state.pendingSubmission ? t("重試這次提交") : state.base ? t("建立修改版本") : t("開始任務")) + " ";
+  for (const id of ["new-task", "lang-select", "use-demo", "workspace-path", "task-input", "require-plan-approval", "require-publish-approval", "publication-workflow", "completion-workflow", "run-history", "base-artifact", "revise-artifact"]) $(id).disabled = locked;
   $("workspace-form").querySelector("button").disabled = locked;
   document.querySelectorAll(".session-button").forEach((button) => { button.disabled = locked; });
   document.querySelectorAll(".source-item input").forEach((input) => { input.disabled = locked || (state.selected.size >= 8 && !input.checked); });
@@ -35,22 +38,22 @@ function updateControls() {
   $("use-instructions").disabled = locked || !state.instructions?.instructions;
   for (const id of ["model-select", "effort-select"]) $(id).disabled = locked;
   $("source-count").textContent = `${state.selected.size} / 8`;
-  $("selection-hint").textContent = state.pendingSubmission ? "提交結果尚未確認；重試會查回同一次執行" : state.selected.size ? `本次允許讀取 ${state.selected.size} 份來源` : "先從左側選擇資料來源";
+  $("selection-hint").textContent = state.pendingSubmission ? t("提交結果尚未確認；重試會查回同一次執行") : state.selected.size ? t("本次允許讀取 {count} 份來源", {count: state.selected.size}) : t("先從左側選擇資料來源");
 }
 function closeStream() { state.generation += 1; if (state.socket) { state.socket.close(); state.socket = null; } }
 function renderPlanContext() {
   const laterCorrection = state.correctionSequence > state.planSequence;
-  $("plan-title").textContent = laterCorrection ? "較早提出的計畫" : "模型提出的計畫";
+  $("plan-title").textContent = laterCorrection ? t("較早提出的計畫") : t("模型提出的計畫");
   $("plan-context").textContent = laterCorrection
-    ? "此計畫提出後曾有錯誤回饋或修正；請對照後續事件與成果。"
-    : "計畫是預計動作；工具是否成功、引用是否有效，以實際結果為準。";
+    ? t("此計畫提出後曾有錯誤回饋或修正；請對照後續事件與成果。")
+    : t("計畫是預計動作；工具是否成功、引用是否有效，以實際結果為準。");
 }
 function resetPlan() {
   state.planSequence = 0; state.correctionSequence = 0;
   $("plan").hidden = true; $("plan-steps").replaceChildren(); renderPlanContext();
 }
-function hideDiff() { $("preview-diff").hidden = true; $("preview-text").hidden = false; $("compare-artifact").textContent = "與上一版比較"; }
-function resetPreview() { state.previewArtifact = null; $("revise-artifact").hidden = true; $("compare-artifact").hidden = true; hideDiff(); $("preview-empty").hidden = false; $("preview-content").hidden = true; $("preview-heading").textContent = "成果預覽"; $("preview-kind").textContent = "等待成果"; }
+function hideDiff() { $("preview-diff").hidden = true; $("preview-text").hidden = false; $("compare-artifact").textContent = t("與上一版比較"); }
+function resetPreview() { state.previewArtifact = null; $("revise-artifact").hidden = true; $("compare-artifact").hidden = true; hideDiff(); $("preview-empty").hidden = false; $("preview-content").hidden = true; $("preview-heading").textContent = t("成果預覽"); $("preview-kind").textContent = t("等待成果"); }
 function newTask() {
   if (state.initializing || state.busy || state.pendingSubmission) return;
   closeStream(); state.session = null; state.run = null; state.approval = null; state.runs = []; state.base = null;
@@ -60,7 +63,7 @@ function newTask() {
   $("approval-card").hidden = true; $("require-publish-approval").checked = true; $("require-plan-approval").checked = false;
   $("use-instructions").checked = Boolean(state.instructions?.instructions);
   $("execution").hidden = true; resetPlan(); $("timeline").replaceChildren(); resetPreview(); clearError();
-  $("task-input").value = "讀取已選來源，保存一份可檢查的來源快照。";
+  $("task-input").value = t("讀取已選來源，保存一份可檢查的來源快照。");
   selectSkills();
   document.querySelectorAll(".session-button").forEach((button) => button.classList.remove("active"));
   updateControls(); $("task-input").focus();
@@ -73,7 +76,7 @@ async function loadWorkspace(path) {
   newTask(); state.workspace = workspace; state.sources = catalog.sources;
   state.selected = new Set(catalog.sources.slice(0, 8).map((source) => source.path));
   $("workspace-path").value = workspace.path; $("workspace-label").textContent = workspace.name;
-  $("workspace-breadcrumb").textContent = `${workspace.name} / 新的工作`;
+  $("workspace-breadcrumb").textContent = t("{workspace} / 新的工作", {workspace: workspace.name});
   renderInstructions(); renderSources(); updateControls(); await memories.load(workspace);
 }
 // The workspace's AGENTS.md: applied only when ticked, pinned into the Run when it starts.
@@ -82,9 +85,9 @@ function renderInstructions() {
   $("project-instructions").hidden = !offered && !problem;
   $("instructions-details").hidden = !offered;
   $("instructions-text").textContent = offered?.text || "";
-  $("instructions-size").textContent = offered ? `（${offered.bytes} bytes）` : "";
+  $("instructions-size").textContent = offered ? t("（{bytes} bytes）", {bytes: offered.bytes}) : "";
   $("instructions-problem").hidden = !problem;
-  $("instructions-problem").textContent = problem ? `無法套用：${problem.message}` : "";
+  $("instructions-problem").textContent = problem ? t("無法套用：{message}", {message: problem.message}) : "";
   $("use-instructions").checked = Boolean(offered);
 }
 function renderMcpTools() {
@@ -94,7 +97,7 @@ function renderMcpTools() {
   for (const [name, server] of servers) {
     if (server.status !== "connected") {
       const note = document.createElement("p"); note.className = "mcp-unavailable";
-      note.textContent = `MCP 伺服器 ${name} 目前無法使用${server.error ? `：${server.error}` : ""}`; list.append(note); continue;
+      note.textContent = t("MCP 伺服器 {name} 目前無法使用", {name}) + (server.error ? t("：{error}", {error: server.error}) : ""); list.append(note); continue;
     }
     for (const tool of server.tools) {
       const label = document.createElement("label"); label.className = "mcp-tool";
@@ -103,8 +106,8 @@ function renderMcpTools() {
       checkbox.addEventListener("change", () => { if (checkbox.checked) state.mcpSelected.add(tool.name); else state.mcpSelected.delete(tool.name); });
       const title = document.createElement("strong"); title.textContent = tool.name;
       const access = document.createElement("span"); access.className = tool.approval === "required" ? "mcp-access ask" : "mcp-access";
-      access.textContent = tool.approval === "required" ? "每次需核准" : "唯讀";
-      const detail = document.createElement("small"); detail.textContent = tool.description || "（伺服器未提供說明）";
+      access.textContent = tool.approval === "required" ? t("每次需核准") : t("唯讀");
+      const detail = document.createElement("small"); detail.textContent = tool.description || t("（伺服器未提供說明）");
       label.append(checkbox, title, access, detail); list.append(label);
     }
   }
@@ -147,7 +150,7 @@ function renderSources() {
   $("sources").replaceChildren();
   if (!state.sources.length) {
     const message = document.createElement("p"); message.className = "sidebar-note";
-    message.textContent = "找不到可用來源。請加入 UTF-8 的 .md、.txt、.csv 或 .json 檔案，每份不超過 256 KiB。";
+    message.textContent = t("找不到可用來源。請加入 UTF-8 的 .md、.txt、.csv 或 .json 檔案，每份不超過 256 KiB。");
     $("sources").append(message); return;
   }
   for (const [index, source] of state.sources.entries()) {
@@ -156,7 +159,7 @@ function renderSources() {
     checkbox.addEventListener("change", () => { if (checkbox.checked) state.selected.add(source.path); else state.selected.delete(source.path); updateControls(); });
     const label = document.createElement("label"); label.htmlFor = checkbox.id; label.textContent = source.path;
     const size = document.createElement("small"); size.textContent = bytes(source.bytes); label.append(size);
-    const preview = document.createElement("button"); preview.type = "button"; preview.className = "source-preview"; preview.textContent = "查看"; preview.setAttribute("aria-label", `查看來源 ${source.path}`);
+    const preview = document.createElement("button"); preview.type = "button"; preview.className = "source-preview"; preview.textContent = t("查看"); preview.setAttribute("aria-label", t("查看來源 {path}", {path: source.path}));
     preview.addEventListener("click", () => previewSource(source).catch(showError));
     row.append(checkbox, label, preview); $("sources").append(row);
   }
@@ -164,14 +167,14 @@ function renderSources() {
 async function previewSource(source) {
   const value = await api(`/api/workspaces/${state.workspace.id}/source?path=${encodeURIComponent(source.path)}`);
   state.previewArtifact = null; $("revise-artifact").hidden = true; $("compare-artifact").hidden = true; hideDiff();
-  $("preview-heading").textContent = "來源預覽"; $("preview-kind").textContent = "任務輸入";
+  $("preview-heading").textContent = t("來源預覽"); $("preview-kind").textContent = t("任務輸入");
   $("preview-empty").hidden = true; $("preview-content").hidden = false;
   $("preview-name").textContent = source.path; $("preview-meta").textContent = `${bytes(value.bytes)} / SHA-256 ${value.sha256.slice(0, 12)}`;
   $("preview-text").textContent = value.text; $("download").hidden = true; $("artifact-list").replaceChildren();
 }
 async function refreshSessions() {
   const sessions = await api("/api/sessions"); $("sessions").replaceChildren();
-  if (!sessions.length) { const note = document.createElement("p"); note.className = "sidebar-note"; note.textContent = "完成的工作會保留在這裡。"; $("sessions").append(note); }
+  if (!sessions.length) { const note = document.createElement("p"); note.className = "sidebar-note"; note.textContent = t("完成的工作會保留在這裡。"); $("sessions").append(note); }
   for (const session of sessions) {
     const button = document.createElement("button"); button.type = "button"; button.className = `session-button${state.session?.id === session.id ? " active" : ""}`;
     button.textContent = session.title; button.title = session.title; button.disabled = state.initializing || state.busy || Boolean(state.pendingSubmission);
@@ -182,7 +185,7 @@ function renderSessionControls() {
   const supported = Boolean(state.config?.model?.context_capacity_tokens);
   $("session-tools").hidden = !supported || !state.session || !state.runs.length;
   $("run-history").replaceChildren();
-  $("base-artifact").replaceChildren(new Option("不使用基底，建立新的任務", ""));
+  $("base-artifact").replaceChildren(new Option(t("不使用基底，建立新的任務"), ""));
   for (const [index, run] of state.runs.entries()) {
     const option = new Option(`${index + 1} · ${statusNames[run.status] || run.status} · ${run.task.slice(0, 35)}`, run.id);
     option.selected = state.run?.id === run.id; $("run-history").append(option);
@@ -191,7 +194,7 @@ function renderSessionControls() {
     }
   }
   $("base-artifact").value = state.base?.artifact_id || "";
-  $("base-hint").textContent = state.base ? `固定基底 ${state.base.artifact_id.slice(0, 8)}；修改會建立新版本，原稿保留。` : "修改會建立新版本，原稿仍可下載。";
+  $("base-hint").textContent = state.base ? t("固定基底 {id}；修改會建立新版本，原稿保留。", {id: state.base.artifact_id.slice(0, 8)}) : t("修改會建立新版本，原稿仍可下載。");
   updateControls();
 }
 async function refreshSessionRuns() {
@@ -229,7 +232,7 @@ function revisePreview() {
   state.runs = state.runs.some((run) => run.id === owner.id) ? state.runs.map((run) => run.id === owner.id ? owner : run) : [...state.runs, owner];
   state.base = {run_id: owner.id, artifact_id: artifact.id};
   renderSessionControls();
-  $("task-input").value = `請修改 ${state.previewArtifact.name}：`;
+  $("task-input").value = t("請修改 {name}：", {name: state.previewArtifact.name});
   $("task-input").focus();
 }
 async function openSession(session) {
@@ -237,7 +240,7 @@ async function openSession(session) {
   closeStream(); clearError();
   const workspaces = await api("/api/workspaces");
   const workspace = workspaces.find((item) => item.id === session.workspace_id);
-  if (!workspace) throw new Error("這筆紀錄的工作區目前無法取得。");
+  if (!workspace) throw new Error(t("這筆紀錄的工作區目前無法取得。"));
   await loadWorkspace(workspace.path); state.session = session;
   const runs = await api(`/api/sessions/${session.id}/runs`); state.runs = runs;
   if (runs.length) {
@@ -257,12 +260,12 @@ async function startTask(event) {
   try {
     if (!state.pendingSubmission) {
       if (state.config.mode === "fixture" && $("publication-workflow").value === "draft_review") {
-        throw new Error("固定示範流程僅支援直接保存。請將成果流程改為「直接提出保存」後再開始。");
+        throw new Error(t("固定示範流程僅支援直接保存。請將成果流程改為「直接提出保存」後再開始。"));
       }
       if (state.config.mode === "fixture" && $("completion-workflow").value === "artifact_receipt") {
-        throw new Error("檔案確認須由真實模型選擇成果；固定示範流程請使用模型摘要回覆。");
+        throw new Error(t("檔案確認須由真實模型選擇成果；固定示範流程請使用模型摘要回覆。"));
       }
-      if (!state.session) state.session = await api("/api/sessions", {workspace_id: state.workspace.id, title: $("task-input").value.trim().slice(0, 50) || "新任務"});
+      if (!state.session) state.session = await api("/api/sessions", {workspace_id: state.workspace.id, title: $("task-input").value.trim().slice(0, 50) || t("新任務")});
       const body = {task: $("task-input").value, sources: [...state.selected], require_publish_approval: $("require-publish-approval").checked, require_plan_approval: $("require-plan-approval").checked, publication_workflow: $("publication-workflow").value, completion_workflow: $("completion-workflow").value, submission_key: crypto.randomUUID()};
       if (state.mcpSelected.size) body.mcp_tools = [...state.mcpSelected];
       if (state.instructions?.instructions && $("use-instructions").checked) body.project_instructions = true;
@@ -296,12 +299,12 @@ function readPendingSubmission() {
   const saved = localStorage.getItem(pendingStorageKey);
   if (!saved) return null;
   let pending;
-  try { pending = JSON.parse(saved); } catch { localStorage.removeItem(pendingStorageKey); throw new Error("上次提交紀錄無法讀取，請從工作紀錄檢查。"); }
+  try { pending = JSON.parse(saved); } catch { localStorage.removeItem(pendingStorageKey); throw new Error(t("上次提交紀錄無法讀取，請從工作紀錄檢查。")); }
   if (typeof pending?.session_id !== "string" || typeof pending?.body?.submission_key !== "string" || typeof pending?.body?.task !== "string" || !Array.isArray(pending?.body?.sources)) {
-    clearPendingSubmission(); throw new Error("上次提交紀錄不完整，請從工作紀錄檢查。");
+    clearPendingSubmission(); throw new Error(t("上次提交紀錄不完整，請從工作紀錄檢查。"));
   }
   if (pending.resume_from !== undefined && (!/^[a-f0-9]{32}$/.test(pending.resume_from) || !/^[a-f0-9]{64}$/.test(pending.checkpoint_sha256))) {
-    clearPendingSubmission(); throw new Error("續做紀錄不完整，請重新檢查中斷的執行。");
+    clearPendingSubmission(); throw new Error(t("續做紀錄不完整，請重新檢查中斷的執行。"));
   }
   return pending;
 }
@@ -312,10 +315,10 @@ async function restorePendingSubmission() {
   const session = sessions.find((item) => item.id === pending.session_id);
   if (!session || typeof pending?.workspace_path !== "string" || typeof pending?.body?.submission_key !== "string") {
     clearPendingSubmission();
-    throw new Error("目前 Store 找不到上次提交的對話，請檢查工作紀錄。");
+    throw new Error(t("目前 Store 找不到上次提交的對話，請檢查工作紀錄。"));
   }
   await loadWorkspace(pending.workspace_path);
-  if (state.workspace.id !== session.workspace_id) throw new Error("上次提交的工作區不符，請檢查工作紀錄。");
+  if (state.workspace.id !== session.workspace_id) throw new Error(t("上次提交的工作區不符，請檢查工作紀錄。"));
   state.session = session; state.pendingSubmission = pending;
   state.selected = new Set(pending.body.sources); renderSources(); selectMcpTools(pending.body.mcp_tools); selectSkills(pending.body.skills || []);
   $("task-input").value = pending.body.task;
@@ -333,54 +336,54 @@ function renderRun(run) {
   state.run = run; state.busy = activeStatuses.has(run.status);
   $("execution").hidden = false; $("run-status").textContent = statusNames[run.status] || run.status;
   $("run-status").className = `run-status ${run.status}`;
-  $("run-caption").textContent = `${run.validation?.fault_once_source_read ? "受控讀取故障驗證 / " : ""}${run.validation?.hold_first_tool ? "受控同步點驗證 / " : ""}${run.model?.name || run.mode} / 執行 ${run.id.slice(0, 10)} / ${new Date(run.created_at).toLocaleString("zh-TW")}`;
+  $("run-caption").textContent = `${run.validation?.fault_once_source_read ? `${t("受控讀取故障驗證")} / ` : ""}${run.validation?.hold_first_tool ? `${t("受控同步點驗證")} / ` : ""}${run.model?.name || run.mode} / ${t("執行 {id}", {id: run.id.slice(0, 10)})} / ${new Date(run.created_at).toLocaleString(locale)}`;
   $("usage").textContent = usageText(run);
-  $("usage").title = run.model?.price_per_mtok ? `估計依 --price 設定、在這次執行開始時固定的單價：每百萬 tokens 輸入 US$${run.model.price_per_mtok.input}、輸出 US$${run.model.price_per_mtok.output}` : "";
+  $("usage").title = run.model?.price_per_mtok ? t("估計依 --price 設定、在這次執行開始時固定的單價：每百萬 tokens 輸入 US${input}、輸出 US${output}", {input: run.model.price_per_mtok.input, output: run.model.price_per_mtok.output}) : "";
   $("run-result").textContent = run.error ? `${run.error.message} (${run.error.code})` : run.result;
-  if (run.status === "cancel_requested") $("run-result").textContent = "已提出取消，等待執行器確認停止。";
+  if (run.status === "cancel_requested") $("run-result").textContent = t("已提出取消，等待執行器確認停止。");
   if (run.status === "cancelled") {
-    $("run-result").textContent = run.cancellation?.outcome === "unknown_effects" ? "執行器已停止；有已派發操作的結果尚待確認，已保存產物仍可檢查。" : "執行器已停止。";
-    if (run.cancellation?.background_work_may_finish) $("run-result").textContent += " 已派發的背景工作可能仍在結束。";
+    $("run-result").textContent = run.cancellation?.outcome === "unknown_effects" ? t("執行器已停止；有已派發操作的結果尚待確認，已保存產物仍可檢查。") : t("執行器已停止。");
+    if (run.cancellation?.background_work_may_finish) $("run-result").textContent += ` ${t("已派發的背景工作可能仍在結束。")}`;
   }
   $("cancel-run").hidden = !state.busy;
   $("add-message").hidden = !state.busy || run.status === "cancel_requested";
   $("cancel-run").disabled = state.cancelPending || run.status === "cancel_requested";
-  $("cancel-run").textContent = run.status === "cancel_requested" ? "正在停止…" : "取消執行";
+  $("cancel-run").textContent = run.status === "cancel_requested" ? t("正在停止…") : t("取消執行");
   renderApproval(run);
   $("recovery-card").hidden = !run.recovery;
   if (state.checkpoint?.source_run_id !== run.id) state.checkpoint = null;
   if (!state.busy) $("reload-run").hidden = true;
-  $("workspace-breadcrumb").textContent = `${state.workspace?.name || "工作區"} / ${state.session?.title || "任務"}`;
+  $("workspace-breadcrumb").textContent = `${state.workspace?.name || t("工作區")} / ${state.session?.title || t("任務")}`;
   updateControls();
   return true;
 }
 // Counts against the Run's limits, then the tokens the provider reported and, with a configured price, an estimate.
 function usageText(run) {
-  const tokens = run.token_usage, cost = run.estimated_cost, number = (value) => value.toLocaleString("zh-TW");
-  const parts = [`模型請求 ${run.usage.model_calls} 次`, `工具嘗試 ${run.usage.tool_calls} 次`];
-  if (tokens?.reported_responses) parts.push(`Token 輸入 ${number(tokens.input_tokens)}／輸出 ${number(tokens.output_tokens)}`);
-  if (tokens?.unreported_responses) parts.push(`${tokens.unreported_responses} 次回覆未回報用量`);
-  if (cost) parts.push(`估計 US$${cost.usd.toFixed(4)}${cost.partial ? "（不含未回報部分）" : ""}`);
-  return parts.join("　");
+  const tokens = run.token_usage, cost = run.estimated_cost, number = (value) => value.toLocaleString(locale);
+  const parts = [t("模型請求 {count} 次", {count: run.usage.model_calls}), t("工具嘗試 {count} 次", {count: run.usage.tool_calls})];
+  if (tokens?.reported_responses) parts.push(t("Token 輸入 {input}／輸出 {output}", {input: number(tokens.input_tokens), output: number(tokens.output_tokens)}));
+  if (tokens?.unreported_responses) parts.push(t("{count} 次回覆未回報用量", {count: tokens.unreported_responses}));
+  if (cost) parts.push(t("估計 US${cost}", {cost: cost.usd.toFixed(4)}) + (cost.partial ? t("（不含未回報部分）") : ""));
+  return parts.join(t("　"));
 }
 function renderApproval(run) {
   const approval = run?.approvals?.find((item) => ["pending", "approved"].includes(item.status));
   state.approval = approval || null; $("approval-card").hidden = !approval;
   if (!approval) return;
   const publication = approval.tool === "artifact_write", plan = approval.tool === "plan_update";
-  $("approval-heading").textContent = approval.status === "approved" ? "已批准，等待派發" : plan ? "核准這份執行計畫" : publication ? "確認這次成果保存" : "確認這次外部工具操作";
-  $("approval-target").textContent = plan ? `模型提出 ${approval.arguments.steps.length} 個步驟；核准後才會依計畫讀取來源與執行。若要修改，寫下意見後按「要求修改」。`
-    : publication ? `${toolNames[approval.tool] || approval.tool}：${approval.arguments.name}`
-    : `外部工具 ${approval.tool}（MCP 伺服器 ${approval.scope?.mcp?.server || "未知"}），可能變更資料`;
-  $("approval-expiry").textContent = `這次操作有效至 ${new Date(approval.expires_at).toLocaleString("zh-TW")}`;
+  $("approval-heading").textContent = approval.status === "approved" ? t("已批准，等待派發") : plan ? t("核准這份執行計畫") : publication ? t("確認這次成果保存") : t("確認這次外部工具操作");
+  $("approval-target").textContent = plan ? t("模型提出 {count} 個步驟；核准後才會依計畫讀取來源與執行。若要修改，寫下意見後按「要求修改」。", {count: approval.arguments.steps.length})
+    : publication ? t("{tool}：{name}", {tool: toolNames[approval.tool] || approval.tool, name: approval.arguments.name})
+    : t("外部工具 {tool}（MCP 伺服器 {server}），可能變更資料", {tool: approval.tool, server: approval.scope?.mcp?.server || t("未知")});
+  $("approval-expiry").textContent = t("這次操作有效至 {time}", {time: new Date(approval.expires_at).toLocaleString(locale)});
   $("approval-content").textContent = plan ? approval.arguments.steps.map((step, index) => `${index + 1}. ${step}`).join("\n")
     : publication ? approval.arguments.content : JSON.stringify(approval.arguments, null, 2);
-  $("approval-content").setAttribute("aria-label", plan ? "待核准的計畫步驟" : publication ? "待批准的完整成果內容" : "待批准的完整工具參數");
-  $("approve-operation").textContent = plan ? "核准計畫" : publication ? "批准這次保存" : "批准這次操作";
-  $("deny-operation").textContent = plan ? "要求修改" : "拒絕";
+  $("approval-content").setAttribute("aria-label", plan ? t("待核准的計畫步驟") : publication ? t("待批准的完整成果內容") : t("待批准的完整工具參數"));
+  $("approve-operation").textContent = plan ? t("核准計畫") : publication ? t("批准這次保存") : t("批准這次操作");
+  $("deny-operation").textContent = plan ? t("要求修改") : t("拒絕");
   $("approval-note-field").hidden = !plan || approval.status !== "pending";
   $("approval-parameters").textContent = JSON.stringify({tool: approval.tool, arguments: approval.arguments, scope: approval.scope}, null, 2);
-  $("approval-version").textContent = `參數版本 SHA-256 ${approval.parameters_sha256}`;
+  $("approval-version").textContent = t("參數版本 SHA-256 {sha}", {sha: approval.parameters_sha256});
   for (const id of ["approve-operation", "deny-operation", "approval-note"]) $(id).disabled = approval.status !== "pending" || run.status !== "waiting_approval" || state.approvalPending || state.cancelPending;
 }
 async function refreshRun(identity, generation) {
@@ -400,21 +403,21 @@ async function renderArtifacts(run, generation) {
 }
 async function renderRecovery(run, generation) {
   if (!run.recovery) return;
-  $("recovery-summary").textContent = "正在檢查保存紀錄…";
+  $("recovery-summary").textContent = t("正在檢查保存紀錄…");
   $("resume-run").disabled = true;
   try {
     const checkpoint = await api(`/api/runs/${run.id}/checkpoint`);
     if (generation !== state.generation || state.run?.id !== run.id) return;
     const blockers = checkpoint.resume_blockers || checkpoint.blockers;
     state.checkpoint = {...checkpoint, blockers};
-    $("recovery-summary").textContent = `${checkpoint.confirmed.length} 個操作已確認，${checkpoint.pending.length} 個待釐清，${checkpoint.artifacts.length} 份成果紀錄。${blockers.length ? "有未確認效果，請先人工釐清；目前無法續做。" : "續做會建立新執行、沿用已確認結果；需要批准的成果操作會重新確認。"}`;
+    $("recovery-summary").textContent = t("{confirmed} 個操作已確認，{pending} 個待釐清，{artifacts} 份成果紀錄。", {confirmed: checkpoint.confirmed.length, pending: checkpoint.pending.length, artifacts: checkpoint.artifacts.length}) + (blockers.length ? t("有未確認效果，請先人工釐清；目前無法續做。") : t("續做會建立新執行、沿用已確認結果；需要批准的成果操作會重新確認。"));
     $("recovery-attempts").replaceChildren(...checkpoint.pending.map((attempt) => {
-      const item = document.createElement("li"); item.textContent = `${toolNames[attempt.tool] || attempt.tool}：${({unknown: "結果待確認", not_dispatched: "尚未派發", failed: "待修正", rejected: "待修正"})[attempt.status] || attempt.status}${attempt.error ? ` / ${attempt.error.message}` : ""}`; return item;
+      const item = document.createElement("li"); item.textContent = t("{tool}：{status}", {tool: toolNames[attempt.tool] || attempt.tool, status: ({unknown: t("結果待確認"), not_dispatched: t("尚未派發"), failed: t("待修正"), rejected: t("待修正")})[attempt.status] || attempt.status}) + (attempt.error ? ` / ${attempt.error.message}` : ""); return item;
     }));
     $("recovery-details").textContent = JSON.stringify(checkpoint, null, 2);
     updateControls();
   } catch (error) {
-    if (generation === state.generation) { state.checkpoint = null; $("recovery-summary").textContent = "無法驗證恢復紀錄，請重新載入。"; showError(error); }
+    if (generation === state.generation) { state.checkpoint = null; $("recovery-summary").textContent = t("無法驗證恢復紀錄，請重新載入。"); showError(error); }
   }
 }
 async function resumeRun() {
@@ -484,9 +487,9 @@ async function observeRun(identity) {
     },
     onState(message, cursor) {
       if (generation !== state.generation) return;
-      $("connection-state").textContent = `${message} · 已接收 ${cursor} 筆保存事件`;
-      $("reload-run").hidden = message === "已連線";
-      if (message === "保存事件已同步") {
+      $("connection-state").textContent = `${message} · ${t("已接收 {count} 筆保存事件", {count: cursor})}`;
+      $("reload-run").hidden = message === t("已連線");
+      if (message === t("保存事件已同步")) {
         refreshRun(identity, generation).then(async () => {
           if (generation === state.generation && !state.busy) { await refreshSessions(); await refreshSessionRuns(); }
         }).catch((error) => {
@@ -515,15 +518,15 @@ function appendEvent(event) {
     return;
   }
   const tool = toolNames[event.data.tool] || event.data.tool || "";
-  const titles = {"run.accepted": "任務已接收", "run.started": "開始執行", "model.requested": "請求模型", "model.responded": event.data.text || `模型提出 ${event.data.tool_count} 個工具操作`, "plan.updated": "計畫已更新", "tool.requested": `準備：${tool}`, "tool.dispatched": `執行：${tool}`, "tool.completed": `完成：${tool}`, "tool.rejected": event.data.code === "plan_changes_requested" ? "你要求修改計畫" : `操作被拒絕：${tool}`, "tool.failed": `工具未完成：${tool}`, "correction.available": event.data.error?.code === "plan_changes_requested" ? "已請模型提出新計畫" : "錯誤已回饋模型，等待修正", "correction.observed": "已執行後續修正操作", "tool.fault_injected": "受控驗證：刻意注入一次讀取失敗", "artifact.published": `成果已保存：${event.data.name}`, "run.completed": "任務完成", "run.failed": "任務未完成", "run.interrupted": "執行已中斷"};
-  Object.assign(titles, {"context.memory_refreshed": "已選取目前有效記憶", "context.selected": event.data.project_instructions ? `已選取對話背景與專案指令 ${event.data.project_instructions.path}` : "已選取對話背景", "context.pruned": "已依預算省略已保存背景", "context.limited": "完整請求超出 Context 上限","approval.requested": event.data.tool === "plan_update" ? "等待你核准計畫" : event.data.tool && event.data.tool !== "artifact_write" ? `等待批准外部操作：${event.data.tool}` : "等待批准這次保存", "approval.approved": "這次操作已批准", "approval.denied": "這次操作已拒絕", "approval.consumed": "單次批准已用於派發", "approval.expired": "批准已失效", "approval.cancelled": "批准因取消而失效", "run.cancel_requested": "取消請求已保存", "run.cancelled": "執行器已確認停止", "tool.unknown": "已派發操作的結果待確認", "validation.tool_held": "受控驗證：工具在同步點暫停", "message.queued": `已收到補充指示：${event.data.text || ""}`, "message.delivered": "補充指示已送給模型", "message.undelivered": "補充指示未及送給模型，執行已結束"});
+  const titles = {"run.accepted": t("任務已接收"), "run.started": t("開始執行"), "model.requested": t("請求模型"), "model.responded": event.data.text || t("模型提出 {count} 個工具操作", {count: event.data.tool_count}), "plan.updated": t("計畫已更新"), "tool.requested": t("準備：{tool}", {tool}), "tool.dispatched": t("執行：{tool}", {tool}), "tool.completed": t("完成：{tool}", {tool}), "tool.rejected": event.data.code === "plan_changes_requested" ? t("你要求修改計畫") : t("操作被拒絕：{tool}", {tool}), "tool.failed": t("工具未完成：{tool}", {tool}), "correction.available": event.data.error?.code === "plan_changes_requested" ? t("已請模型提出新計畫") : t("錯誤已回饋模型，等待修正"), "correction.observed": t("已執行後續修正操作"), "tool.fault_injected": t("受控驗證：刻意注入一次讀取失敗"), "artifact.published": t("成果已保存：{name}", {name: event.data.name}), "run.completed": t("任務完成"), "run.failed": t("任務未完成"), "run.interrupted": t("執行已中斷")};
+  Object.assign(titles, {"context.memory_refreshed": t("已選取目前有效記憶"), "context.selected": event.data.project_instructions ? t("已選取對話背景與專案指令 {path}", {path: event.data.project_instructions.path}) : t("已選取對話背景"), "context.pruned": t("已依預算省略已保存背景"), "context.limited": t("完整請求超出 Context 上限"),"approval.requested": event.data.tool === "plan_update" ? t("等待你核准計畫") : event.data.tool && event.data.tool !== "artifact_write" ? t("等待批准外部操作：{tool}", {tool: event.data.tool}) : t("等待批准這次保存"), "approval.approved": t("這次操作已批准"), "approval.denied": t("這次操作已拒絕"), "approval.consumed": t("單次批准已用於派發"), "approval.expired": t("批准已失效"), "approval.cancelled": t("批准因取消而失效"), "run.cancel_requested": t("取消請求已保存"), "run.cancelled": t("執行器已確認停止"), "tool.unknown": t("已派發操作的結果待確認"), "validation.tool_held": t("受控驗證：工具在同步點暫停"), "message.queued": t("已收到補充指示：{text}", {text: event.data.text || ""}), "message.delivered": t("補充指示已送給模型"), "message.undelivered": t("補充指示未及送給模型，執行已結束")});
   const row = document.createElement("li"); row.className = `event${event.kind.startsWith("run.") || event.kind === "artifact.published" ? " important" : ""}${event.kind.endsWith("failed") || event.kind.endsWith("rejected") ? " failure" : ""}`;
   const details = document.createElement("details"); const summary = document.createElement("summary");
   const number = document.createElement("span"); number.className = "event-number"; number.textContent = String(event.sequence).padStart(2, "0");
-  Object.assign(titles, {"checkpoint.saved": "中斷恢復紀錄已保存", "checkpoint.loaded": "已載入前次確認結果", "recovery.detected": "重啟後已檢查中斷狀態", "tool.reconciled": `成果對帳確認：${tool}`, "tool.reused": `沿用已確認結果：${tool}`, "artifact.reconciled": "保留成果已核對"});
-  Object.assign(titles, {"completion.recovery_requested": "\u5b8c\u6210\u56de\u8986\u7a7a\u767d\uff0c\u50c5\u5141\u8a31\u88dc\u4ea4\u5b8c\u6210\u6458\u8981"});
+  Object.assign(titles, {"checkpoint.saved": t("中斷恢復紀錄已保存"), "checkpoint.loaded": t("已載入前次確認結果"), "recovery.detected": t("重啟後已檢查中斷狀態"), "tool.reconciled": t("成果對帳確認：{tool}", {tool}), "tool.reused": t("沿用已確認結果：{tool}", {tool}), "artifact.reconciled": t("保留成果已核對")});
+  Object.assign(titles, {"completion.recovery_requested": t("完成回覆空白，僅允許補交完成摘要")});
   const title = document.createElement("span"); title.className = "event-title"; title.textContent = titles[event.kind] || event.kind;
-  const time = document.createElement("time"); time.className = "event-time"; time.dateTime = event.timestamp; time.textContent = new Date(event.timestamp).toLocaleTimeString("zh-TW", {hour12: false});
+  const time = document.createElement("time"); time.className = "event-time"; time.dateTime = event.timestamp; time.textContent = new Date(event.timestamp).toLocaleTimeString(locale, {hour12: false});
   summary.append(number, title, time); const raw = document.createElement("pre"); raw.textContent = JSON.stringify(event.data, null, 2);
   details.append(summary, raw); row.append(details); $("timeline").append(row);
 }
@@ -536,16 +539,16 @@ async function showArtifacts(artifacts, generation) {
   await showArtifact(artifacts.at(-1), generation);
 }
 async function showArtifact(artifact, generation) {
-  const response = await fetch(artifact.download_url); if (!response.ok) throw new Error("成果目前無法下載，請確認檔案仍然完整。");
+  const response = await fetch(artifact.download_url); if (!response.ok) throw new Error(t("成果目前無法下載，請確認檔案仍然完整。"));
   const text = await response.text(); if (generation !== state.generation) return;
-  $("preview-heading").textContent = "成果預覽"; $("preview-kind").textContent = artifact.run_id !== state.run?.id ? "沿用前次成果" : "已保存";
+  $("preview-heading").textContent = t("成果預覽"); $("preview-kind").textContent = artifact.run_id !== state.run?.id ? t("沿用前次成果") : t("已保存");
   $("preview-empty").hidden = true; $("preview-content").hidden = false;
   $("preview-name").textContent = artifact.name; $("preview-meta").textContent = `${bytes(artifact.bytes)} / SHA-256 ${artifact.sha256.slice(0, 12)}`;
   state.previewArtifact = artifact;
   const owner = state.run?.id === artifact.run_id ? state.run : state.runs.find((run) => run.id === artifact.run_id);
   $("revise-artifact").hidden = !state.config?.model?.context_capacity_tokens || owner?.status !== "completed";
   $("revise-artifact").disabled = state.busy;
-  $("preview-meta").textContent += ` / v${artifact.version || 1}${artifact.parent_artifact_id ? ` / 基底 ${artifact.parent_artifact_id.slice(0, 8)}` : ""}`;
+  $("preview-meta").textContent += ` / v${artifact.version || 1}${artifact.parent_artifact_id ? ` / ${t("基底 {id}", {id: artifact.parent_artifact_id.slice(0, 8)})}` : ""}`;
   $("preview-text").textContent = text; $("download").href = artifact.download_url; $("download").hidden = false;
   $("compare-artifact").hidden = !artifact.parent_artifact_id; hideDiff();
 }
@@ -557,8 +560,8 @@ async function toggleDiff() {
   if (state.previewArtifact !== artifact) return;
   const view = $("preview-diff"); view.replaceChildren();
   const summary = document.createElement("span"); summary.className = "diff-summary";
-  summary.textContent = diff.identical ? `v${diff.from.version} 與 v${diff.to.version} 內容相同`
-    : `v${diff.from.version} → v${diff.to.version}：新增 ${diff.added} 行、刪除 ${diff.removed} 行`;
+  summary.textContent = diff.identical ? t("v{from} 與 v{to} 內容相同", {from: diff.from.version, to: diff.to.version})
+    : t("v{from} → v{to}：新增 {added} 行、刪除 {removed} 行", {from: diff.from.version, to: diff.to.version, added: diff.added, removed: diff.removed});
   view.append(summary);
   const lines = diff.diff.replace(/\n$/, "").split("\n");
   lines.forEach((line, index) => {
@@ -568,7 +571,7 @@ async function toggleDiff() {
       : line.startsWith("-") ? "diff-del" : line.startsWith("@@") ? "diff-hunk" : "";
     row.textContent = line || " "; view.append(row);
   });
-  view.hidden = false; $("preview-text").hidden = true; $("compare-artifact").textContent = "顯示這一版全文";
+  view.hidden = false; $("preview-text").hidden = true; $("compare-artifact").textContent = t("顯示這一版全文");
 }
 $("workspace-form").addEventListener("submit", (event) => { event.preventDefault(); loadWorkspace($("workspace-path").value).catch(showError); });
 $("use-demo").addEventListener("click", () => loadWorkspace(state.config.demo_path).catch(showError));
@@ -593,6 +596,9 @@ $("revise-artifact").addEventListener("click", revisePreview);
 $("cancel-run").addEventListener("click", cancelRun);
 $("add-message").addEventListener("submit", addMessage);
 $("resume-run").addEventListener("click", resumeRun);
+// Switching language saves the choice and reloads, so every view renders in one language.
+$("lang-select").value = lang;
+$("lang-select").addEventListener("change", () => { saveLang($("lang-select").value); location.reload(); });
 updateControls();
 try {
   state.pendingSubmission = readPendingSubmission();
@@ -604,12 +610,12 @@ try {
   const local = state.config.mode !== "fixture";  // a real model: local Ollama, OpenAI-compatible or Claude
   $("publication-workflow").querySelector('option[value="draft_review"]').disabled = !local;
   $("completion-workflow").querySelector('option[value="artifact_receipt"]').disabled = !local;
-  if (!local) $("publication-workflow-hint").textContent = "固定示範流程僅支援直接保存來源快照。草稿核對須使用本機模型模式。";
-  $("mode-badge").textContent = local ? state.config.model.name : "模擬模型";
-  $("mode-title").textContent = !local ? "這是一條可檢查的示範流程" : state.config.mode === "local" ? "由本機模型選擇工具與產生成果" : "由遠端模型選擇工具與產生成果";
-  $("mode-description").textContent = local ? "先選來源，再交代資料分析或文件整理任務。計畫、工具與成果可逐筆檢查；模型輸出仍需對照來源。" : "依固定步驟讀取已選來源、保存來源快照；此模式不會理解任意任務。";
-  if (state.config.validation?.fault_once_source_read) $("mode-description").textContent += " 受控驗證模式：每筆任務首次來源讀取會刻意失敗一次。";
-  if (state.config.validation?.hold_first_tool) $("mode-description").textContent += " 受控同步點驗證：本服務首個指定工具會暫停，供取消／併發觀察。";
+  if (!local) $("publication-workflow-hint").textContent = t("固定示範流程僅支援直接保存來源快照。草稿核對須使用本機模型模式。");
+  $("mode-badge").textContent = local ? state.config.model.name : t("模擬模型");
+  $("mode-title").textContent = !local ? t("這是一條可檢查的示範流程") : state.config.mode === "local" ? t("由本機模型選擇工具與產生成果") : t("由遠端模型選擇工具與產生成果");
+  $("mode-description").textContent = local ? t("先選來源，再交代資料分析或文件整理任務。計畫、工具與成果可逐筆檢查；模型輸出仍需對照來源。") : t("依固定步驟讀取已選來源、保存來源快照；此模式不會理解任意任務。");
+  if (state.config.validation?.fault_once_source_read) $("mode-description").textContent += ` ${t("受控驗證模式：每筆任務首次來源讀取會刻意失敗一次。")}`;
+  if (state.config.validation?.hold_first_tool) $("mode-description").textContent += ` ${t("受控同步點驗證：本服務首個指定工具會暫停，供取消／併發觀察。")}`;
   renderMcpTools(); selectSkills(); renderModelChoices();
   await refreshSessions(); await restorePendingSubmission(); updateControls();
 } catch (error) { showError(error); }
