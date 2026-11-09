@@ -108,3 +108,16 @@ def test_an_uploads_path_that_is_not_a_plain_folder_is_refused(setup) -> None:  
 def test_unknown_workspace_is_404(setup) -> None:  # type: ignore[no-untyped-def]
     client, _, _ = setup
     assert _upload(client, "0" * 32, "notes.md", b"text\n").status_code == 404
+
+
+def test_a_workspace_that_cannot_be_written_is_refused_clearly(setup, monkeypatch: pytest.MonkeyPatch) -> None:  # type: ignore[no-untyped-def]
+    client, workspace, root = setup
+
+    def read_only(*args: object, **kwargs: object) -> None:
+        raise OSError(30, "Read-only file system")
+
+    monkeypatch.setattr(Path, "mkdir", read_only)  # as on a workspace mounted read-only (docker -v ...:ro)
+    response = _upload(client, workspace, "notes.md", b"text\n")
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "uploads_unavailable"
+    assert "read-only" in response.json()["detail"]["message"]

@@ -17,9 +17,15 @@ COPY --from=ghcr.io/astral-sh/uv:0.5.11 /uv /usr/local/bin/uv
 WORKDIR /app
 ENV UV_LINK_MODE=copy UV_COMPILE_BYTECODE=1 PYTHONUNBUFFERED=1
 COPY pyproject.toml uv.lock README.md ./
-RUN uv sync --locked --no-dev --no-install-project
+# Behind HTTPS-inspecting security software, pass the host's trusted certificates for the downloads only:
+# docker build --secret id=ca,src=host-ca.pem ... (see scripts/export_host_ca.py; never stored in the image).
+RUN --mount=type=secret,id=ca,required=false \
+    if [ -f /run/secrets/ca ]; then export SSL_CERT_FILE=/run/secrets/ca; fi; \
+    uv sync --locked --no-dev --no-install-project
 COPY src ./src
-RUN uv sync --locked --no-dev
+RUN --mount=type=secret,id=ca,required=false \
+    if [ -f /run/secrets/ca ]; then export SSL_CERT_FILE=/run/secrets/ca; fi; \
+    uv sync --locked --no-dev
 
 RUN useradd --create-home harness && mkdir -p /data /workspace && chown harness /data /workspace
 USER harness

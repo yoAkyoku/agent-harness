@@ -1,0 +1,36 @@
+# Every check in a clean Linux container: type-check, the workbench JavaScript, and the full test
+# suite, with the real Tesseract for the OCR test. No model, API key or network service is needed
+# at run time.
+#
+#   docker build -f Dockerfile.test -t agent-harness-test .
+#   docker run --rm agent-harness-test
+#
+# Behind security software that inspects HTTPS with its own certificate authority, give the build
+# the host's trusted certificates for the downloads only (mounted at build time, never stored in the
+# image). scripts/export_host_ca.py writes them on Windows:
+#
+#   docker build -f Dockerfile.test --secret id=ca,src=host-ca.pem -t agent-harness-test .
+FROM python:3.12-slim
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends git nodejs tesseract-ocr tesseract-ocr-eng \
+ && rm -rf /var/lib/apt/lists/*
+COPY --from=ghcr.io/astral-sh/uv:0.5.11 /uv /usr/local/bin/uv
+
+WORKDIR /app
+ENV UV_LINK_MODE=copy PYTHONUNBUFFERED=1 REQUIRE_TESSERACT=1
+COPY pyproject.toml uv.lock README.md ./
+RUN --mount=type=secret,id=ca,required=false \
+    if [ -f /run/secrets/ca ]; then export SSL_CERT_FILE=/run/secrets/ca; fi; \
+    uv sync --locked --no-install-project
+# The whole checkout, including .git: some tests read the current revision.
+COPY . .
+RUN --mount=type=secret,id=ca,required=false \
+    if [ -f /run/secrets/ca ]; then export SSL_CERT_FILE=/run/secrets/ca; fi; \
+    uv sync --locked \
+ && useradd --create-home tester \
+ && chown -R tester /app
+USER tester
+# Everything is installed above; running the checks must not reach the network.
+ENV UV_NO_SYNC=1
+CMD ["sh", "-c", "uv run mypy && for file in src/agent_harness/static/*.js; do node --check \"$file\" || exit 1; done && uv run pytest -q -rs"]

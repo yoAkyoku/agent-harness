@@ -153,6 +153,20 @@ uv run mypy
 for file in src/agent_harness/static/*.js; do node --check "$file"; done
 ```
 
+也可以在乾淨的 Linux 容器中執行所有檢查（含真正的 Tesseract）：
+
+```bash
+docker build -f Dockerfile.test -t agent-harness-test .
+docker run --rm agent-harness-test
+```
+
+如果安全軟體以自己的憑證機構檢查 HTTPS，映像檔下載依賴時會出現 `invalid peer certificate: UnknownIssuer`。請匯出這台電腦已信任的憑證（唯讀，不修改任何設定），以 secret 傳給建置；它只用於下載，不會存進映像檔：
+
+```bash
+uv run python scripts/export_host_ca.py host-ca.pem
+docker build -f Dockerfile.test --secret id=ca,src=host-ca.pem -t agent-harness-test .
+```
+
 測試只走公開的 HTTP／WebSocket 介面，並只替換模型的 HTTP transport，使用真實的暫存 SQLite 與檔案。內容包括真實模型錄製紀錄的回放（確認 Context 在 8K token 內不遺失必要資料）、真子程序中斷後的恢復，以及從舊版本升級資料。沒有任何測試會呼叫付費 API。CI 在 Ubuntu 與 Windows 上執行；Ubuntu 上會安裝 Tesseract，並要求真實 OCR 測試必須執行，OAuth 登入測試則對 MCP SDK 本身的 OAuth 伺服器執行。
 
 **遠端 MCP 疑難排解。** 如果遠端 MCP 伺服器在其他地方正常，在這裡卻出現 `RemoteProtocolError: peer unexpectedly closed connection`，請檢查本機的安全軟體。曾有一台 Windows 電腦上的 HTTP 檢查型安全軟體，會改寫帶有 `MCP-Protocol-Version` 標頭、或路徑以 `/mcp` 結尾的請求的回應（連本機迴路位址也一樣），並丟掉回應內容。受影響的 OAuth 測試會偵測到這種情況並註明原因後略過。同一台電腦透過 HTTPS 連接公開的 DeepWiki MCP 伺服器則正常。

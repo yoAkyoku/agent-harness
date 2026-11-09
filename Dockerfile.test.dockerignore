@@ -1,0 +1,10 @@
+.venv
+.private
+.scratch
+.pytest-tmp
+.pytest_cache
+.mypy_cache
+**/__pycache__
+downloads
+# Certificate bundles exported for docker build --secret (scripts/export_host_ca.py)
+*.pem

@@ -48,18 +48,22 @@ def save_upload(root: Path, name: str, raw: bytes) -> dict[str, Any]:
     folder = root / FOLDER
     if folder.is_symlink() or folder.is_junction() or (folder.exists() and not folder.is_dir()):
         raise RunFailure("uploads_unavailable", f"The workspace's {FOLDER} path is not a plain folder.")
-    folder.mkdir(exist_ok=True)
     record = {"path": f"{FOLDER}/{name}", "bytes": len(raw), "sha256": hashlib.sha256(raw).hexdigest()}
     target = folder / name
     temporary = folder / f".{name}.{uuid4().hex}.part"
     try:
-        temporary.write_bytes(raw)
+        folder.mkdir(exist_ok=True)
         try:
-            os.link(temporary, target)  # fails if the name exists, on Windows and POSIX alike
-        except FileExistsError:
-            if target.is_symlink() or not target.is_file() or target.read_bytes() != raw:
-                raise RunFailure("upload_exists", f"{record['path']} already exists with different content.") from None
-            return {**record, "created": False}
-    finally:
-        temporary.unlink(missing_ok=True)
+            temporary.write_bytes(raw)
+            try:
+                os.link(temporary, target)  # fails if the name exists, on Windows and POSIX alike
+            except FileExistsError:
+                if target.is_symlink() or not target.is_file() or target.read_bytes() != raw:
+                    raise RunFailure("upload_exists", f"{record['path']} already exists with different content.") from None
+                return {**record, "created": False}
+        finally:
+            temporary.unlink(missing_ok=True)
+    except OSError as error:  # for example a workspace mounted read-only (docker -v ...:ro)
+        raise RunFailure("uploads_unavailable", "The workspace folder cannot be written to; it may be read-only "
+                         f"({error.strerror or type(error).__name__}).") from error
     return {**record, "created": True}

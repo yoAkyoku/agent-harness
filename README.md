@@ -153,6 +153,20 @@ uv run mypy
 for file in src/agent_harness/static/*.js; do node --check "$file"; done
 ```
 
+Or run every check in a clean Linux container, with the real Tesseract:
+
+```bash
+docker build -f Dockerfile.test -t agent-harness-test .
+docker run --rm agent-harness-test
+```
+
+Behind security software that inspects HTTPS with its own certificate authority, the image's downloads fail with `invalid peer certificate: UnknownIssuer`. Export the certificates this computer already trusts (read-only) and pass them to the build as a secret; they are used for the downloads only and never stored in the image:
+
+```bash
+uv run python scripts/export_host_ca.py host-ca.pem
+docker build -f Dockerfile.test --secret id=ca,src=host-ca.pem -t agent-harness-test .
+```
+
 Tests go through the public HTTP/WebSocket interface and replace only the model's HTTP transport, with real temporary SQLite stores and files. They include replays of recorded real-model runs (checking that context stays within an 8K-token budget without losing required data), real subprocess crashes for recovery, and store upgrades from earlier releases. No test calls a paid API. CI runs on Ubuntu and Windows; on Ubuntu it installs Tesseract and requires the real-OCR test, and the OAuth sign-in tests run against the MCP SDK's own OAuth server.
 
 **Troubleshooting remote MCP.** If a remote MCP server fails with `RemoteProtocolError: peer unexpectedly closed connection` although it works elsewhere, check local security software. On one Windows machine, an HTTP-inspecting security product rewrote responses to requests carrying the `MCP-Protocol-Version` header, or to paths ending in `/mcp`, even on loopback, and dropped their bodies. The affected OAuth tests detect this and skip with that reason. The public DeepWiki MCP server over HTTPS worked on the same machine.

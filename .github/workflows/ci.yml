@@ -61,3 +61,13 @@ jobs:
           # Without the token the API refuses the request.
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8787/api/config)" = 401
           docker rm -f harness
+
+  docker-tests:
+    name: Tests in Docker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the test image
+        run: docker build -f Dockerfile.test -t agent-harness-test .
+      - name: Type-check, JavaScript check and the full suite, with the real Tesseract
+        run: docker run --rm agent-harness-test
