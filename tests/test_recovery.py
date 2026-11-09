@@ -24,13 +24,18 @@ class RunningService:
     log: Path
 
 
+def package_module(root: Path | None) -> str:
+    """The import name in a source tree: checkouts from before the rename use agent_harness_demo."""
+    return "agent_harness_demo" if root is not None and (root / "src" / "agent_harness_demo").is_dir() else "agent_harness"
+
+
 def launch(store: Path, *extra: str, package_root: Path | None = None) -> tuple[subprocess.Popen, Path, int]:
     with socket.socket() as reservation:
         reservation.bind(("127.0.0.1", 0))
         port = reservation.getsockname()[1]
     store.parent.mkdir(parents=True, exist_ok=True)
     log = store.parent / f"service-{uuid4().hex}.log"
-    command = [sys.executable, "-m", "agent_harness", "--store", str(store), "--port", str(port), *extra]
+    command = [sys.executable, "-m", package_module(package_root), "--store", str(store), "--port", str(port), *extra]
     environment = os.environ.copy()
     if package_root is not None:
         environment["PYTHONPATH"] = str(package_root / "src")

@@ -15,7 +15,7 @@ from uuid import uuid4
 import httpx
 import pytest
 
-from test_recovery import RunningService, stop
+from test_recovery import RunningService, package_module, stop
 
 
 @dataclass
@@ -35,8 +35,9 @@ from pathlib import Path
 import httpx,uvicorn
 sys.path.insert(0,sys.argv[4])
 sys.path.insert(0,sys.argv[6])
-from agent_harness.web import create_app
-from agent_harness.model import ModelSettings
+import importlib
+create_app=importlib.import_module(sys.argv[11]+".web").create_app
+ModelSettings=importlib.import_module(sys.argv[11]+".model").ModelSettings
 from test_completion import CompletionPeer
 scripted=CompletionPeer([httpx.Response(200,json=value) for value in json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))])
 async def peer(request):
@@ -70,7 +71,7 @@ uvicorn.run(create_app(Path(sys.argv[1]),model_settings=ModelSettings.local(mode
         port = reservation.getsockname()[1]
     log = store.parent / f"draft-service-{identity}.log"
     with log.open("wb") as output:
-        process = subprocess.Popen([sys.executable, str(helper), str(store), str(fixture), str(port), str(Path(__file__).parent), "hold" if hold_publication else "none", str((package_root or Path(__file__).resolve().parents[1]) / "src"), decision_protocol, str(exact_assets[0]) if exact_assets else "", str(exact_assets[1]) if exact_assets else "", "4b" if qwen_4b else ""],
+        process = subprocess.Popen([sys.executable, str(helper), str(store), str(fixture), str(port), str(Path(__file__).parent), "hold" if hold_publication else "none", str((package_root or Path(__file__).resolve().parents[1]) / "src"), decision_protocol, str(exact_assets[0]) if exact_assets else "", str(exact_assets[1]) if exact_assets else "", "4b" if qwen_4b else "", package_module(package_root)],
                                    stdout=output, stderr=subprocess.STDOUT,
                                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
     client = httpx.Client(base_url=f"http://127.0.0.1:{port}", trust_env=False, timeout=10)
