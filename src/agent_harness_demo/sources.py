@@ -109,7 +109,7 @@ def catalog(root: Path) -> list[dict[str, Any]]:
                 size = path.stat().st_size
             except OSError:
                 continue
-            if size <= _file_limit(path.suffix.lower()):
+            if size <= file_limit(path.suffix.lower()):
                 result.append({"path": relative, "bytes": size})
     return result
 
@@ -127,7 +127,7 @@ def read_source(root: Path, relative: str) -> dict[str, Any]:
         ):
             raise RunFailure("source_forbidden", "The requested source is outside the allowed workspace scope.")
         suffix = resolved.suffix.lower()
-        limit = _file_limit(suffix)
+        limit = file_limit(suffix)
         with resolved.open("rb") as handle:
             raw = handle.read(limit + 1)
         if len(raw) > limit:
@@ -141,7 +141,7 @@ def read_source(root: Path, relative: str) -> dict[str, Any]:
         raise RunFailure("source_unavailable", "The selected source cannot be read as UTF-8 text.") from error
 
 
-def _file_limit(suffix: str) -> int:
+def file_limit(suffix: str) -> int:
     return MAX_DOCUMENT_BYTES if suffix in DOCUMENT_EXTENSIONS else MAX_SOURCE_BYTES
 
 

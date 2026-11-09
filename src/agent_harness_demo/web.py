@@ -12,8 +12,8 @@ from typing import TYPE_CHECKING, Any
 from typing import Annotated, Literal
 from urllib.parse import quote
 
-from fastapi import FastAPI, HTTPException, Query, WebSocket
-from fastapi.responses import FileResponse, Response
+from fastapi import FastAPI, HTTPException, Query, Request, WebSocket
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 import httpx
 from pydantic import BaseModel, ConfigDict, Field
@@ -28,6 +28,7 @@ from .checkpoints import resume_blockers
 from .event_stream import stream_run
 from .implementation import source_identity
 from .instructions import read_instructions
+from .uploads import save_upload, upload_limit
 from .mcp_hub import MODEL_NAME, McpHub
 from .skills import SKILL_NAME, SkillLibrary
 from .local import MIN_TOKEN_LENGTH, AccessTokenMiddleware, LocalOriginMiddleware, SecurityHeadersMiddleware
@@ -254,6 +255,26 @@ def create_app(
             return {"instructions": await asyncio.to_thread(read_instructions, Path(workspace["path"])), "error": None}
         except RunFailure as error:
             return {"instructions": None, "error": {"code": error.code, "message": error.message}}
+
+    @app.post("/api/workspaces/{workspace_id}/uploads")
+    async def upload_file(workspace_id: str, request: Request, name: str = Query(max_length=200)) -> JSONResponse:
+        """Save the raw request body as uploads/<name> in the workspace; it is then listed as a source."""
+        workspace = await storage.workspace(workspace_id)
+        if not workspace:
+            raise HTTPException(404, "Workspace not found.")
+        statuses = {"invalid_upload_name": 422, "source_unavailable": 422, "source_too_large": 413,
+                    "upload_exists": 409, "uploads_unavailable": 409}
+        try:
+            limit = upload_limit(name)
+            body = bytearray()
+            async for chunk in request.stream():  # stop reading as soon as the limit is passed
+                body += chunk
+                if len(body) > limit:
+                    raise RunFailure("source_too_large", "The file exceeds the size limit for its type.")
+            saved = await asyncio.to_thread(save_upload, Path(workspace["path"]), name, bytes(body))
+        except RunFailure as error:
+            raise HTTPException(statuses.get(error.code, 422), {"code": error.code, "message": error.message}) from None
+        return JSONResponse(saved, status_code=201 if saved["created"] else 200)
 
     @app.get("/api/workspaces/{workspace_id}/source")
     async def preview_source(workspace_id: str, path: str = Query(max_length=500)) -> dict[str, Any]:

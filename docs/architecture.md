@@ -46,6 +46,8 @@ Artifacts are stored with an immutable identity, SHA-256 and exact bytes. A revi
 
 PDF and Word files are sources in `sources.py`: `read_source` keeps the SHA-256 and size of the file's bytes (so admission, excerpts and reads detect a changed document like any changed source) and returns extracted text for the model. `pypdf` reads PDFs page by page with `[page N]` markers; `python-docx` reads `.docx` paragraphs and tables in document order. Extraction is bounded before and during parsing (10 MiB file, 200 pages, 50 MiB unpacked archive, 256 KiB of text), and an encrypted, scanned or damaged document is refused with `source_unavailable` and a reason, never read as empty.
 
+`uploads.py` is the only code that writes into a workspace. It validates the file name (no folders, separators, control or reserved names; a source extension), reads the request body only up to the type's limit, and checks readability with the same functions that read sources, all before writing. The bytes go to a hidden temporary file in `uploads/` and are hard-linked into place, which fails if the name exists on Windows and POSIX alike, so a concurrent upload cannot replace a file and a half-written one is never listed. An `uploads` path that is a link, junction or file is refused.
+
 ## Verifiers
 
 Before publication the runtime runs the verifiers in `verifiers.py`. **They receive only the candidate content and the server-held tool evidence, never the task text**, so they cannot encode answers for particular tasks. They reject only statements the tool results do not support:

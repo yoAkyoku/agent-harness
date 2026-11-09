@@ -30,7 +30,7 @@ function updateControls() {
   memories.setBusy(locked);
   $("start-task").disabled = state.initializing || state.busy || (!state.pendingSubmission && (!state.workspace || !state.selected.size));
   $("start-task").firstChild.textContent = (state.busy ? t("執行中") : state.pendingSubmission ? t("重試這次提交") : state.base ? t("建立修改版本") : t("開始任務")) + " ";
-  for (const id of ["new-task", "lang-select", "use-demo", "workspace-path", "task-input", "require-plan-approval", "require-publish-approval", "publication-workflow", "completion-workflow", "run-history", "base-artifact", "revise-artifact"]) $(id).disabled = locked;
+  for (const id of ["new-task", "lang-select", "upload-files", "use-demo", "workspace-path", "task-input", "require-plan-approval", "require-publish-approval", "publication-workflow", "completion-workflow", "run-history", "base-artifact", "revise-artifact"]) $(id).disabled = locked;
   $("workspace-form").querySelector("button").disabled = locked;
   document.querySelectorAll(".session-button").forEach((button) => { button.disabled = locked; });
   document.querySelectorAll(".source-item input").forEach((input) => { input.disabled = locked || (state.selected.size >= 8 && !input.checked); });
@@ -77,7 +77,28 @@ async function loadWorkspace(path) {
   state.selected = new Set(catalog.sources.slice(0, 8).map((source) => source.path));
   $("workspace-path").value = workspace.path; $("workspace-label").textContent = workspace.name;
   $("workspace-breadcrumb").textContent = t("{workspace} / 新的工作", {workspace: workspace.name});
+  $("upload-area").hidden = false;
   renderInstructions(); renderSources(); updateControls(); await memories.load(workspace);
+}
+// Saves each chosen file into the workspace's uploads/ folder (never overwriting), then selects it as a source.
+async function uploadFiles(files) {
+  const workspace = state.workspace;
+  if (!workspace || !files.length || state.busy) return;
+  clearError(); const added = [];
+  try {
+    for (const file of files) {
+      const response = await fetch(`/api/workspaces/${workspace.id}/uploads?name=${encodeURIComponent(file.name)}`,
+        {method: "POST", headers: {"Content-Type": "application/octet-stream"}, body: file});
+      const value = await response.json();
+      if (!response.ok) throw new Error(t("{name} 無法上傳：{reason}", {name: file.name, reason: value.detail?.message || value.detail || response.status}));
+      added.push(value.path);
+    }
+  } catch (error) { showError(error); }
+  $("upload-input").value = "";
+  if (state.workspace?.id !== workspace.id) return;
+  state.sources = (await api(`/api/workspaces/${workspace.id}/sources`)).sources;
+  for (const path of added) if (state.selected.size < 8) state.selected.add(path);
+  renderSources(); updateControls();
 }
 // The workspace's AGENTS.md: applied only when ticked, pinned into the Run when it starts.
 function renderInstructions() {
@@ -598,6 +619,8 @@ $("add-message").addEventListener("submit", addMessage);
 $("resume-run").addEventListener("click", resumeRun);
 // Switching language saves the choice and reloads, so every view renders in one language.
 $("lang-select").value = lang;
+$("upload-files").addEventListener("click", () => $("upload-input").click());
+$("upload-input").addEventListener("change", () => uploadFiles([...$("upload-input").files]).catch(showError));
 $("lang-select").addEventListener("change", () => { saveLang($("lang-select").value); location.reload(); });
 updateControls();
 try {

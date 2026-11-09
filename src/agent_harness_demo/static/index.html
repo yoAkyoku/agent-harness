@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' ws://127.0.0.1:* ws://localhost:*; img-src 'self' data:; object-src 'none'; base-uri 'none'">
   <title>Agent Harness Demo</title>
-  <link rel="stylesheet" href="/assets/styles.css?v=9.0.7">
-  <script type="module" src="/assets/app.js?v=12.5"></script>
+  <link rel="stylesheet" href="/assets/styles.css?v=9.0.8">
+  <script type="module" src="/assets/app.js?v=12.6"></script>
 </head>
 <body>
   <div class="workbench">
@@ -28,6 +28,11 @@
         <div id="workspace-label" class="folder-label">尚未選擇工作區</div>
         <div class="sources-heading"><h3>任務來源</h3><span id="source-count">0 / 8</span></div>
         <div id="sources" class="sources"><p class="sidebar-note">載入資料夾後，選擇這次任務可以讀取的檔案。</p></div>
+        <div id="upload-area" class="upload-area" hidden>
+          <button id="upload-files" class="subtle-button" type="button">上傳檔案</button>
+          <input id="upload-input" type="file" multiple accept=".md,.txt,.csv,.json,.pdf,.docx" hidden>
+          <p class="sidebar-note">檔案會存進工作資料夾的 uploads/，不會覆寫既有檔案。</p>
+        </div>
       </section>
       <details id="memory-panel" class="memory-panel">
         <summary>工作區記憶 <span id="memory-count">0</span></summary>

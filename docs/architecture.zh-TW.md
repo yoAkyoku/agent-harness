@@ -39,6 +39,8 @@ Artifact使用不可變身分、SHA及精確bytes保存。版本修改釘住完�
 
 PDF 與 Word 檔在 `sources.py` 中也是來源：`read_source` 保留檔案本身位元組的 SHA-256 與大小（因此受理、摘錄與讀取都能像其他來源一樣偵測文件變更），並回傳擷取的文字給模型。`pypdf` 逐頁讀取 PDF 並標上 `[page N]`；`python-docx` 依文件順序讀取 `.docx` 的段落與表格。擷取在解析前與解析中都有上限（檔案 10 MiB、200 頁、解壓後 50 MiB、文字 256 KiB），加密、掃描或損壞的文件會以 `source_unavailable` 附上原因拒絕，不會當成空白讀取。
 
+`uploads.py` 是唯一會寫入工作區的程式。它驗證檔名（不含資料夾、分隔符、控制字元或保留名稱，且為來源副檔名），只讀取不超過該類型上限的請求內容，並用讀取來源的同一套函式檢查能否讀取，全部在寫入之前完成。內容先寫入 `uploads/` 中的隱藏暫存檔，再以硬連結放到正式名稱；名稱已存在時，這個動作在 Windows 與 POSIX 上都會失敗，因此同時上傳不會取代既有檔案，寫到一半的檔案也不會被列出。`uploads` 若是連結、junction 或檔案則拒絕。
+
 ## 模型供應商
 
 Runtime 只依賴 `model.py` 的 `DecisionModel` 介面（`request_body`、`context_budget`、`decide`、`settings`、`info`）。支援四種供應商：fixture（固定腳本，只證明控制流程）、本機 Ollama（核對模型 digest 與 renderer，Qwen3.5 可精確計量，小模型可用 JSON-tools 協定）、OpenAI 相容端點（原生 tool calling，只允許 HTTPS，loopback 例外，API key 從指定環境變數讀取），以及透過官方 `anthropic` SDK 的 Claude（Messages API，把 Runtime 的 Chat Completions 歷史轉成 Messages 格式再轉回）。遠端模型的 Context 上限以標明的 UTF-8 bytes 上界計算。遠端供應商可列出替代模型（`--alt-model`），Claude 另提供思考強度，兩者都公開在 `info.choices`。Run 受理時會依這些選項檢查 `model` 與 `effort`，並寫入 Run 的模型紀錄；決策循環改用 `with_settings(...)`，也就是共用啟動時 client、只改模型名稱與強度的轉接器變體。續做時接受 checkpoint 中任何已設定的模型名稱並保留。本機 Ollama 模型不能逐 Run 切換，因為每個模型都需要各自的 digest 與 tokenizer 驗證。
