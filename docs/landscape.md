@@ -23,11 +23,11 @@ The point is not feature parity. Those products are coding agents or browsers wi
 | Mechanism | What the products do | This harness |
 |---|---|---|
 | Event log and streaming | Codex App Server streams thread/turn/item events; DSH separates live chunks from durable settlements and repairs gaps on reconnect; opencode's client bus is live-only | Events are written to SQLite before they are pushed; WebSocket resumes from a cursor with ACKs |
-| Isolation | Codex and Claude Code sandbox shells and file writes; opencode and DSH say plainly that permissions are not isolation and recommend a VM or container | No shell and no workspace writes: sources are read-only, the only effect is publishing an artifact into the store |
+| Isolation | Codex and Claude Code sandbox shells and file writes; opencode and DSH say plainly that permissions are not isolation and recommend a VM or container | No shell. Sources are read-only; the only workspace write is saving an upload into `uploads/` (never overwriting), and a Run's only effect is publishing an artifact into the store, or an MCP tool call the user approved |
 | Untrusted content | Browsers treat page content as tainted, use an isolated critic, keep secrets out of model context | Source text, memory and excerpts are labelled as untrusted data; API keys are read from the environment and never enter a request |
 | Context management | Rolling summaries and compaction near the limit (opencode, DSH, Claude Code) | Every request is measured first; lossless moves, then labelled lossy omissions, then a stop — never silent truncation or summarisation |
 | Instructions and memory | `AGENTS.md` / `CLAUDE.md` chains | Opt-in workspace `AGENTS.md`, pinned with its SHA-256 when the Run starts; user-saved, versioned memories with optimistic concurrency |
-| Extensibility | Hooks, plugins, MCP, subagents | Fixed built-in tools, user-allowed MCP tools (read-only, or approval-each-time) and skills, all selected per Run; providers behind one `DecisionModel` protocol |
+| Extensibility | Hooks, plugins, MCP, subagents | Fixed built-in tools, user-allowed local or remote MCP tools (read-only, or approval-each-time) and skills, all selected per Run; HTTP webhook hooks before (allow/deny, fail closed) and after tool calls; providers behind one `DecisionModel` protocol. No plugins or subagents |
 | Verification | Mostly left to the user or an auto-reviewer model | Evidence-only verifiers that never see the task text |
 
 ## Where the harness is intentionally different
@@ -61,6 +61,9 @@ The products' mechanisms were used as a checklist against the code. Each item re
 | 17 | Runs counted model and tool calls but not tokens or cost. | Claude Code `/cost`; token counts in Codex; session cost in opencode | Each Run totals the tokens its provider reports, in the same transaction as each reply event. `--price MODEL=INPUT,OUTPUT` gives a cost estimate pinned at admission; replies without usage are counted and make the estimate partial. No built-in price table. |
 | 18 | The workbench was only in Traditional Chinese. | English-first UIs in the reference products | An English / 繁中 switch (defaults to the browser language, choice saved locally). Every UI string goes through one dictionary keyed by the original Chinese text; a test fails if a new string is not wrapped or has no English. File contents and model output are never translated. |
 | 19 | Only plain-text files could be sources. | File attachments in Claude and Codex; document reading in agentic browsers | PDF and Word (`.docx`) files in the workspace are sources: the model reads bounded extracted text, citations and change detection use the file's own hash, and unreadable documents are refused with a reason. Uploads from the workbench are saved into `uploads/` after the same checks, and never overwrite. No OCR. |
+| 20 | MCP servers had to run locally as commands. | Remote MCP servers in Claude, Codex and opencode | Remote servers over Streamable HTTP (HTTPS, or HTTP to loopback), with credentials read from environment variables the config names, never written in it or shown. OAuth is not supported. |
+| 21 | Nothing outside the harness could veto or observe a tool call. | Hooks in Claude Code, Codex and opencode | HTTP webhooks before tool calls (allow/deny; any deny wins; unreachable or invalid counts as deny) and after them (observe only), recorded as Run events. No shell commands; hooks cannot change arguments and verifiers ignore them. |
+| 22 | Token usage and cost were per Run only. | Session cost in Claude Code and opencode | `GET /api/sessions/{id}/usage` sums a Session's Runs; the estimate is partial when a Run is unpriced or reported no usage. |
 
 ## Already in place
 
@@ -70,10 +73,12 @@ The products' mechanisms were used as a checklist against the code. Each item re
 
 ## Backlog, by value for this harness
 
-1. **Tool hooks.** Pre- and post-execution hooks recorded as events, with deny taking precedence (Claude Code, Codex, opencode). Verifiers must stay independent of hooks.
-2. **Column-aware citations.** A value that cites a table sample should sit under the column its label names.
-3. **A real Claude batch.** The adapter is covered by mock-transport tests only; a recorded run needs an API key and consent to spend.
-4. **Remote MCP servers and OAuth connectors.** Needs a decision on how credentials are obtained and stored.
+1. **A real Claude batch.** The adapter is covered by mock-transport tests only; a recorded run needs an API key and consent to spend.
+2. **Column-aware citations.** A value that cites a table sample should sit under the column its label names; today the verifiers check role consistency for labelled lines, not table columns.
+3. **OAuth connectors.** Remote MCP servers take credentials from environment variables; signing in through OAuth needs a decision on which services and how tokens are stored.
+4. **Shell-command hooks.** Hooks are HTTP webhooks only; running local commands would need a sandbox decision.
+5. **OCR for scanned PDFs.** Documents without a text layer are refused today.
+6. **Package name.** The package is still `agent_harness_demo`; renaming it is a breaking change to imports, commands and the Docker image.
 
 ## Sources
 
