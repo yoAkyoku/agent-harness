@@ -64,6 +64,7 @@ The products' mechanisms were used as a checklist against the code. Each item re
 | 20 | MCP servers had to run locally as commands. | Remote MCP servers in Claude, Codex and opencode | Remote servers over Streamable HTTP (HTTPS, or HTTP to loopback), with credentials read from environment variables the config names, never written in it or shown. OAuth is not supported. |
 | 21 | Nothing outside the harness could veto or observe a tool call. | Hooks in Claude Code, Codex and opencode | HTTP webhooks before tool calls (allow/deny; any deny wins; unreachable or invalid counts as deny) and after them (observe only), recorded as Run events. No shell commands; hooks cannot change arguments and verifiers ignore them. |
 | 22 | Token usage and cost were per Run only. | Session cost in Claude Code and opencode | `GET /api/sessions/{id}/usage` sums a Session's Runs; the estimate is partial when a Run is unpriced or reported no usage. |
+| 23 | A value cited to a CSV sample could sit under the wrong column. | Review left to the user in the reference products | `table_columns`: when a value's label is exactly a column of the cited table and the value appears in the sample only under other columns, publication is refused with a correctable error naming the right column. |
 
 ## Already in place
 
@@ -74,10 +75,9 @@ The products' mechanisms were used as a checklist against the code. Each item re
 ## Backlog, by value for this harness
 
 1. **A real Claude batch.** The adapter is covered by mock-transport tests only; a recorded run needs an API key and consent to spend.
-2. **Column-aware citations.** A value that cites a table sample should sit under the column its label names; today the verifiers check role consistency for labelled lines, not table columns.
-3. **OAuth connectors.** Remote MCP servers take credentials from environment variables; signing in through OAuth needs a decision on which services and how tokens are stored.
-4. **Shell-command hooks.** Hooks are HTTP webhooks only; running local commands would need a sandbox decision.
-5. **OCR for scanned PDFs.** Documents without a text layer are refused today.
+2. **OAuth connectors.** Remote MCP servers take credentials from environment variables; signing in through OAuth needs a decision on which services and how tokens are stored.
+3. **Shell-command hooks.** Hooks are HTTP webhooks only; running local commands would need a sandbox decision.
+4. **OCR for scanned PDFs.** Documents without a text layer are refused today.
 
 ## Sources
 

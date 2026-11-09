@@ -286,7 +286,80 @@ def completion_summary(summary: str, artifacts: list[str]) -> RunFailure | None:
     )
 
 
-DEFAULT_VERIFIERS: tuple[Verifier, ...] = (calculation_citations, consistent_source_roles)
+_TABLE_SEPARATOR = re.compile(r"\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?")
+_CITATION_MARK = re.compile(r"\[[^\[\]\n]*?\b(E[1-9][0-9]*)\]")
+
+
+def _label_cells(body: str) -> list[tuple[list[str], str]]:
+    """(candidate labels, cell) pairs: a table cell's column header and its row's first cell, or a line's label."""
+    pairs: list[tuple[list[str], str]] = []
+    lines = body.splitlines()
+    headers: list[str] | None = None
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("|"):
+            cells = [cell.strip() for cell in stripped.strip("|").split("|")]
+            following = lines[index + 1].strip() if index + 1 < len(lines) else ""
+            if headers is None and _TABLE_SEPARATOR.fullmatch(following):
+                headers = [_label(cell) for cell in cells]
+            elif headers is not None and not _TABLE_SEPARATOR.fullmatch(stripped):
+                for position, cell in enumerate(cells):
+                    labels = [headers[position]] if position < len(headers) else []
+                    if position > 0:
+                        labels.append(_label(cells[0]))
+                    pairs.append((labels, cell))
+            continue
+        headers = None
+        match = re.match(r"^(?:[-*+]|\d+[.)])?\s*(.+?)\s*[:：]\s*(.+)$", stripped)
+        if match:
+            pairs.append(([_label(match[1])], match[2]))
+    return pairs
+
+
+def table_columns(content: str, evidence: dict[str, Record]) -> RunFailure | None:
+    """A value citing a table sample must not sit under another column's name.
+
+    Applies only when one of the value's labels (its column header, its row's first cell, or
+    its line label) is exactly a column of the cited table, and the value appears in that
+    table's sample only under other columns. Only the artifact and tool evidence are read.
+    """
+    tables = {identity: record for identity, record in evidence.items()
+              if isinstance(record.get("columns"), list) and isinstance(record.get("sample"), list)}
+    if not tables:
+        return None
+    issues: list[str] = []
+    for labels, cell in _label_cells(artifact_body(content)):
+        cited = [identity for identity in _CITATION_MARK.findall(cell) if identity in tables]
+        written = _CITATION_MARK.sub("", cell).strip()
+        value = _plain(written)
+        if not cited or not value:
+            continue
+        for identity in cited:
+            table = tables[identity]
+            by_name = {str(column).casefold(): str(column) for column in table["columns"]}
+            named = [by_name[key] for key in ((_ANNOTATION.sub("", label).strip() or label).casefold() for label in labels)
+                     if key in by_name]
+            if not named:
+                continue
+            found = sorted({str(table["columns"][position]) for row in table["sample"] if isinstance(row, list)
+                            for position, item in enumerate(row)
+                            if position < len(table["columns"]) and _plain(str(item)) == value})
+            if found and not set(named) & set(found):
+                issue = (f"「{named[0]}」的 {_VALUE_EDGE.sub('', written)} 在 {table.get('path', identity)} 的"
+                         f"「{'、'.join(found)}」欄，不在「{named[0]}」欄")
+                if issue not in issues:
+                    issues.append(issue)
+    if not issues:
+        return None
+    return RunFailure(
+        "column_mismatch",
+        "表格數值放錯欄位：" + "；".join(issues[:3]) + "。請改為該欄位在來源中的值，或把值移到它所屬的欄位；"
+        "只修改指出的儲存格，其他內容不變。",
+        correctable_fields=("content",),
+    )
+
+
+DEFAULT_VERIFIERS: tuple[Verifier, ...] = (calculation_citations, consistent_source_roles, table_columns)
 
 
 def verify_artifact(content: str, evidence: dict[str, Record],

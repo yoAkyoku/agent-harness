@@ -916,7 +916,7 @@ class Runtime:
                         "invalid_arguments", "invalid_evidence", "missing_evidence",
                         "evidence_section_mismatch", "missing_body_citation",
                         "missing_calculation_citation", "unsupported_completion_claim", "mixed_source_roles",
-                        "tool_not_offered", "hook_denied",
+                        "column_mismatch", "tool_not_offered", "hook_denied",
                     }, owed=error.code not in {"tool_not_offered", "hook_denied"})
                     continue
                 reused = next((confirmed for confirmed in checkpoint["confirmed"]
