@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' ws://127.0.0.1:* ws://localhost:*; img-src 'self' data:; object-src 'none'; base-uri 'none'">
   <title>Agent Harness Demo</title>
-  <link rel="stylesheet" href="/assets/styles.css?v=9.0.1">
-  <script type="module" src="/assets/app.js?v=11.5"></script>
+  <link rel="stylesheet" href="/assets/styles.css?v=9.0.2">
+  <script type="module" src="/assets/app.js?v=11.6"></script>
 </head>
 <body>
   <div class="workbench">
@@ -71,6 +71,11 @@
           <label for="completion-workflow">完成時如何回覆？</label>
           <select id="completion-workflow" aria-describedby="completion-workflow-hint"><option value="model_summary">由模型回覆摘要</option><option value="artifact_receipt">只確認已發布的檔案</option></select>
           <p id="completion-workflow-hint">檔案確認僅列出模型選定、已核對的成果；正文仍需檢查。</p>
+          <fieldset id="mcp-tools" class="mcp-tools" hidden>
+            <legend>這次可用的 MCP 工具</legend>
+            <div id="mcp-tool-list"></div>
+            <p class="mcp-hint">只會提供你勾選的工具。標示「每次需核准」的工具可能變更資料，每次呼叫都會先等你確認。</p>
+          </fieldset>
           <label class="approval-option"><input id="require-publish-approval" type="checkbox" checked> 保存成果前，由我確認這次內容</label>
           <div class="composer-bottom"><span id="selection-hint">先從左側選擇資料來源</span><button id="start-task" class="primary-button" type="submit" disabled>開始任務 <span aria-hidden="true">↗</span></button></div>
         </form>

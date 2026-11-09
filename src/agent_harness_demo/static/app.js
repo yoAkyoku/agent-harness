@@ -1,7 +1,7 @@
 import {observeEvents} from "/assets/run-stream.js?v=7.0";
 import {memoryPanel} from "/assets/memory.js?v=6.0";
 const $ = (id) => document.getElementById(id);
-const state = {config: null, workspace: null, session: null, run: null, approval: null, sources: [], selected: new Set(), busy: false, socket: null, generation: 0, approvalPending: false, cancelPending: false, runs: [], base: null, previewArtifact: null, pendingSubmission: null, initializing: true, planSequence: 0, correctionSequence: 0};
+const state = {config: null, workspace: null, session: null, run: null, approval: null, sources: [], selected: new Set(), busy: false, socket: null, generation: 0, approvalPending: false, cancelPending: false, runs: [], base: null, previewArtifact: null, pendingSubmission: null, initializing: true, planSequence: 0, correctionSequence: 0, mcpSelected: new Set()};
 const toolNames = {workspace_list: "列出允許的來源", source_read: "讀取來源", base_artifact_read: "讀取修改基底", artifact_write: "保存成果", artifact_draft: "保存待核對草稿（尚未發布）", plan_update: "更新計畫", table_inspect: "檢查表格", table_aggregate: "計算欄位", number_calculate: "計算比例", task_finish: "提交完成回覆"};
 const statusNames = {queued: "等待執行", running: "執行中", waiting_approval: "等待你的確認", cancel_requested: "正在取消", cancelled: "已取消", completed: "已完成", failed: "未完成", interrupted: "執行已中斷"};
 const activeStatuses = new Set(["queued", "running", "waiting_approval", "cancel_requested"]);
@@ -30,6 +30,7 @@ function updateControls() {
   $("workspace-form").querySelector("button").disabled = locked;
   document.querySelectorAll(".session-button").forEach((button) => { button.disabled = locked; });
   document.querySelectorAll(".source-item input").forEach((input) => { input.disabled = locked || (state.selected.size >= 8 && !input.checked); });
+  document.querySelectorAll(".mcp-tool input").forEach((input) => { input.disabled = locked; });
   $("source-count").textContent = `${state.selected.size} / 8`;
   $("selection-hint").textContent = state.pendingSubmission ? "提交結果尚未確認；重試會查回同一次執行" : state.selected.size ? `本次允許讀取 ${state.selected.size} 份來源` : "先從左側選擇資料來源";
 }
@@ -68,6 +69,30 @@ async function loadWorkspace(path) {
   $("workspace-breadcrumb").textContent = `${workspace.name} / 新的工作`;
   renderSources(); updateControls(); await memories.load(workspace);
 }
+function renderMcpTools() {
+  const servers = Object.entries(state.config?.mcp?.servers || {});
+  $("mcp-tools").hidden = !servers.length;
+  const list = $("mcp-tool-list"); list.replaceChildren();
+  for (const [name, server] of servers) {
+    if (server.status !== "connected") {
+      const note = document.createElement("p"); note.className = "mcp-unavailable";
+      note.textContent = `MCP 伺服器 ${name} 目前無法使用${server.error ? `：${server.error}` : ""}`; list.append(note); continue;
+    }
+    for (const tool of server.tools) {
+      const label = document.createElement("label"); label.className = "mcp-tool";
+      const checkbox = document.createElement("input"); checkbox.type = "checkbox"; checkbox.value = tool.name;
+      checkbox.checked = state.mcpSelected.has(tool.name);
+      checkbox.addEventListener("change", () => { if (checkbox.checked) state.mcpSelected.add(tool.name); else state.mcpSelected.delete(tool.name); });
+      const title = document.createElement("strong"); title.textContent = tool.name;
+      const access = document.createElement("span"); access.className = tool.approval === "required" ? "mcp-access ask" : "mcp-access";
+      access.textContent = tool.approval === "required" ? "每次需核准" : "唯讀";
+      const detail = document.createElement("small"); detail.textContent = tool.description || "（伺服器未提供說明）";
+      label.append(checkbox, title, access, detail); list.append(label);
+    }
+  }
+  updateControls();
+}
+function selectMcpTools(names) { state.mcpSelected = new Set(names || []); renderMcpTools(); }
 function renderSources() {
   $("sources").replaceChildren();
   if (!state.sources.length) {
@@ -132,6 +157,7 @@ async function openHistoricalRun(identity) {
   await observeRun(identity);
   $("task-input").value = state.run.task;
   state.selected = new Set(state.run.sources.map((source) => source.path)); renderSources();
+  selectMcpTools(state.run.policy?.mcp_tools);
   $("require-publish-approval").checked = Boolean(state.run.policy?.require_publish_approval);
   $("publication-workflow").value = state.run.policy?.publication_workflow || "direct";
   $("completion-workflow").value = state.run.policy?.completion_workflow || "model_summary";
@@ -163,7 +189,7 @@ async function openSession(session) {
   await loadWorkspace(workspace.path); state.session = session;
   const runs = await api(`/api/sessions/${session.id}/runs`); state.runs = runs;
   if (runs.length) {
-    const run = runs.at(-1); state.selected = new Set(run.sources.map((source) => source.path)); renderSources();
+    const run = runs.at(-1); state.selected = new Set(run.sources.map((source) => source.path)); renderSources(); selectMcpTools(run.policy?.mcp_tools);
     $("task-input").value = run.task; $("require-publish-approval").checked = Boolean(run.policy?.require_publish_approval); $("publication-workflow").value = run.policy?.publication_workflow || "direct"; $("completion-workflow").value = run.policy?.completion_workflow || "model_summary"; await observeRun(run.id);
   }
   await refreshSessions(); renderSessionControls(); updateControls();
@@ -178,14 +204,15 @@ async function startTask(event) {
   let accepted = false;
   try {
     if (!state.pendingSubmission) {
-      if (state.config.mode !== "local" && $("publication-workflow").value === "draft_review") {
+      if (state.config.mode === "fixture" && $("publication-workflow").value === "draft_review") {
         throw new Error("固定示範流程僅支援直接保存。請將成果流程改為「直接提出保存」後再開始。");
       }
-      if (state.config.mode !== "local" && $("completion-workflow").value === "artifact_receipt") {
-        throw new Error("檔案確認須由本機模型選擇成果；固定示範流程請使用模型摘要回覆。");
+      if (state.config.mode === "fixture" && $("completion-workflow").value === "artifact_receipt") {
+        throw new Error("檔案確認須由真實模型選擇成果；固定示範流程請使用模型摘要回覆。");
       }
       if (!state.session) state.session = await api("/api/sessions", {workspace_id: state.workspace.id, title: $("task-input").value.trim().slice(0, 50) || "新任務"});
       const body = {task: $("task-input").value, sources: [...state.selected], require_publish_approval: $("require-publish-approval").checked, publication_workflow: $("publication-workflow").value, completion_workflow: $("completion-workflow").value, submission_key: crypto.randomUUID()};
+      if (state.mcpSelected.size) body.mcp_tools = [...state.mcpSelected];
       if (state.base) body.base_artifact = state.base;
       const pending = {session_id: state.session.id, workspace_path: state.workspace.path, body};
       localStorage.setItem(pendingStorageKey, JSON.stringify(pending));
@@ -230,7 +257,7 @@ async function restorePendingSubmission() {
   await loadWorkspace(pending.workspace_path);
   if (state.workspace.id !== session.workspace_id) throw new Error("上次提交的工作區不符，請檢查工作紀錄。");
   state.session = session; state.pendingSubmission = pending;
-  state.selected = new Set(pending.body.sources); renderSources();
+  state.selected = new Set(pending.body.sources); renderSources(); selectMcpTools(pending.body.mcp_tools);
   $("task-input").value = pending.body.task;
   $("require-publish-approval").checked = pending.body.require_publish_approval;
   $("publication-workflow").value = pending.body.publication_workflow || "direct";
@@ -319,7 +346,8 @@ async function resumeRun() {
   if (!run || !checkpoint || checkpoint.blockers.length || state.busy || state.pendingSubmission) return;
   const pending = {session_id: run.session_id, workspace_path: state.workspace.path,
     resume_from: run.id, checkpoint_sha256: checkpoint.sha256,
-    body: {task: run.task, sources: run.sources.map((source) => source.path), require_publish_approval: Boolean(run.policy?.require_publish_approval), publication_workflow: run.policy?.publication_workflow || "direct", completion_workflow: run.policy?.completion_workflow || "model_summary", submission_key: crypto.randomUUID()}};
+    body: {task: run.task, sources: run.sources.map((source) => source.path), require_publish_approval: Boolean(run.policy?.require_publish_approval), publication_workflow: run.policy?.publication_workflow || "direct", completion_workflow: run.policy?.completion_workflow || "model_summary", submission_key: crypto.randomUUID(),
+      ...(run.policy?.mcp_tools?.length ? {mcp_tools: run.policy.mcp_tools} : {})}};
   try {
     localStorage.setItem(pendingStorageKey, JSON.stringify(pending)); state.pendingSubmission = pending;
     await startTask({preventDefault() {}});
@@ -467,15 +495,16 @@ try {
     state.selected = new Set(state.pendingSubmission.body.sources); updateControls();
   }
   state.config = await api("/api/config");
-  const local = state.config.mode === "local";
+  const local = state.config.mode !== "fixture";  // a real model: local Ollama, OpenAI-compatible or Claude
   $("publication-workflow").querySelector('option[value="draft_review"]').disabled = !local;
   $("completion-workflow").querySelector('option[value="artifact_receipt"]').disabled = !local;
   if (!local) $("publication-workflow-hint").textContent = "固定示範流程僅支援直接保存來源快照。草稿核對須使用本機模型模式。";
   $("mode-badge").textContent = local ? state.config.model.name : "模擬模型";
-  $("mode-title").textContent = local ? "由本機模型選擇工具與產生成果" : "這是一條可檢查的示範流程";
+  $("mode-title").textContent = !local ? "這是一條可檢查的示範流程" : state.config.mode === "local" ? "由本機模型選擇工具與產生成果" : "由遠端模型選擇工具與產生成果";
   $("mode-description").textContent = local ? "先選來源，再交代資料分析或文件整理任務。計畫、工具與成果可逐筆檢查；模型輸出仍需對照來源。" : "依固定步驟讀取已選來源、保存來源快照；此模式不會理解任意任務。";
   if (state.config.validation?.fault_once_source_read) $("mode-description").textContent += " 受控驗證模式：每筆任務首次來源讀取會刻意失敗一次。";
   if (state.config.validation?.hold_first_tool) $("mode-description").textContent += " 受控同步點驗證：本服務首個指定工具會暫停，供取消／併發觀察。";
+  renderMcpTools();
   await refreshSessions(); await restorePendingSubmission(); updateControls();
 } catch (error) { showError(error); }
 finally { state.initializing = false; updateControls(); }
