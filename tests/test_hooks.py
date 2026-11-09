@@ -44,14 +44,16 @@ class HookPeer:
         return httpx.Response(200, json=answer)
 
 
-def _run(tmp_path: Path, hooks: list[dict], replies: list[httpx.Response], peer: HookPeer) -> tuple[dict, list[dict], dict]:
+def _run(tmp_path: Path, hooks: list[dict], replies: list[httpx.Response], peer: HookPeer | None = None, *,
+         allow_command_hooks: bool = False) -> tuple[dict, list[dict], dict]:
     source = tmp_path / "source"
-    source.mkdir(exist_ok=True)
+    source.mkdir(parents=True, exist_ok=True)
     (source / "facts.md").write_bytes(b"Revenue was 42.\n")
     (source / "secret.md").write_bytes(b"Do not read.\n")
     settings = ModelSettings.local("contract-model", stream=False, thinking=True)
     app = create_app(tmp_path / "store", model_settings=settings, model_transport=httpx.MockTransport(CompletionPeer(replies)),
-                     hooks_config=_config(tmp_path, hooks), hooks_transport=httpx.MockTransport(peer))
+                     hooks_config=_config(tmp_path, hooks), hooks_transport=httpx.MockTransport(peer or HookPeer()),
+                     allow_command_hooks=allow_command_hooks)
     with TestClient(app) as client:
         config = client.get("/api/config").json()
         workspace = client.post("/api/workspaces", json={"path": str(source)}).json()
@@ -166,7 +168,9 @@ def test_after_tool_payload_carries_a_result_summary_not_the_text(tmp_path: Path
 
 
 @pytest.mark.parametrize(("hook", "message"), [
-    ({"event": "before_tool", "command": "python check.py"}, "shell"),
+    ({"event": "before_tool", "command": "python check.py"}, "shell"),  # a string would need a shell
+    ({"event": "before_tool", "command": ["python", "check.py"]}, "--allow-command-hooks"),
+    ({"event": "before_tool", "command": ["python"], "url": "https://hooks.example.com"}, "either"),
     ({"event": "before_tool"}, "url"),
     ({"event": "on_start", "url": "https://hooks.example.com"}, "event"),
     ({"event": "before_tool", "url": "http://hooks.example.com"}, "https"),
@@ -179,11 +183,15 @@ def test_hook_configs_are_validated(tmp_path: Path, hook: dict, message: str) ->
         load_hooks(_config(tmp_path, [hook]))
 
 
-def test_cli_refuses_a_shell_command_hook(tmp_path: Path) -> None:
+def test_cli_refuses_shell_strings_and_unflagged_command_hooks(tmp_path: Path) -> None:
     import subprocess
     import sys
 
     config = _config(tmp_path, [{"event": "before_tool", "command": "python check.py"}])
     result = subprocess.run([sys.executable, "-m", "agent_harness", "--store", str(tmp_path / "store"),
-                             "--hooks-config", str(config)], capture_output=True, text=True, timeout=60)
-    assert result.returncode == 2 and "shell commands are not supported" in result.stderr
+                             "--hooks-config", str(config), "--allow-command-hooks"], capture_output=True, text=True, timeout=60)
+    assert result.returncode == 2 and "never run through a shell" in result.stderr
+    listed = _config(tmp_path, [{"event": "before_tool", "command": ["python", "check.py"]}])
+    result = subprocess.run([sys.executable, "-m", "agent_harness", "--store", str(tmp_path / "store"),
+                             "--hooks-config", str(listed)], capture_output=True, text=True, timeout=60)
+    assert result.returncode == 2 and "--allow-command-hooks" in result.stderr

@@ -133,6 +133,7 @@ def create_app(
     prices: dict[str, dict[str, float]] | None = None,
     hooks_config: Path | None = None,
     hooks_transport: httpx.AsyncBaseTransport | None = None,
+    allow_command_hooks: bool = False,
 ) -> FastAPI:
     """Build the workbench app.
 
@@ -162,7 +163,8 @@ def create_app(
         validation["hold_first_tool"] = hold_first_tool
     mcp = McpHub.from_config(mcp_config) if mcp_config is not None else None
     skills = SkillLibrary.from_directory(skills_dir) if skills_dir is not None else None
-    hooks = HookRunner.from_config(hooks_config, hooks_transport) if hooks_config is not None else None
+    hooks = (HookRunner.from_config(hooks_config, hooks_transport, allow_commands=allow_command_hooks)
+             if hooks_config is not None else None)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:

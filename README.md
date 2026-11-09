@@ -127,16 +127,19 @@ uv run python -m agent_harness --mcp-config mcp.json --store .private/demo
 
 ### Hooks
 
-`--hooks-config hooks.json` calls your HTTP webhooks around tool calls. Shell-command hooks are not supported.
+`--hooks-config hooks.json` calls your HTTP webhooks, or local programs, around tool calls.
 
 ```json
 {"hooks": [
   {"event": "before_tool", "url": "https://policy.example.com/check", "tools": ["source_read", "mcp__*"],
    "bearerTokenEnv": "POLICY_TOKEN", "timeoutSeconds": 5},
-  {"event": "after_tool", "url": "http://127.0.0.1:9000/audit"}]}
+  {"event": "after_tool", "url": "http://127.0.0.1:9000/audit"},
+  {"event": "before_tool", "command": ["python", "policy.py"], "tools": ["artifact_write"], "passEnv": ["POLICY_MODE"]}]}
 ```
 
 A `before_tool` hook receives the tool, its arguments (as they will be dispatched) and its effect, and answers `{"decision": "allow" | "deny", "reason": "..."}`. Any deny refuses the call and the reason goes back to the model. A hook that cannot be reached, times out or answers anything else counts as a deny. An `after_tool` hook is told about each completed call, with a result summary (evidence ID, path, SHA-256; no source text), and cannot affect the Run. Every decision and notification is a Run event. Hooks cannot change arguments, and the verifiers never consult them. URLs and credentials follow the same rules as remote MCP servers.
+
+A `command` hook is a list of program arguments, started directly and never through a shell (a single command string is refused). It runs only if the workbench starts with `--allow-command-hooks`, since it executes a local program with your permissions; this is not a sandbox. The payload arrives as JSON on stdin and a `before_tool` answer is read from stdout. A non-zero exit, a timeout or invalid output counts as a deny. The program runs in the hooks file's folder with a minimal environment (`PATH` and the system basics), plus only the variables listed in `passEnv`.
 
 ### Skills
 

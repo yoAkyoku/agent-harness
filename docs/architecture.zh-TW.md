@@ -67,7 +67,7 @@ Token 用量來自每次回覆：Chat Completions 供應商回報 `prompt_tokens
 
 ## Hooks
 
-`hooks.py` 在啟動時載入 `--hooks-config`，只接受 HTTP webhook（有 `command` 的項目會被視為設定錯誤）。runtime 在所有內建守門（包括本步提供工具的檢查）之後、核准與派送之前執行 `before_tool` hooks，因此 hook 只會看到原本就會執行的呼叫，以及它們的正規化參數。每個相符 hook 的回覆都記錄為 `hook.decided`；任何一個 deny 會產生 `hook_denied`，這是會消耗修正額度、但不要求補做的修正（模型可以改做別的事）。Hooks 失敗時一律拒絕：端點連不上、逾時、非 200 回覆、無效 JSON、未知的決定或缺少憑證環境變數，都視為 deny。`after_tool` hooks 在 `tool.completed` 之後執行，收到結果摘要（不含來源文字），記錄為 `hook.notified`，失敗不會影響 Run。Hooks 不能修改參數，驗證器也從不參考它們。
+`hooks.py` 在啟動時載入 `--hooks-config`。Hook 可以是 HTTP webhook，或在加上 `--allow-command-hooks` 時使用 command：以 `create_subprocess_exec` 啟動的參數清單（絕不經過 shell；寫成指令字串會是設定錯誤），payload 從 stdin 傳入，只拿到最小環境變數加上 `passEnv`，工作目錄是 hooks 設定檔所在資料夾，逾時會被終止。結束碼非 0 或輸出不是 JSON 決定都視為拒絕。Command hooks 以使用者的權限執行，沒有沙箱。runtime 在所有內建守門（包括本步提供工具的檢查）之後、核准與派送之前執行 `before_tool` hooks，因此 hook 只會看到原本就會執行的呼叫，以及它們的正規化參數。每個相符 hook 的回覆都記錄為 `hook.decided`；任何一個 deny 會產生 `hook_denied`，這是會消耗修正額度、但不要求補做的修正（模型可以改做別的事）。Hooks 失敗時一律拒絕：端點連不上、逾時、非 200 回覆、無效 JSON、未知的決定或缺少憑證環境變數，都視為 deny。`after_tool` hooks 在 `tool.completed` 之後執行，收到結果摘要（不含來源文字），記錄為 `hook.notified`，失敗不會影響 Run。Hooks 不能修改參數，驗證器也從不參考它們。
 
 ## 無頭用戶端
 

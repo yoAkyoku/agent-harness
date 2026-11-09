@@ -62,7 +62,7 @@ The products' mechanisms were used as a checklist against the code. Each item re
 | 18 | The workbench was only in Traditional Chinese. | English-first UIs in the reference products | An English / 繁中 switch (defaults to the browser language, choice saved locally). Every UI string goes through one dictionary keyed by the original Chinese text; a test fails if a new string is not wrapped or has no English. File contents and model output are never translated. |
 | 19 | Only plain-text files could be sources. | File attachments in Claude and Codex; document reading in agentic browsers | PDF and Word (`.docx`) files in the workspace are sources: the model reads bounded extracted text, citations and change detection use the file's own hash, and unreadable documents are refused with a reason. Uploads from the workbench are saved into `uploads/` after the same checks, and never overwrite. No OCR. |
 | 20 | MCP servers had to run locally as commands. | Remote MCP servers in Claude, Codex and opencode | Remote servers over Streamable HTTP (HTTPS, or HTTP to loopback), with credentials read from environment variables the config names, never written in it or shown. OAuth is not supported. |
-| 21 | Nothing outside the harness could veto or observe a tool call. | Hooks in Claude Code, Codex and opencode | HTTP webhooks before tool calls (allow/deny; any deny wins; unreachable or invalid counts as deny) and after them (observe only), recorded as Run events. No shell commands; hooks cannot change arguments and verifiers ignore them. |
+| 21 | Nothing outside the harness could veto or observe a tool call. | Hooks in Claude Code, Codex and opencode | HTTP webhooks before tool calls (allow/deny; any deny wins; unreachable or invalid counts as deny) and after them (observe only), recorded as Run events. Local programs as argument lists (never a shell) only with `--allow-command-hooks`, with a minimal environment; hooks cannot change arguments and verifiers ignore them. |
 | 22 | Token usage and cost were per Run only. | Session cost in Claude Code and opencode | `GET /api/sessions/{id}/usage` sums a Session's Runs; the estimate is partial when a Run is unpriced or reported no usage. |
 | 23 | A value cited to a CSV sample could sit under the wrong column. | Review left to the user in the reference products | `table_columns`: when a value's label is exactly a column of the cited table and the value appears in the sample only under other columns, publication is refused with a correctable error naming the right column. |
 
@@ -76,8 +76,7 @@ The products' mechanisms were used as a checklist against the code. Each item re
 
 1. **A real Claude batch.** The adapter is covered by mock-transport tests only; a recorded run needs an API key and consent to spend.
 2. **OAuth connectors.** Remote MCP servers take credentials from environment variables; signing in through OAuth needs a decision on which services and how tokens are stored.
-3. **Shell-command hooks.** Hooks are HTTP webhooks only; running local commands would need a sandbox decision.
-4. **OCR for scanned PDFs.** Documents without a text layer are refused today.
+3. **OCR for scanned PDFs.** Documents without a text layer are refused today.
 
 ## Sources
 

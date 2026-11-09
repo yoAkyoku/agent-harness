@@ -127,16 +127,19 @@ uv run python -m agent_harness --mcp-config mcp.json --store .private/demo
 
 ### Hooks
 
-`--hooks-config hooks.json` 會在工具呼叫前後呼叫你的 HTTP webhook；不支援執行 shell 指令的 hook。
+`--hooks-config hooks.json` 會在工具呼叫前後呼叫你的 HTTP webhook 或本機程式。
 
 ```json
 {"hooks": [
   {"event": "before_tool", "url": "https://policy.example.com/check", "tools": ["source_read", "mcp__*"],
    "bearerTokenEnv": "POLICY_TOKEN", "timeoutSeconds": 5},
-  {"event": "after_tool", "url": "http://127.0.0.1:9000/audit"}]}
+  {"event": "after_tool", "url": "http://127.0.0.1:9000/audit"},
+  {"event": "before_tool", "command": ["python", "policy.py"], "tools": ["artifact_write"], "passEnv": ["POLICY_MODE"]}]}
 ```
 
 `before_tool` hook 會收到工具名稱、（即將派送的）參數與效果類型，並回覆 `{"decision": "allow" | "deny", "reason": "..."}`。任何一個 deny 都會拒絕該呼叫，原因會回給模型。連不上、逾時或回覆其他內容的 hook 一律視為 deny。`after_tool` hook 會收到每次完成的呼叫與結果摘要（證據 ID、路徑、SHA-256，不含來源文字），無法影響 Run。每次決定與通知都會記錄為 Run 事件。Hooks 不能修改參數，驗證器也從不參考它們。URL 與憑證的規則和遠端 MCP 伺服器相同。
+
+`command` hook 是一串程式參數，直接啟動、絕不經過 shell（寫成單一指令字串會被拒絕）。由於它會以你的權限執行本機程式，必須在啟動工作台時加上 `--allow-command-hooks` 才會啟用；這不是沙箱。payload 以 JSON 從 stdin 傳入，`before_tool` 的回覆從 stdout 讀取。結束碼非 0、逾時或輸出無效都視為拒絕。程式在 hooks 設定檔所在的資料夾執行，只拿到最小環境變數（`PATH` 與系統基本變數），以及 `passEnv` 列出的變數。
 
 ### Skills
 
