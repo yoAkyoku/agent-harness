@@ -14,6 +14,7 @@ from jsonschema import Draft202012Validator, ValidationError
 from .arithmetic_evidence import require_csv_arithmetic_evidence
 from .contracts import PreparedCall, RunFailure, ToolCall, canonical_tool_arguments
 from .mcp_hub import McpHub, McpTool, mcp_evidence
+from .skills import LOADER, Skill, loader_definition
 from .sources import MAX_SOURCE_BYTES, MAX_SOURCE_PATH, MAX_SOURCES, labelled_source_lines, query_source_labels, read_source
 from .storage import Record, Store
 from .tables import ratio_percent, table_result
@@ -346,8 +347,9 @@ class Tools:
     def __init__(self, store: Store, run_id: str, root: Path, sources: list[Record], *, require_citations: bool = False,
                  fault_once_source_read: bool = False, receipt_completion: bool = False,
                  base_artifact: Record | None = None, mcp_tools: dict[str, McpTool] | None = None,
-                 mcp_hub: McpHub | None = None) -> None:
+                 mcp_hub: McpHub | None = None, skills: dict[str, Skill] | None = None) -> None:
         self.store = store
+        self.skills = dict(skills or {})
         self.mcp_tools = dict(mcp_tools or {})
         self.mcp_hub = mcp_hub
         self.run_id = run_id
@@ -439,6 +441,13 @@ class Tools:
         return hint
 
     def validate(self, call: ToolCall) -> None:
+        if call.name == LOADER and self.skills:
+            try:
+                Draft202012Validator(loader_definition(self.skills)["function"]["parameters"]).validate(call.arguments)
+            except ValidationError as error:
+                raise RunFailure("invalid_arguments", f"Choose one of the selected skills: {sorted(self.skills)}.",
+                                 correctable_fields=("name",)) from error
+            return
         if call.name in self.mcp_tools:
             try:
                 Draft202012Validator(self.mcp_tools[call.name].input_schema).validate(call.arguments)
@@ -524,7 +533,8 @@ class Tools:
         scope = {"workspace": str(self.root),
             "artifact_directory": str(self.store.directory / "artifacts"),
             "effect": ((("external_effect" if self.mcp_tools[call.name].approval else "read_only"))
-                       if call.name in self.mcp_tools else DEFINITIONS[call.name]["effect"]),
+                       if call.name in self.mcp_tools else "read_only" if call.name == LOADER and self.skills
+                       else DEFINITIONS[call.name]["effect"]),
             "sources": deepcopy(list(self.sources.values()))}
         if call.name in self.mcp_tools:
             scope["mcp"] = {"server": self.mcp_tools[call.name].server, "tool": self.mcp_tools[call.name].tool}
@@ -555,6 +565,10 @@ class Tools:
         if call.name == "task_finish" and self.receipt_completion:
             return {"summary": "已發布：" + "、".join(item["name"] for item in prepared.scope["completion_receipts"]) + "。",
                     "artifact_ids": deepcopy(prepared.arguments["artifact_ids"]), "receipt": True}
+        if call.name == LOADER and self.skills:
+            skill = self.skills[prepared.arguments["name"]]
+            return {"name": skill.name, "description": skill.description, "instructions": skill.instructions,
+                    "sha256": skill.sha256}
         if call.name in self.mcp_tools:
             if self.mcp_hub is None:
                 raise RunFailure("mcp_unavailable", "No MCP servers are connected.")

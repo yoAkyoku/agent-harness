@@ -96,6 +96,10 @@ uv run python -m agent_harness_demo --mcp-config mcp.json --store .private/demo
 
 `/api/config` 會列出每個伺服器提供與排除的工具。Run 可在工作台勾選工具（標示唯讀或每次需核准），也可在 API 依名稱選用（`"mcp_tools": ["mcp__notes__search_notes"]`），無頭模式用 `--mcp-tool`。結果會成為像 `[mcp/notes/search_notes E2]` 的證據，和來源一樣受檢查。列在 `allowedTools` 的工具若自行宣告有副作用會被拒絕；改列在 `askTools` 才能在核准後使用。核准被拒或過期時，該呼叫永遠不會執行。伺服器只會收到最小的環境變數加上設定中的 `env`，不會拿到工作台權杖或 API 金鑰。目前只支援本機 stdio 伺服器。
 
+### Skills
+
+用 `--skills-dir` 指向 Agent Skills 格式的 skills 資料夾：每個 skill 是一個含 `SKILL.md` 的資料夾，frontmatter 寫明 `name`（須與資料夾同名）與 `description`。Run 只會看到所選 skills 的名稱與說明（工作台預設全選；API 用 `"skills": [...]`；無頭模式用 `--skill`），需要時才以 `skill_load` 載入完整指示。任務以 `/skill名稱` 開頭也會選用該 skill。無效的 skill 會連同原因列在 `/api/config`。skill 資料夾裡的腳本永遠不會執行。
+
 ## 測試
 
 ```bash

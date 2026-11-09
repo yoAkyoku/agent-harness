@@ -13,6 +13,7 @@ from typing import Any, Literal, TypeVar
 from .context import added_message, compact_tool_catalog, completed_tool_group, encode_draft_receipts, encode_duplicate_plan, executor_state_message, omit_inspection_hints, omit_runtime_guidance, prune_resolved_tool_failures, publication_finalization_prefix, published_draft_group
 from .contracts import Decision, PendingCorrection, RunCancelled, RunFailure, RunLimits, ToolCall, canonical_tool_arguments
 from .mcp_hub import McpHub
+from .skills import SkillLibrary, catalog_message, loader_definition
 from .model import DecisionModel, ModelResponseError
 from .storage import Record, Store
 from .tools import Tools, model_tools
@@ -67,10 +68,11 @@ def project_initial_public_plan(decision: Decision, protocol: str) -> Decision:
 
 class Runtime:
     def __init__(self, store: Store, model: DecisionModel, *, hold_first_tool: Literal["source_read", "artifact_write"] | None = None,
-                 mcp: McpHub | None = None) -> None:
+                 mcp: McpHub | None = None, skills: SkillLibrary | None = None) -> None:
         self.store = store
         self.model = model
         self.mcp = mcp
+        self.skills = skills
         self.changed = asyncio.Condition()
         self._jobs: set[asyncio.Task[None]] = set()
         self._slots = asyncio.Semaphore(4)
@@ -262,13 +264,17 @@ class Runtime:
         if selected_mcp and self.mcp is None:
             raise RunFailure("mcp_tool_unavailable", "This Run selected MCP tools, but no MCP servers are configured.")
         mcp_tools = self.mcp.select(selected_mcp) if self.mcp is not None and selected_mcp else {}
+        selected_skill_names = run.get("policy", {}).get("skills", [])
+        if selected_skill_names and self.skills is None:
+            raise RunFailure("skill_unavailable", "This Run selected skills, but no skills directory is configured.")
+        selected_skills = self.skills.select(selected_skill_names) if self.skills is not None and selected_skill_names else {}
         # MCP tools are read-only evidence producers, like the built-in read tools.
         read_tools = READ_TOOLS | {name for name, tool in mcp_tools.items() if not tool.approval}
         tools = Tools(self.store, identity, root, run["sources"], require_citations=require_citations,
                       receipt_completion=receipt_mode,
                       base_artifact=run.get("base_artifact"),
                       fault_once_source_read=bool(run.get("validation", {}).get("fault_once_source_read")),
-                      mcp_tools=mcp_tools, mcp_hub=self.mcp)
+                      mcp_tools=mcp_tools, mcp_hub=self.mcp, skills=selected_skills)
         if checkpoint is not None:
             tools.restore_evidence(checkpoint["confirmed"])
         label_queries_available = self.model.settings.mode == "fixture" and any(
@@ -300,6 +306,8 @@ class Runtime:
                 "content={call,suffix}: calls[call].content+suffix. "
                 "suffix={refs,parts}: join text or refs[index]."
             )
+        if selected_skills:
+            messages[0]["content"] += catalog_message(selected_skills)
         system_content = messages[0]["content"]
         history_turns = list(run.get("context", {}).get("turns", []))
         messages[1:1] = run.get("context", {}).get("history", [])
@@ -472,7 +480,8 @@ class Runtime:
                 include_tables=any(Path(source["path"]).suffix.lower() == ".csv" for source in run["sources"]),
                 include_labels=label_queries_available, include_finish=finish_available, include_draft=review_mode,
                 receipt_completion=receipt_mode, include_base=run.get("base_artifact") is not None,
-                extra_tools=[tool.definition() for tool in mcp_tools.values()])
+                extra_tools=[tool.definition() for tool in mcp_tools.values()]
+                + ([loader_definition(selected_skills)] if selected_skills else []))
             pending_tools = {correction.call.name for correction in pending.values()}
             if pending_tools == {"number_calculate"}:
                 correction_tools = [tool for tool in available_tools

@@ -84,6 +84,10 @@ The app answers only to loopback host names (DNS-rebinding defence) and refuses 
 
 Permission rules are deny → ask → allow per tool: unlisted tools are never offered; `askTools` entries may have side effects, so their prepared scope carries `approval: required` and `effect: external_effect`. That scope is part of the digest a single-use approval binds to, and the store refuses to dispatch such a call without a matching, unexpired approval, so a denied, expired or cancelled approval means it never runs. An approved call whose outcome is lost in a crash is reported as an unknown effect and blocks automatic resume, like a publication; its errors are not retried automatically.
 
+## Skills
+
+`skills.py` reads `--skills-dir` once at startup. A skill is valid when its `SKILL.md` (at most 32 KiB, UTF-8) has frontmatter with a kebab-case `name` equal to its folder and a `description` of at most 1,024 characters; anything else is excluded with a reason. A Run selects skills at admission (stored in its policy, so resumes keep them). Its system message then lists one line per selected skill, and `skill_load` returns the instructions with the SHA-256 of the `SKILL.md` it read, so the context holds full instructions only for skills the model chose to load. Skill instructions guide how to work; they are not sources and cannot be cited. Scripts in skill folders are ignored because the harness has no shell.
+
 ## Headless clients
 
 `agent_harness_demo.headless` is an ordinary observer: it creates the workspace, Session and Run through the HTTP API, then reads the durable stream with `flow=ack`, acknowledging each event and reconnecting from its last cursor (events at or below it are skipped). It prints events unchanged as NDJSON and maps the terminal status to an exit code. Because observers never own execution, a client that exits leaves the Run running. The reconnect path is not covered by a test yet.

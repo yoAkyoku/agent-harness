@@ -27,7 +27,7 @@ The point is not feature parity. Those products are coding agents or browsers wi
 | Untrusted content | Browsers treat page content as tainted, use an isolated critic, keep secrets out of model context | Source text, memory and excerpts are labelled as untrusted data; API keys are read from the environment and never enter a request |
 | Context management | Rolling summaries and compaction near the limit (opencode, DSH, Claude Code) | Every request is measured first; lossless moves, then labelled lossy omissions, then a stop — never silent truncation or summarisation |
 | Instructions and memory | `AGENTS.md` / `CLAUDE.md` chains | User-saved, versioned memories with optimistic concurrency |
-| Extensibility | Hooks, plugins, MCP, subagents | Fixed built-in tools plus user-allowed, read-only MCP tools selected per Run; providers behind one `DecisionModel` protocol |
+| Extensibility | Hooks, plugins, MCP, subagents | Fixed built-in tools, user-allowed MCP tools (read-only, or approval-each-time) and skills, all selected per Run; providers behind one `DecisionModel` protocol |
 | Verification | Mostly left to the user or an auto-reviewer model | Evidence-only verifiers that never see the task text |
 
 ## Where the harness is intentionally different
@@ -53,6 +53,7 @@ The products' mechanisms were used as a checklist against the code. Each item re
 | 9 | Scripts and CI could only drive the harness through hand-written HTTP calls. | Claude Code `-p --output-format stream-json`, `opencode run --format json` | `python -m agent_harness_demo.headless` submits a task, prints every saved event as NDJSON plus a `headless.result` line, acknowledges events, reconnects from its cursor, and exits with 0 completed / 1 failed / 2 refused / 3 cancelled / 4 interrupted. |
 | 10 | The tool set was fixed; no external tools could be connected. | MCP servers in Claude, Codex, opencode and DSH | User-configured stdio MCP servers; only allowlisted tools that do not declare side effects are offered, a Run opts into specific tools, results become cited evidence, and servers never see workbench secrets. |
 | 11 | Only publication could ask for approval; any external tool with side effects had to be refused. | Claude Code deny → ask → allow rules; Codex typed approvals; DSH fail-closed outcomes | `askTools` lets an MCP tool with side effects run only after a single-use approval bound to its exact arguments and scope; dispatch refuses it otherwise, and lost outcomes become unknown effects that block automatic resume. |
+| 12 | There was no way to package reusable instructions for kinds of work. | Agent Skills in Claude and Codex; AGENTS.md chains in opencode and DSH | `--skills-dir` loads `SKILL.md` skills; a Run sees only selected names and descriptions, loads instructions on demand with `skill_load` (hashed), and `/skill-name` selects a skill from the task text. |
 
 ## Already in place
 
@@ -62,11 +63,10 @@ The products' mechanisms were used as a checklist against the code. Each item re
 
 ## Backlog, by value for this harness
 
-1. **Skills.** `SKILL.md` folders whose names and descriptions sit in context and whose bodies load on demand, inside the context budget.
-2. **Tool hooks.** Pre- and post-execution hooks recorded as events, with deny taking precedence (Claude Code, Codex, opencode). Verifiers must stay independent of hooks.
-3. **Column-aware citations.** A value that cites a table sample should sit under the column its label names.
-4. **A real Claude batch.** The adapter is covered by mock-transport tests only; a recorded run needs an API key and consent to spend.
-5. **Remote MCP servers and OAuth connectors.** Needs a decision on how credentials are obtained and stored.
+1. **Tool hooks.** Pre- and post-execution hooks recorded as events, with deny taking precedence (Claude Code, Codex, opencode). Verifiers must stay independent of hooks.
+2. **Column-aware citations.** A value that cites a table sample should sit under the column its label names.
+3. **A real Claude batch.** The adapter is covered by mock-transport tests only; a recorded run needs an API key and consent to spend.
+4. **Remote MCP servers and OAuth connectors.** Needs a decision on how credentials are obtained and stored.
 
 ## Sources
 

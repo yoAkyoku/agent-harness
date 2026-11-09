@@ -41,6 +41,8 @@ def parser() -> argparse.ArgumentParser:
     parser.add_argument("--exact-tokenizer-model", type=Path, help="Explicit pinned local Qwen35 9B GGUF blob; vocab-only, no inference.")
     parser.add_argument("--mcp-config", type=Path,
                         help="JSON file with mcpServers (command, args, allowedTools); their allowed read-only tools can be selected by Runs.")
+    parser.add_argument("--skills-dir", type=Path,
+                        help="Folder of skills (each a folder with SKILL.md); Runs can select them and load instructions on demand.")
     parser.add_argument("--fault-once-source-read", action="store_true", help="Controlled validation: fail each Run's first source_read before filesystem access.")
     parser.add_argument("--hold-first-tool", choices=["source_read", "artifact_write"], help="Controlled validation: hold the service's first matching read before access, or publish before result acknowledgement.")
     return parser
@@ -99,7 +101,8 @@ def main() -> None:
     token = configured or secrets.token_urlsafe(32)
     try:
         app = create_app(arguments.store.resolve(), model_settings=settings, fault_once_source_read=arguments.fault_once_source_read,
-                         hold_first_tool=arguments.hold_first_tool, access_token=token, mcp_config=arguments.mcp_config)
+                         hold_first_tool=arguments.hold_first_tool, access_token=token, mcp_config=arguments.mcp_config,
+                         skills_dir=arguments.skills_dir)
     except ValueError as error:
         cli.error(str(error))
     shown = "<the value of " + TOKEN_ENV + ">" if configured else token

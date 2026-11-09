@@ -27,7 +27,7 @@
 | 不可信內容 | 瀏覽器把頁面內容視為受污染、用隔離的審查模型、不讓密鑰進入模型上下文 | 來源文字、記憶與摘錄都標成不可信資料；API 金鑰只從環境變數讀取，不會進入請求內容 |
 | 上下文管理 | 接近上限時滾動摘要與壓縮（opencode、DSH、Claude Code） | 每個請求先量測；先做無損調整，再做標示過的有損省略，仍超出就停止——不會默默截斷或摘要 |
 | 指令與記憶 | `AGENTS.md`／`CLAUDE.md` 鏈 | 使用者保存、具版本的記憶，以樂觀並行控制更新 |
-| 擴充 | hooks、外掛、MCP、子代理 | 固定內建工具，加上使用者允許、每個 Run 選用的唯讀 MCP 工具；提供者都實作同一個 `DecisionModel` 協定 |
+| 擴充 | hooks、外掛、MCP、子代理 | 固定內建工具、使用者允許的 MCP 工具（唯讀或每次需核准）與 skills，都由每個 Run 選用；提供者都實作同一個 `DecisionModel` 協定 |
 | 驗證 | 多半交給使用者或自動審查模型 | 只看成果與證據、從不看任務文字的驗證器 |
 
 ## 刻意不同之處
@@ -53,6 +53,7 @@
 | 9 | 腳本與 CI 只能自行撰寫 HTTP 呼叫來驅動 harness。 | Claude Code `-p --output-format stream-json`、`opencode run --format json` | `python -m agent_harness_demo.headless` 提交任務，把每個已保存事件輸出為 NDJSON，最後輸出 `headless.result`；逐筆確認事件、從 cursor 重新連線，退出碼 0 完成／1 失敗／2 被拒／3 取消／4 中斷。 |
 | 10 | 工具集固定，無法接上外部工具。 | Claude、Codex、opencode、DSH 的 MCP 伺服器 | 使用者設定的 stdio MCP 伺服器；只提供列在允許清單、且未宣告副作用的工具，Run 選用特定工具，結果成為被引用的證據，伺服器拿不到工作台的秘密。 |
 | 11 | 只有發布能要求核准，任何有副作用的外部工具都只能拒絕。 | Claude Code 的 deny → ask → allow 規則、Codex 的型別化核准、DSH 失敗即關閉的結果 | `askTools` 讓有副作用的 MCP 工具只在單次核准後執行，核准綁定確切參數與範圍；否則派送一律拒絕，結果遺失時成為效果未知並阻擋自動續做。 |
+| 12 | 無法把某類工作的做法包裝成可重複使用的指示。 | Claude 與 Codex 的 Agent Skills；opencode、DSH 的 AGENTS.md | `--skills-dir` 載入 `SKILL.md` 形式的 skills；Run 只看到選用 skill 的名稱與說明，需要時以 `skill_load` 載入指示（附雜湊），任務以 `/skill名稱` 開頭也能選用。 |
 
 ## 已經具備
 
@@ -62,11 +63,10 @@
 
 ## 待辦（依對本專案的價值排序）
 
-1. **Skills。** `SKILL.md` 資料夾：名稱與描述放在 Context，內容需要時才載入，並受 Context 預算約束。
-2. **工具 hooks。** 執行前後的 hook 記錄為事件，deny 優先（Claude Code、Codex、opencode）；驗證器必須與 hooks 互相獨立。
-3. **欄位感知的引用。** 引用表格樣本的數值，必須位在標籤所指的欄位。
-4. **真實的 Claude 批次。** 轉接器目前只有模擬傳輸測試；要錄一次真實執行需要 API 金鑰與花費同意。
-5. **遠端 MCP 伺服器與 OAuth 連接器。** 需要決定憑證如何取得與保存。
+1. **工具 hooks。** 執行前後的 hook 記錄為事件，deny 優先（Claude Code、Codex、opencode）；驗證器必須與 hooks 互相獨立。
+2. **欄位感知的引用。** 引用表格樣本的數值，必須位在標籤所指的欄位。
+3. **真實的 Claude 批次。** 轉接器目前只有模擬傳輸測試；要錄一次真實執行需要 API 金鑰與花費同意。
+4. **遠端 MCP 伺服器與 OAuth 連接器。** 需要決定憑證如何取得與保存。
 
 ## 來源
 

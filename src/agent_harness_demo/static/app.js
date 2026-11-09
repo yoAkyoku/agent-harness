@@ -1,7 +1,7 @@
 import {observeEvents} from "/assets/run-stream.js?v=7.0";
 import {memoryPanel} from "/assets/memory.js?v=6.0";
 const $ = (id) => document.getElementById(id);
-const state = {config: null, workspace: null, session: null, run: null, approval: null, sources: [], selected: new Set(), busy: false, socket: null, generation: 0, approvalPending: false, cancelPending: false, runs: [], base: null, previewArtifact: null, pendingSubmission: null, initializing: true, planSequence: 0, correctionSequence: 0, mcpSelected: new Set()};
+const state = {config: null, workspace: null, session: null, run: null, approval: null, sources: [], selected: new Set(), busy: false, socket: null, generation: 0, approvalPending: false, cancelPending: false, runs: [], base: null, previewArtifact: null, pendingSubmission: null, initializing: true, planSequence: 0, correctionSequence: 0, mcpSelected: new Set(), skillSelected: new Set()};
 const toolNames = {workspace_list: "列出允許的來源", source_read: "讀取來源", base_artifact_read: "讀取修改基底", artifact_write: "保存成果", artifact_draft: "保存待核對草稿（尚未發布）", plan_update: "更新計畫", table_inspect: "檢查表格", table_aggregate: "計算欄位", number_calculate: "計算比例", task_finish: "提交完成回覆"};
 const statusNames = {queued: "等待執行", running: "執行中", waiting_approval: "等待你的確認", cancel_requested: "正在取消", cancelled: "已取消", completed: "已完成", failed: "未完成", interrupted: "執行已中斷"};
 const activeStatuses = new Set(["queued", "running", "waiting_approval", "cancel_requested"]);
@@ -30,7 +30,7 @@ function updateControls() {
   $("workspace-form").querySelector("button").disabled = locked;
   document.querySelectorAll(".session-button").forEach((button) => { button.disabled = locked; });
   document.querySelectorAll(".source-item input").forEach((input) => { input.disabled = locked || (state.selected.size >= 8 && !input.checked); });
-  document.querySelectorAll(".mcp-tool input").forEach((input) => { input.disabled = locked; });
+  document.querySelectorAll(".mcp-tool input, .skill-item input").forEach((input) => { input.disabled = locked; });
   $("source-count").textContent = `${state.selected.size} / 8`;
   $("selection-hint").textContent = state.pendingSubmission ? "提交結果尚未確認；重試會查回同一次執行" : state.selected.size ? `本次允許讀取 ${state.selected.size} 份來源` : "先從左側選擇資料來源";
 }
@@ -56,6 +56,7 @@ function newTask() {
   $("approval-card").hidden = true; $("require-publish-approval").checked = true;
   $("execution").hidden = true; resetPlan(); $("timeline").replaceChildren(); resetPreview(); clearError();
   $("task-input").value = "讀取已選來源，保存一份可檢查的來源快照。";
+  selectSkills();
   document.querySelectorAll(".session-button").forEach((button) => button.classList.remove("active"));
   updateControls(); $("task-input").focus();
 }
@@ -93,6 +94,24 @@ function renderMcpTools() {
   updateControls();
 }
 function selectMcpTools(names) { state.mcpSelected = new Set(names || []); renderMcpTools(); }
+function availableSkills() { return state.config?.skills?.available || []; }
+function renderSkills() {
+  const skills = availableSkills();
+  $("skills").hidden = !skills.length;
+  const list = $("skill-list"); list.replaceChildren();
+  for (const skill of skills) {
+    const label = document.createElement("label"); label.className = "mcp-tool skill-item";
+    const checkbox = document.createElement("input"); checkbox.type = "checkbox"; checkbox.value = skill.name;
+    checkbox.checked = state.skillSelected.has(skill.name);
+    checkbox.addEventListener("change", () => { if (checkbox.checked) state.skillSelected.add(skill.name); else state.skillSelected.delete(skill.name); });
+    const title = document.createElement("strong"); title.textContent = `/${skill.name}`;
+    const detail = document.createElement("small"); detail.textContent = skill.description;
+    label.append(checkbox, title, document.createElement("span"), detail); list.append(label);
+  }
+  updateControls();
+}
+// A new task offers every installed skill; earlier Runs restore their own selection.
+function selectSkills(names) { state.skillSelected = new Set(names ?? availableSkills().map((skill) => skill.name)); renderSkills(); }
 function renderSources() {
   $("sources").replaceChildren();
   if (!state.sources.length) {
@@ -157,7 +176,7 @@ async function openHistoricalRun(identity) {
   await observeRun(identity);
   $("task-input").value = state.run.task;
   state.selected = new Set(state.run.sources.map((source) => source.path)); renderSources();
-  selectMcpTools(state.run.policy?.mcp_tools);
+  selectMcpTools(state.run.policy?.mcp_tools); selectSkills(state.run.policy?.skills || []);
   $("require-publish-approval").checked = Boolean(state.run.policy?.require_publish_approval);
   $("publication-workflow").value = state.run.policy?.publication_workflow || "direct";
   $("completion-workflow").value = state.run.policy?.completion_workflow || "model_summary";
@@ -189,7 +208,7 @@ async function openSession(session) {
   await loadWorkspace(workspace.path); state.session = session;
   const runs = await api(`/api/sessions/${session.id}/runs`); state.runs = runs;
   if (runs.length) {
-    const run = runs.at(-1); state.selected = new Set(run.sources.map((source) => source.path)); renderSources(); selectMcpTools(run.policy?.mcp_tools);
+    const run = runs.at(-1); state.selected = new Set(run.sources.map((source) => source.path)); renderSources(); selectMcpTools(run.policy?.mcp_tools); selectSkills(run.policy?.skills || []);
     $("task-input").value = run.task; $("require-publish-approval").checked = Boolean(run.policy?.require_publish_approval); $("publication-workflow").value = run.policy?.publication_workflow || "direct"; $("completion-workflow").value = run.policy?.completion_workflow || "model_summary"; await observeRun(run.id);
   }
   await refreshSessions(); renderSessionControls(); updateControls();
@@ -213,6 +232,9 @@ async function startTask(event) {
       if (!state.session) state.session = await api("/api/sessions", {workspace_id: state.workspace.id, title: $("task-input").value.trim().slice(0, 50) || "新任務"});
       const body = {task: $("task-input").value, sources: [...state.selected], require_publish_approval: $("require-publish-approval").checked, publication_workflow: $("publication-workflow").value, completion_workflow: $("completion-workflow").value, submission_key: crypto.randomUUID()};
       if (state.mcpSelected.size) body.mcp_tools = [...state.mcpSelected];
+      const slash = body.task.trim().match(/^\/([a-z0-9]+(?:-[a-z0-9]+)*)(?:\s|$)/);
+      if (slash && availableSkills().some((skill) => skill.name === slash[1])) { state.skillSelected.add(slash[1]); renderSkills(); }
+      if (state.skillSelected.size) body.skills = [...state.skillSelected];
       if (state.base) body.base_artifact = state.base;
       const pending = {session_id: state.session.id, workspace_path: state.workspace.path, body};
       localStorage.setItem(pendingStorageKey, JSON.stringify(pending));
@@ -257,7 +279,7 @@ async function restorePendingSubmission() {
   await loadWorkspace(pending.workspace_path);
   if (state.workspace.id !== session.workspace_id) throw new Error("上次提交的工作區不符，請檢查工作紀錄。");
   state.session = session; state.pendingSubmission = pending;
-  state.selected = new Set(pending.body.sources); renderSources(); selectMcpTools(pending.body.mcp_tools);
+  state.selected = new Set(pending.body.sources); renderSources(); selectMcpTools(pending.body.mcp_tools); selectSkills(pending.body.skills || []);
   $("task-input").value = pending.body.task;
   $("require-publish-approval").checked = pending.body.require_publish_approval;
   $("publication-workflow").value = pending.body.publication_workflow || "direct";
@@ -347,7 +369,8 @@ async function resumeRun() {
   const pending = {session_id: run.session_id, workspace_path: state.workspace.path,
     resume_from: run.id, checkpoint_sha256: checkpoint.sha256,
     body: {task: run.task, sources: run.sources.map((source) => source.path), require_publish_approval: Boolean(run.policy?.require_publish_approval), publication_workflow: run.policy?.publication_workflow || "direct", completion_workflow: run.policy?.completion_workflow || "model_summary", submission_key: crypto.randomUUID(),
-      ...(run.policy?.mcp_tools?.length ? {mcp_tools: run.policy.mcp_tools} : {})}};
+      ...(run.policy?.mcp_tools?.length ? {mcp_tools: run.policy.mcp_tools} : {}),
+      ...(run.policy?.skills?.length ? {skills: run.policy.skills} : {})}};
   try {
     localStorage.setItem(pendingStorageKey, JSON.stringify(pending)); state.pendingSubmission = pending;
     await startTask({preventDefault() {}});
@@ -504,7 +527,7 @@ try {
   $("mode-description").textContent = local ? "先選來源，再交代資料分析或文件整理任務。計畫、工具與成果可逐筆檢查；模型輸出仍需對照來源。" : "依固定步驟讀取已選來源、保存來源快照；此模式不會理解任意任務。";
   if (state.config.validation?.fault_once_source_read) $("mode-description").textContent += " 受控驗證模式：每筆任務首次來源讀取會刻意失敗一次。";
   if (state.config.validation?.hold_first_tool) $("mode-description").textContent += " 受控同步點驗證：本服務首個指定工具會暫停，供取消／併發觀察。";
-  renderMcpTools();
+  renderMcpTools(); selectSkills();
   await refreshSessions(); await restorePendingSubmission(); updateControls();
 } catch (error) { showError(error); }
 finally { state.initializing = false; updateControls(); }

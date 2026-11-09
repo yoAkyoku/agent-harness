@@ -27,6 +27,7 @@ from .checkpoints import resume_blockers
 from .event_stream import stream_run
 from .implementation import source_identity
 from .mcp_hub import MODEL_NAME, McpHub
+from .skills import SKILL_NAME, SkillLibrary
 from .local import MIN_TOKEN_LENGTH, AccessTokenMiddleware, LocalOriginMiddleware, SecurityHeadersMiddleware
 from .model import DecisionModel, FixtureTransport, ModelAdapter, ModelSettings
 from .ownership import StoreLease
@@ -67,6 +68,8 @@ class RunInput(BaseModel):
     completion_workflow: Literal["model_summary", "artifact_receipt"] = "model_summary"
     # Read-only MCP tools this Run may use, chosen like its sources (names from /api/config).
     mcp_tools: list[Annotated[str, Field(pattern=MODEL_NAME.pattern)]] = Field(default_factory=list, max_length=16)
+    # Installed skills whose descriptions this Run sees; their instructions load on request.
+    skills: list[Annotated[str, Field(pattern=SKILL_NAME.pattern, max_length=64)]] = Field(default_factory=list, max_length=16)
 
 
 class ResumeInput(BaseModel):
@@ -114,6 +117,7 @@ def create_app(
     hold_first_tool: Literal["source_read", "artifact_write"] | None = None,
     access_token: str | None = None,
     mcp_config: Path | None = None,
+    skills_dir: Path | None = None,
 ) -> FastAPI:
     """Build the workbench app.
 
@@ -139,6 +143,7 @@ def create_app(
     if hold_first_tool is not None:
         validation["hold_first_tool"] = hold_first_tool
     mcp = McpHub.from_config(mcp_config) if mcp_config is not None else None
+    skills = SkillLibrary.from_directory(skills_dir) if skills_dir is not None else None
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -159,7 +164,7 @@ def create_app(
                     claude = AnthropicAdapter(settings, transport=anthropic_transport)
                     await claude.prepare()
                     model = claude
-                    runtime = Runtime(storage, model, hold_first_tool=hold_first_tool, mcp=mcp)
+                    runtime = Runtime(storage, model, hold_first_tool=hold_first_tool, mcp=mcp, skills=skills)
                     try:
                         yield
                     finally:
@@ -171,7 +176,7 @@ def create_app(
                         adapter = ModelAdapter(client, settings, transport_fixture=transport is not None)
                         await adapter.prepare()
                         model = adapter
-                        runtime = Runtime(storage, model, hold_first_tool=hold_first_tool, mcp=mcp)
+                        runtime = Runtime(storage, model, hold_first_tool=hold_first_tool, mcp=mcp, skills=skills)
                         try:
                             yield
                         finally:
@@ -202,7 +207,8 @@ def create_app(
     async def config() -> dict[str, Any]:
         return {"mode": settings.mode, "model": model.info, "demo_path": str(package / "demo_sources"),
                 "validation": validation, "implementation": implementation,
-                "mcp": mcp.status() if mcp is not None else {"servers": {}}}
+                "mcp": mcp.status() if mcp is not None else {"servers": {}},
+                "skills": skills.status() if skills is not None else {"available": [], "excluded": []}}
 
     @app.post("/api/workspaces", status_code=201)
     async def add_workspace(body: WorkspaceInput) -> dict[str, Any]:
@@ -302,6 +308,10 @@ def create_app(
             del effective["publication_workflow"]
         if body.completion_workflow == "model_summary":
             del effective["completion_workflow"]
+        if not body.skills:
+            del effective["skills"]
+        else:
+            effective["skills"] = sorted(set(body.skills))
         if not body.mcp_tools:
             del effective["mcp_tools"]
         else:
@@ -325,6 +335,11 @@ def create_app(
                     raise RunFailure("mcp_tool_unavailable", "No MCP servers are configured for this workbench.")
                 mcp.select(body.mcp_tools)
                 policy["mcp_tools"] = sorted(set(body.mcp_tools))
+            if body.skills:
+                if skills is None:
+                    raise RunFailure("skill_unavailable", "No skills directory is configured for this workbench.")
+                skills.select(body.skills)
+                policy["skills"] = sorted(set(body.skills))
             run, created = await storage.add_run(session_id, body.task, sources, body.limits.model_dump(), model.info,
                                         validation,
                                         policy,
