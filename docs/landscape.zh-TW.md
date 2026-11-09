@@ -11,7 +11,7 @@
 | 階段 | Codex | Claude Code | opencode | DSH | 代理瀏覽器 | 本專案 |
 |---|---|---|---|---|---|---|
 | 交付任務 | thread → turn；IDE、CLI、App、SDK 與 App Server 協定 | 互動對話、無頭 `-p` 搭配 stream-JSON、Agent SDK | TUI、`opencode run --format json`、共用的本機伺服器、ACP | Web、headless、SDK、ACP 等設定檔共用一棵外掛樹 | 側邊欄或任務分頁，常先「提出計畫」 | HTTP API、工作台或無頭 NDJSON 用戶端：任務＋選定來源；重送同一個 key 會拿回原本的 Run |
-| 顯示計畫 | turn 串流中的計畫項目 | Plan 模式（核准前唯讀） | `plan` agent（除計畫檔外禁止編輯） | Plan 模式只是「軟性引導」；`exit_plan_mode` 顯示計畫 | 核准的計畫界定之後動作的範圍 | 必須先保存計畫，其他工具才會開放；計畫公開在事件串流中 |
+| 顯示計畫 | turn 串流中的計畫項目 | Plan 模式（核准前唯讀） | `plan` agent（除計畫檔外禁止編輯） | Plan 模式只是「軟性引導」；`exit_plan_mode` 顯示計畫 | 核准的計畫界定之後動作的範圍 | 必須先保存計畫，其他工具才會開放；計畫公開在事件串流中。可選擇開啟計畫核准（`require_plan_approval`）：使用者核准前不會執行任何工具，修改後的計畫需再次核准 |
 | 核准高風險動作 | 型別化的核准請求：接受、本次對話都接受、拒絕、取消 | 權限模式；deny → ask → allow 規則；hooks | `ask` 可回覆一次／一律／拒絕 | 失敗即關閉的結果：allowed-once、rejected、cancelled、unavailable | 依網站／動作類別授權；敏感步驟由使用者接手 | 單次核准綁定參數摘要，用於發布（可選）與每次 `askTools` MCP 工具呼叫；未列出的工具一律拒絕 |
 | 中途引導或中斷 | steer、排隊、中斷 | 中斷；排隊後續訊息 | Enter 引導、排隊、Esc 中斷；提示 ID 具冪等性 | inbox 的 `steer`／`followup`／`cancel(keepInbox)` | 暫停、接手、繼續 | Run 進行中可追加訊息（以訊息 ID 冪等受理，於下一次決策送達）；可取消 |
 | 檢視與復原 | turn diff；thread 還原與檔案還原分開 | 檢查點與 rewind | 每步 Git 快照、分段 `/undo` | Review 檢視；文件未提到檔案復原 | 以草稿代替提交（例如寫好但不送出） | 不可變、有雜湊並可比較版本差異的成果；可選草稿 → 發布審閱模式；修訂是以基準成果開新的 Run |
@@ -56,6 +56,7 @@
 | 12 | 無法把某類工作的做法包裝成可重複使用的指示。 | Claude 與 Codex 的 Agent Skills；opencode、DSH 的 AGENTS.md | `--skills-dir` 載入 `SKILL.md` 形式的 skills；Run 只看到選用 skill 的名稱與說明，需要時以 `skill_load` 載入指示（附雜湊），任務以 `/skill名稱` 開頭也能選用。 |
 | 13 | 修改會保留每個版本，但看不出版本之間改了什麼。 | Codex 的 turn diff、Claude Code 的檢查點 | 差異 API 與預覽切換可比較同一對話中的任兩個版本（預設對照上一版），比較前先重新驗證兩者的雜湊。 |
 | 14 | 模型與思考強度在工作台啟動時就固定。 | Claude、Codex、opencode 的模型與強度選單 | 遠端供應商可提供替代模型、Claude 可提供思考強度；每個 Run 自行選擇（工作台選單或 API 的 `model`／`effort`），選擇會被記錄並在續做時保留。本機模型維持固定，因為每個都需要各自的驗證。 |
+| 15 | 計畫雖然公開，但使用者無法在工作開始前核准。 | Claude Code 的 Plan 模式、opencode 的 `plan` agent、先規劃的 AI 瀏覽器 | 可選的計畫核准：Run 停在計畫這一步；「要求修改」會連同使用者意見退回模型（不計入錯誤修正額度）；修改後的計畫要再次核准；續做時保留已核准的計畫。 |
 
 ## 已經具備
 

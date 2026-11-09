@@ -285,7 +285,8 @@ class Runtime:
                       receipt_completion=receipt_mode,
                       base_artifact=run.get("base_artifact"),
                       fault_once_source_read=bool(run.get("validation", {}).get("fault_once_source_read")),
-                      mcp_tools=mcp_tools, mcp_hub=self.mcp, skills=selected_skills)
+                      mcp_tools=mcp_tools, mcp_hub=self.mcp, skills=selected_skills,
+                      plan_approval=bool(run.get("policy", {}).get("require_plan_approval")))
         if checkpoint is not None:
             tools.restore_evidence(checkpoint["confirmed"])
         label_queries_available = model.settings.mode == "fixture" and any(
@@ -355,6 +356,7 @@ class Runtime:
                 elif confirmed["tool"] == "plan_update":
                     navigation_state["plan_saved"] = True
                     navigation_state["plan_steps"] = list(confirmed["result"]["steps"])
+                    tools.accepted_plan = list(confirmed["result"]["steps"])
                 elif confirmed["tool"] == "artifact_draft":
                     latest_draft = {key: confirmed["result"][key] for key in ("name", "content")}
                 elif confirmed["tool"] == "artifact_write" and confirmed.get("arguments") == latest_draft:
@@ -395,14 +397,19 @@ class Runtime:
                         tuple(attempt["error"].get("correctable_fields", [])),
                         error_code=attempt["error"].get("code"))
 
-        async def feedback(call: ToolCall, error: RunFailure, *, retryable: bool, owed: bool = True) -> None:
-            """Return a correctable error to the model; `owed` calls must be corrected before completion."""
+        async def feedback(call: ToolCall, error: RunFailure, *, retryable: bool, owed: bool = True,
+                           budgeted: bool = True) -> None:
+            """Return a correctable error to the model; `owed` calls must be corrected before completion.
+
+            Model errors spend the correction budget; a user's change request (`budgeted=False`) does not.
+            """
             nonlocal corrections
-            if not retryable or limits.max_corrections == 0:
-                raise error
-            if corrections >= limits.max_corrections:
-                raise RunFailure("correction_limit_exceeded", "This Run exhausted its recoverable tool correction budget.")
-            corrections += 1
+            if budgeted:
+                if not retryable or limits.max_corrections == 0:
+                    raise error
+                if corrections >= limits.max_corrections:
+                    raise RunFailure("correction_limit_exceeded", "This Run exhausted its recoverable tool correction budget.")
+                corrections += 1
             superseded: list[str] = []
             if owed:
                 superseded = [failed for failed, correction in pending.items() if correction.matches(call, step)]
@@ -410,9 +417,11 @@ class Runtime:
                 pending[call.identity] = PendingCorrection(call, step, error.correctable_fields, prior, error.code)
                 for failed in superseded:
                     del pending[failed]
-            result = {"ok": False, "error": {"code": error.code, "message": error.message,
-                      "retryable": True, "remaining_corrections": limits.max_corrections - corrections,
-                      "correctable_fields": list(error.correctable_fields)}}
+            details: Record = {"code": error.code, "message": error.message, "retryable": True}
+            if budgeted:
+                details["remaining_corrections"] = limits.max_corrections - corrections
+            details["correctable_fields"] = list(error.correctable_fields)
+            result = {"ok": False, "error": details}
             await self._record(identity, "correction.available", {
                 "call_id": call.identity, "tool": call.name, "decision_step": step, "superseded_call_ids": superseded, **result,
             })
@@ -911,7 +920,22 @@ class Runtime:
                         approval = await self.store.request_approval(identity, prepared)
                         approval_id = approval["id"]
                         await self.notify()
-                        await self._wait_approval(identity, approval_id)
+                        try:
+                            await self._wait_approval(identity, approval_id)
+                        except RunFailure as error:
+                            if call.name != "plan_update" or error.code != "approval_denied":
+                                raise
+                            # Declining a plan asks for changes: the model proposes another plan,
+                            # guided by any message the user added, and nothing else runs meanwhile.
+                            await self._record(identity, "tool.rejected", {"call_id": call.identity, "tool": call.name,
+                                                                           "code": "plan_changes_requested"})
+                            await feedback(call, RunFailure("plan_changes_requested", (
+                                "The user asked for changes to this plan. Follow any message the user added, "
+                                "then submit a revised plan_update." if tools.accepted_plan is None else
+                                "The user did not approve this plan revision. Follow any message the user added and "
+                                "submit another plan_update; resubmitting the last approved plan needs no new approval."),
+                                correctable_fields=("steps",)), retryable=True, budgeted=False)
+                            continue
                         prepared = tools.prepare(call, draft=latest_draft if review_mode else None)
                     async def execute_tool() -> Record:
                         dispatched = await self.store.dispatch(identity, prepared, approval_id)
@@ -939,6 +963,7 @@ class Runtime:
                 if call.name == "plan_update":
                     navigation_state["plan_saved"] = True
                     navigation_state["plan_steps"] = list(result["steps"])
+                    tools.accepted_plan = list(result["steps"])
                 elif call.name == "workspace_list":
                     navigation_state["catalog_listed"] = True
                 elif call.name == "artifact_draft":

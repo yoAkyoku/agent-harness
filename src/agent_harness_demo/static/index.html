@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' ws://127.0.0.1:* ws://localhost:*; img-src 'self' data:; object-src 'none'; base-uri 'none'">
   <title>Agent Harness Demo</title>
-  <link rel="stylesheet" href="/assets/styles.css?v=9.0.4">
-  <script type="module" src="/assets/app.js?v=11.9"></script>
+  <link rel="stylesheet" href="/assets/styles.css?v=9.0.5">
+  <script type="module" src="/assets/app.js?v=12.0"></script>
 </head>
 <body>
   <div class="workbench">
@@ -85,6 +85,7 @@
             <div id="mcp-tool-list"></div>
             <p class="mcp-hint">只會提供你勾選的工具。標示「每次需核准」的工具可能變更資料，每次呼叫都會先等你確認。</p>
           </fieldset>
+          <label class="approval-option"><input id="require-plan-approval" type="checkbox"> 先讓我核准計畫，再開始讀取來源與執行</label>
           <label class="approval-option"><input id="require-publish-approval" type="checkbox" checked> 保存成果前，由我確認這次內容</label>
           <div class="composer-bottom"><span id="selection-hint">先從左側選擇資料來源</span><button id="start-task" class="primary-button" type="submit" disabled>開始任務 <span aria-hidden="true">↗</span></button></div>
         </form>
@@ -109,6 +110,7 @@
             <pre id="approval-content" tabindex="0" aria-label="待批准的完整成果內容"></pre>
             <details><summary>查看完整有效參數與範圍</summary><pre id="approval-parameters"></pre></details>
             <p id="approval-version" class="approval-meta"></p>
+            <label id="approval-note-field" class="approval-note" hidden>修改意見（選填，會在要求修改時一併交給模型）<textarea id="approval-note" maxlength="4000" rows="2" placeholder="例如：也請核對營收總額"></textarea></label>
             <div class="approval-actions"><button id="approve-operation" class="primary-button" type="button">批准這次保存</button><button id="deny-operation" class="subtle-button" type="button">拒絕</button></div>
           </section>
           <div id="plan" class="fixture-note" hidden><strong id="plan-title">模型提出的計畫</strong><p id="plan-context">計畫是預計動作；工具是否成功、引用是否有效，以實際結果為準。</p><ol id="plan-steps"></ol></div>

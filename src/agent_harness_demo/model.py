@@ -371,14 +371,20 @@ class FixtureTransport:
     """A deterministic source snapshot recipe; it does not interpret task intent."""
 
     async def __call__(self, request: httpx.Request) -> httpx.Response:
-        messages = json.loads(request.content)["messages"]
+        body = json.loads(request.content)
+        messages = body["messages"]
         # The current task is the last user turn that is not a message added during the Run.
         current = max(index for index, message in enumerate(messages) if message["role"] == "user"
                       and not str(message.get("content") or "").startswith(ADDED_MESSAGE_PREFIX))
-        results = [json.loads(item["content"]) for item in messages[current+1:] if item["role"] == "tool"]
-        if not results:
-            # Only plan_update is offered until a plan is saved.
-            return self._call("plan_update", {"steps": ["列出來源", "讀取來源", "保存快照"]}, "plan")
+        attempts = [json.loads(item["content"]) for item in messages[current+1:] if item["role"] == "tool"]
+        offered = [tool["function"]["name"] for tool in body.get("tools") or []]
+        if not attempts or offered == ["plan_update"]:
+            # Only plan_update is offered until a plan is saved, including after the user asks for changes;
+            # the recipe proposes the same plan, since it does not interpret the user's note.
+            return self._call("plan_update", {"steps": ["列出來源", "讀取來源", "保存快照"]},
+                              "plan" if not attempts else f"plan-{len(attempts) + 1}")
+        # The recipe advances on successful results; an error result (such as a change request) is not a step.
+        results = [result for result in attempts if result.get("ok") is not False]
         if len(results) == 1:
             return self._call("workspace_list", {}, "catalog")
         sources = results[1]["sources"]

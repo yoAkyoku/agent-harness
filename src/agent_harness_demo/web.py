@@ -65,6 +65,8 @@ class RunInput(BaseModel):
     base_artifact: ArtifactReference | None = None
     limits: RunLimits = Field(default_factory=RunLimits)
     require_publish_approval: bool = Field(default=False, strict=True)
+    # Pause at the plan: nothing runs until the user approves it, and each revised plan needs approval too.
+    require_plan_approval: bool = Field(default=False, strict=True)
     publication_workflow: Literal["direct", "draft_review"] = "direct"
     completion_workflow: Literal["model_summary", "artifact_receipt"] = "model_summary"
     # Read-only MCP tools this Run may use, chosen like its sources (names from /api/config).
@@ -315,6 +317,8 @@ def create_app(
         for optional in ("model", "effort"):
             if effective[optional] is None:
                 del effective[optional]
+        if not body.require_plan_approval:
+            del effective["require_plan_approval"]
         if not body.skills:
             del effective["skills"]
         else:
@@ -333,6 +337,8 @@ def create_app(
             sources = await asyncio.to_thread(admit_sources, root, body.sources)
             excerpts = await asyncio.to_thread(relevant_excerpts, root, sources, body.task, body.limits.max_excerpt_bytes)
             policy: dict[str, Any] = {"require_publish_approval": body.require_publish_approval}
+            if body.require_plan_approval:
+                policy["require_plan_approval"] = True
             if body.publication_workflow == "draft_review":
                 policy["publication_workflow"] = body.publication_workflow
             if body.completion_workflow == "artifact_receipt":

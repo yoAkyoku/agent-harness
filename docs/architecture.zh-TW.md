@@ -49,6 +49,8 @@ Runtime 只依賴 `model.py` 的 `DecisionModel` 介面（`request_body`、`cont
 
 權限規則依工具採 deny → ask → allow：未列出的工具永遠不會提供；`askTools` 的工具可能有副作用，準備好的範圍會帶 `approval: required` 與 `effect: external_effect`。這個範圍是單次核准所綁定摘要的一部分，沒有相符且未過期的核准時，儲存層拒絕派送，因此核准被拒、過期或取消時，呼叫永遠不會執行。已核准的呼叫若在當機中失去結果，會像發布一樣回報為效果未知並阻擋自動續做；它的錯誤也不會自動重試。
 
+計畫核准（`require_plan_approval`）沿用同一機制。`Tools` 記得最後保存的計畫；開啟此政策時，步驟與它不同的 `plan_update` 會在範圍中帶 `approval: required`，沒有針對這組確切步驟的核准，儲存層就不會派送。計畫保存之前只提供 `plan_update`，因此其他工具都無法執行。拒絕計畫不會讓 Run 失敗：runtime 會以 `plan_changes_requested` 回傳一個可修正錯誤，由之後的 `plan_update` 解決；因為這是使用者的決定，不計入錯誤修正額度。使用者附上的意見會像其他補充指示一樣，在下一次決策時送給模型。重新提交已核准的計畫不需要再核准，續做時也會從 checkpoint 還原已核准的計畫。
+
 ## Skills
 
 `skills.py` 在啟動時讀取一次 `--skills-dir`。`SKILL.md`（UTF-8、最多 32 KiB）的 frontmatter 有與資料夾同名的 kebab-case `name`，以及最多 1,024 字元的 `description`，才算有效；其餘會連同原因排除。Run 在受理時選用 skills（存在政策中，續做時保留）。系統訊息為每個選用的 skill 列一行；`skill_load` 回傳指示內容與所讀 `SKILL.md` 的 SHA-256，因此 Context 只會放入模型選擇載入的 skill 全文。skill 指示只規範做法，不是來源，不能被引用。skill 資料夾中的腳本會被忽略，因為 harness 沒有 shell。

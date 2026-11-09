@@ -347,8 +347,13 @@ class Tools:
     def __init__(self, store: Store, run_id: str, root: Path, sources: list[Record], *, require_citations: bool = False,
                  fault_once_source_read: bool = False, receipt_completion: bool = False,
                  base_artifact: Record | None = None, mcp_tools: dict[str, McpTool] | None = None,
-                 mcp_hub: McpHub | None = None, skills: dict[str, Skill] | None = None) -> None:
+                 mcp_hub: McpHub | None = None, skills: dict[str, Skill] | None = None,
+                 plan_approval: bool = False) -> None:
         self.store = store
+        # With plan approval, a plan the user has not approved needs a single-use approval;
+        # `accepted_plan` is the last plan this Run saved (so, with plan approval, the last approved one).
+        self.plan_approval = plan_approval
+        self.accepted_plan: list[str] | None = None
         self.skills = dict(skills or {})
         self.mcp_tools = dict(mcp_tools or {})
         self.mcp_hub = mcp_hub
@@ -540,6 +545,8 @@ class Tools:
             scope["mcp"] = {"server": self.mcp_tools[call.name].server, "tool": self.mcp_tools[call.name].tool}
             if self.mcp_tools[call.name].approval:
                 scope["approval"] = "required"  # bound into the digest that the single-use approval covers
+        if call.name == "plan_update" and self.plan_approval and arguments["steps"] != self.accepted_plan:
+            scope["approval"] = "required"
         if call.name == "base_artifact_read":
             assert self.base_artifact is not None
             scope["base_artifact"] = {key: self.base_artifact[key] for key in ("id", "run_id", "sha256", "version")}

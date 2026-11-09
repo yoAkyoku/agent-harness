@@ -27,7 +27,7 @@ function updateControls() {
   memories.setBusy(locked);
   $("start-task").disabled = state.initializing || state.busy || (!state.pendingSubmission && (!state.workspace || !state.selected.size));
   $("start-task").firstChild.textContent = state.busy ? "執行中 " : state.pendingSubmission ? "重試這次提交 " : state.base ? "建立修改版本 " : "開始任務 ";
-  for (const id of ["new-task", "use-demo", "workspace-path", "task-input", "require-publish-approval", "publication-workflow", "completion-workflow", "run-history", "base-artifact", "revise-artifact"]) $(id).disabled = locked;
+  for (const id of ["new-task", "use-demo", "workspace-path", "task-input", "require-plan-approval", "require-publish-approval", "publication-workflow", "completion-workflow", "run-history", "base-artifact", "revise-artifact"]) $(id).disabled = locked;
   $("workspace-form").querySelector("button").disabled = locked;
   document.querySelectorAll(".session-button").forEach((button) => { button.disabled = locked; });
   document.querySelectorAll(".source-item input").forEach((input) => { input.disabled = locked || (state.selected.size >= 8 && !input.checked); });
@@ -56,7 +56,7 @@ function newTask() {
   $("session-tools").hidden = true; $("publication-workflow").value = "direct";
   $("completion-workflow").value = "model_summary";
   state.approvalPending = false; state.cancelPending = false;
-  $("approval-card").hidden = true; $("require-publish-approval").checked = true;
+  $("approval-card").hidden = true; $("require-publish-approval").checked = true; $("require-plan-approval").checked = false;
   $("execution").hidden = true; resetPlan(); $("timeline").replaceChildren(); resetPreview(); clearError();
   $("task-input").value = "讀取已選來源，保存一份可檢查的來源快照。";
   selectSkills();
@@ -195,6 +195,7 @@ async function openHistoricalRun(identity) {
   state.selected = new Set(state.run.sources.map((source) => source.path)); renderSources();
   selectMcpTools(state.run.policy?.mcp_tools); selectSkills(state.run.policy?.skills || []); selectModel(state.run.model?.name, state.run.model?.effort);
   $("require-publish-approval").checked = Boolean(state.run.policy?.require_publish_approval);
+  $("require-plan-approval").checked = Boolean(state.run.policy?.require_plan_approval);
   $("publication-workflow").value = state.run.policy?.publication_workflow || "direct";
   $("completion-workflow").value = state.run.policy?.completion_workflow || "model_summary";
   await refreshSessionRuns();
@@ -226,7 +227,7 @@ async function openSession(session) {
   const runs = await api(`/api/sessions/${session.id}/runs`); state.runs = runs;
   if (runs.length) {
     const run = runs.at(-1); state.selected = new Set(run.sources.map((source) => source.path)); renderSources(); selectMcpTools(run.policy?.mcp_tools); selectSkills(run.policy?.skills || []); selectModel(run.model?.name, run.model?.effort);
-    $("task-input").value = run.task; $("require-publish-approval").checked = Boolean(run.policy?.require_publish_approval); $("publication-workflow").value = run.policy?.publication_workflow || "direct"; $("completion-workflow").value = run.policy?.completion_workflow || "model_summary"; await observeRun(run.id);
+    $("task-input").value = run.task; $("require-publish-approval").checked = Boolean(run.policy?.require_publish_approval); $("require-plan-approval").checked = Boolean(run.policy?.require_plan_approval); $("publication-workflow").value = run.policy?.publication_workflow || "direct"; $("completion-workflow").value = run.policy?.completion_workflow || "model_summary"; await observeRun(run.id);
   }
   await refreshSessions(); renderSessionControls(); updateControls();
 }
@@ -247,7 +248,7 @@ async function startTask(event) {
         throw new Error("檔案確認須由真實模型選擇成果；固定示範流程請使用模型摘要回覆。");
       }
       if (!state.session) state.session = await api("/api/sessions", {workspace_id: state.workspace.id, title: $("task-input").value.trim().slice(0, 50) || "新任務"});
-      const body = {task: $("task-input").value, sources: [...state.selected], require_publish_approval: $("require-publish-approval").checked, publication_workflow: $("publication-workflow").value, completion_workflow: $("completion-workflow").value, submission_key: crypto.randomUUID()};
+      const body = {task: $("task-input").value, sources: [...state.selected], require_publish_approval: $("require-publish-approval").checked, require_plan_approval: $("require-plan-approval").checked, publication_workflow: $("publication-workflow").value, completion_workflow: $("completion-workflow").value, submission_key: crypto.randomUUID()};
       if (state.mcpSelected.size) body.mcp_tools = [...state.mcpSelected];
       const slash = body.task.trim().match(/^\/([a-z0-9]+(?:-[a-z0-9]+)*)(?:\s|$)/);
       if (slash && availableSkills().some((skill) => skill.name === slash[1])) { state.skillSelected.add(slash[1]); renderSkills(); }
@@ -303,6 +304,7 @@ async function restorePendingSubmission() {
   state.selected = new Set(pending.body.sources); renderSources(); selectMcpTools(pending.body.mcp_tools); selectSkills(pending.body.skills || []);
   $("task-input").value = pending.body.task;
   $("require-publish-approval").checked = pending.body.require_publish_approval;
+  $("require-plan-approval").checked = Boolean(pending.body.require_plan_approval);
   $("publication-workflow").value = pending.body.publication_workflow || "direct";
   $("completion-workflow").value = pending.body.completion_workflow || "model_summary";
   state.base = pending.body.base_artifact || null;
@@ -338,17 +340,21 @@ function renderApproval(run) {
   const approval = run?.approvals?.find((item) => ["pending", "approved"].includes(item.status));
   state.approval = approval || null; $("approval-card").hidden = !approval;
   if (!approval) return;
-  const publication = approval.tool === "artifact_write";
-  $("approval-heading").textContent = approval.status === "approved" ? "已批准，等待派發" : publication ? "確認這次成果保存" : "確認這次外部工具操作";
-  $("approval-target").textContent = publication ? `${toolNames[approval.tool] || approval.tool}：${approval.arguments.name}`
+  const publication = approval.tool === "artifact_write", plan = approval.tool === "plan_update";
+  $("approval-heading").textContent = approval.status === "approved" ? "已批准，等待派發" : plan ? "核准這份執行計畫" : publication ? "確認這次成果保存" : "確認這次外部工具操作";
+  $("approval-target").textContent = plan ? `模型提出 ${approval.arguments.steps.length} 個步驟；核准後才會依計畫讀取來源與執行。若要修改，寫下意見後按「要求修改」。`
+    : publication ? `${toolNames[approval.tool] || approval.tool}：${approval.arguments.name}`
     : `外部工具 ${approval.tool}（MCP 伺服器 ${approval.scope?.mcp?.server || "未知"}），可能變更資料`;
   $("approval-expiry").textContent = `這次操作有效至 ${new Date(approval.expires_at).toLocaleString("zh-TW")}`;
-  $("approval-content").textContent = publication ? approval.arguments.content : JSON.stringify(approval.arguments, null, 2);
-  $("approval-content").setAttribute("aria-label", publication ? "待批准的完整成果內容" : "待批准的完整工具參數");
-  $("approve-operation").textContent = publication ? "批准這次保存" : "批准這次操作";
+  $("approval-content").textContent = plan ? approval.arguments.steps.map((step, index) => `${index + 1}. ${step}`).join("\n")
+    : publication ? approval.arguments.content : JSON.stringify(approval.arguments, null, 2);
+  $("approval-content").setAttribute("aria-label", plan ? "待核准的計畫步驟" : publication ? "待批准的完整成果內容" : "待批准的完整工具參數");
+  $("approve-operation").textContent = plan ? "核准計畫" : publication ? "批准這次保存" : "批准這次操作";
+  $("deny-operation").textContent = plan ? "要求修改" : "拒絕";
+  $("approval-note-field").hidden = !plan || approval.status !== "pending";
   $("approval-parameters").textContent = JSON.stringify({tool: approval.tool, arguments: approval.arguments, scope: approval.scope}, null, 2);
   $("approval-version").textContent = `參數版本 SHA-256 ${approval.parameters_sha256}`;
-  for (const id of ["approve-operation", "deny-operation"]) $(id).disabled = approval.status !== "pending" || run.status !== "waiting_approval" || state.approvalPending || state.cancelPending;
+  for (const id of ["approve-operation", "deny-operation", "approval-note"]) $(id).disabled = approval.status !== "pending" || run.status !== "waiting_approval" || state.approvalPending || state.cancelPending;
 }
 async function refreshRun(identity, generation) {
   const run = await api(`/api/runs/${identity}`);
@@ -389,7 +395,7 @@ async function resumeRun() {
   if (!run || !checkpoint || checkpoint.blockers.length || state.busy || state.pendingSubmission) return;
   const pending = {session_id: run.session_id, workspace_path: state.workspace.path,
     resume_from: run.id, checkpoint_sha256: checkpoint.sha256,
-    body: {task: run.task, sources: run.sources.map((source) => source.path), require_publish_approval: Boolean(run.policy?.require_publish_approval), publication_workflow: run.policy?.publication_workflow || "direct", completion_workflow: run.policy?.completion_workflow || "model_summary", submission_key: crypto.randomUUID(),
+    body: {task: run.task, sources: run.sources.map((source) => source.path), require_publish_approval: Boolean(run.policy?.require_publish_approval), require_plan_approval: Boolean(run.policy?.require_plan_approval), publication_workflow: run.policy?.publication_workflow || "direct", completion_workflow: run.policy?.completion_workflow || "model_summary", submission_key: crypto.randomUUID(),
       ...(run.policy?.mcp_tools?.length ? {mcp_tools: run.policy.mcp_tools} : {}),
       ...(run.policy?.skills?.length ? {skills: run.policy.skills} : {})}};
   try {
@@ -402,7 +408,12 @@ async function decideApproval(decision) {
   if (!approval || !identity || state.approvalPending) return;
   clearError(); state.approvalPending = true; renderApproval(state.run);
   try {
+    const note = $("approval-note").value.trim();
+    if (decision === "deny" && approval.tool === "plan_update" && note) {
+      await api(`/api/runs/${identity}/messages`, {message_id: `plan-${approval.id}`, text: note});
+    }
     await api(`/api/runs/${identity}/approvals/${approval.id}`, {decision, parameters_sha256: approval.parameters_sha256});
+    $("approval-note").value = "";
     await refreshRun(identity, generation);
   } catch (error) { if (generation === state.generation) showError(error); }
   finally { if (generation === state.generation) { state.approvalPending = false; renderApproval(state.run); } }
@@ -476,8 +487,8 @@ function appendEvent(event) {
     return;
   }
   const tool = toolNames[event.data.tool] || event.data.tool || "";
-  const titles = {"run.accepted": "任務已接收", "run.started": "開始執行", "model.requested": "請求模型", "model.responded": event.data.text || `模型提出 ${event.data.tool_count} 個工具操作`, "plan.updated": "計畫已更新", "tool.requested": `準備：${tool}`, "tool.dispatched": `執行：${tool}`, "tool.completed": `完成：${tool}`, "tool.rejected": `操作被拒絕：${tool}`, "tool.failed": `工具未完成：${tool}`, "correction.available": "錯誤已回饋模型，等待修正", "correction.observed": "已執行後續修正操作", "tool.fault_injected": "受控驗證：刻意注入一次讀取失敗", "artifact.published": `成果已保存：${event.data.name}`, "run.completed": "任務完成", "run.failed": "任務未完成", "run.interrupted": "執行已中斷"};
-  Object.assign(titles, {"context.memory_refreshed": "已選取目前有效記憶", "context.selected": "已選取對話背景", "context.pruned": "已依預算省略已保存背景", "context.limited": "完整請求超出 Context 上限","approval.requested": event.data.tool && event.data.tool !== "artifact_write" ? `等待批准外部操作：${event.data.tool}` : "等待批准這次保存", "approval.approved": "這次操作已批准", "approval.denied": "這次操作已拒絕", "approval.consumed": "單次批准已用於派發", "approval.expired": "批准已失效", "approval.cancelled": "批准因取消而失效", "run.cancel_requested": "取消請求已保存", "run.cancelled": "執行器已確認停止", "tool.unknown": "已派發操作的結果待確認", "validation.tool_held": "受控驗證：工具在同步點暫停", "message.queued": `已收到補充指示：${event.data.text || ""}`, "message.delivered": "補充指示已送給模型", "message.undelivered": "補充指示未及送給模型，執行已結束"});
+  const titles = {"run.accepted": "任務已接收", "run.started": "開始執行", "model.requested": "請求模型", "model.responded": event.data.text || `模型提出 ${event.data.tool_count} 個工具操作`, "plan.updated": "計畫已更新", "tool.requested": `準備：${tool}`, "tool.dispatched": `執行：${tool}`, "tool.completed": `完成：${tool}`, "tool.rejected": event.data.code === "plan_changes_requested" ? "你要求修改計畫" : `操作被拒絕：${tool}`, "tool.failed": `工具未完成：${tool}`, "correction.available": event.data.error?.code === "plan_changes_requested" ? "已請模型提出新計畫" : "錯誤已回饋模型，等待修正", "correction.observed": "已執行後續修正操作", "tool.fault_injected": "受控驗證：刻意注入一次讀取失敗", "artifact.published": `成果已保存：${event.data.name}`, "run.completed": "任務完成", "run.failed": "任務未完成", "run.interrupted": "執行已中斷"};
+  Object.assign(titles, {"context.memory_refreshed": "已選取目前有效記憶", "context.selected": "已選取對話背景", "context.pruned": "已依預算省略已保存背景", "context.limited": "完整請求超出 Context 上限","approval.requested": event.data.tool === "plan_update" ? "等待你核准計畫" : event.data.tool && event.data.tool !== "artifact_write" ? `等待批准外部操作：${event.data.tool}` : "等待批准這次保存", "approval.approved": "這次操作已批准", "approval.denied": "這次操作已拒絕", "approval.consumed": "單次批准已用於派發", "approval.expired": "批准已失效", "approval.cancelled": "批准因取消而失效", "run.cancel_requested": "取消請求已保存", "run.cancelled": "執行器已確認停止", "tool.unknown": "已派發操作的結果待確認", "validation.tool_held": "受控驗證：工具在同步點暫停", "message.queued": `已收到補充指示：${event.data.text || ""}`, "message.delivered": "補充指示已送給模型", "message.undelivered": "補充指示未及送給模型，執行已結束"});
   const row = document.createElement("li"); row.className = `event${event.kind.startsWith("run.") || event.kind === "artifact.published" ? " important" : ""}${event.kind.endsWith("failed") || event.kind.endsWith("rejected") ? " failure" : ""}`;
   const details = document.createElement("details"); const summary = document.createElement("summary");
   const number = document.createElement("span"); number.className = "event-number"; number.textContent = String(event.sequence).padStart(2, "0");
