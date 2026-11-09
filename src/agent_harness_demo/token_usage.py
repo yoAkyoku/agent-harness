@@ -32,3 +32,20 @@ def estimated_cost(tokens: dict[str, int], price_per_mtok: dict[str, float]) -> 
     """US dollars for the reported tokens at the pinned price; `partial` when some replies reported none."""
     usd = (tokens["input_tokens"] * price_per_mtok["input"] + tokens["output_tokens"] * price_per_mtok["output"]) / 1_000_000
     return {"usd": round(usd, 6), "partial": tokens["unreported_responses"] > 0}
+
+
+def session_usage(runs: list[dict[str, Any]]) -> dict[str, Any]:
+    """Totals over a Session's Runs; the estimate is partial if any Run with replies has no price or no usage."""
+    tokens = {key: sum(run["token_usage"][key] for run in runs) for key in TOKEN_KEYS}
+    result: dict[str, Any] = {"runs": len(runs), "token_usage": tokens}
+    priced = [run for run in runs if "estimated_cost" in run]
+    if priced:
+        unpriced_work = any("estimated_cost" not in run and (run["token_usage"]["reported_responses"]
+                                                              or run["token_usage"]["unreported_responses"])
+                            for run in runs)
+        result["estimated_cost"] = {
+            "usd": round(sum(run["estimated_cost"]["usd"] for run in priced), 6),
+            "partial": unpriced_work or any(run["estimated_cost"]["partial"] for run in priced),
+            "priced_runs": len(priced),
+        }
+    return result

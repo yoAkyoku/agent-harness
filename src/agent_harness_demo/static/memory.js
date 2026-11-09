@@ -1,5 +1,5 @@
 // Explicit user-owned memory editor. Conversation text is never copied automatically.
-import {t} from "/assets/i18n.js?v=1.0";
+import {t} from "/assets/i18n.js?v=1.1";
 export function memoryPanel(api, showError) {
   const $ = (id) => document.getElementById(id);
   let workspace = null, editing = null, busy = false, saving = false, generation = 0;

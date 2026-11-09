@@ -18,6 +18,15 @@ flowchart LR
   Store -->|cursor / ACK| UI
 ```
 
+![一次執行完成後的工作台：左側是來源，中間是任務，右側是保存的成果與證據](docs/images/completed-run.png)
+
+<table><tr>
+<td><img src="docs/images/plan-approval.png" alt="計畫核准：Run 會等你核准模型的計畫，或連同你的意見退回修改"></td>
+<td><img src="docs/images/publish-approval.png" alt="發布核准：確切的成果內容、證據雜湊，以及核准所綁定的參數摘要"></td>
+</tr></table>
+
+*截圖使用英文介面（左上角可切換為繁中），以模擬的 Claude 回覆經 mock SDK 傳輸產生（沒有呼叫 API），並開啟計畫與發布核准、套用工作區 `AGENTS.md`。*
+
 ## 可以展示什麼
 
 | 能力 | 實作重點 |
@@ -68,7 +77,7 @@ docker run --rm -p 127.0.0.1:8787:8787 agent-harness   # 會印出含權杖的�
 docker run --rm -p 127.0.0.1:8787:8787 -e ANTHROPIC_API_KEY agent-harness --provider anthropic
 ```
 
-遠端模型依呼叫計費。Claude 預設 `claude-opus-5-5`、effort `low`，可用 `--effort` 與 `--context-window` 調整。加上 `--alt-model <名稱>`（可重複）後，每個任務都能改用同一供應商的其他模型；工作台會顯示模型與思考強度選單，API 接受 `"model"`，Claude 另可指定 `"effort"`。Run 會記錄所選設定，續做時保留。每個 Run 都會加總供應商回報的輸入與輸出 tokens（API 的 `token_usage`，工作台顯示在 Run 下方）。若要估算費用，請以每百萬 tokens 的美元單價設定，例如 `--price claude-opus-5-5=5,25`；專案沒有內建價格表，因為價格會變動。Run 開始時會固定所用模型的單價；若有回覆未回報用量，估算會標示為不完整。因為 harness 會刻意改寫歷史，Claude 的私密推理不會被重送，詳見[架構](docs/architecture.zh-TW.md)。
+遠端模型依呼叫計費。Claude 預設 `claude-opus-5-5`、effort `low`，可用 `--effort` 與 `--context-window` 調整。加上 `--alt-model <名稱>`（可重複）後，每個任務都能改用同一供應商的其他模型；工作台會顯示模型與思考強度選單，API 接受 `"model"`，Claude 另可指定 `"effort"`。Run 會記錄所選設定，續做時保留。每個 Run 都會加總供應商回報的輸入與輸出 tokens（API 的 `token_usage`，工作台顯示在 Run 下方）；`GET /api/sessions/{id}/usage` 會加總同一對話的所有 Run（對話有兩次以上執行時顯示在工作台）。若要估算費用，請以每百萬 tokens 的美元單價設定，例如 `--price claude-opus-5-5=5,25`；專案沒有內建價格表，因為價格會變動。Run 開始時會固定所用模型的單價；若有回覆未回報用量，估算會標示為不完整。因為 harness 會刻意改寫歷史，Claude 的私密推理不會被重送，詳見[架構](docs/architecture.zh-TW.md)。
 
 ### 先核准計畫再執行
 

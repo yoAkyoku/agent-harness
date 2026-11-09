@@ -116,3 +116,46 @@ def test_cli_prices_name_configured_models_only() -> None:
         arguments = parser().parse_args(["--provider", "anthropic", *bad])
         with pytest.raises(ValueError):
             build_prices(arguments, build_settings(arguments))
+
+
+def _session_runs(client: TestClient, tmp_path: Path, count: int) -> str:
+    source = tmp_path / "source"
+    source.mkdir(exist_ok=True)
+    (source / "facts.md").write_bytes(b"Revenue was 42.\n")
+    workspace = client.post("/api/workspaces", json={"path": str(source)}).json()
+    session = client.post("/api/sessions", json={"workspace_id": workspace["id"]}).json()["id"]
+    for _ in range(count):
+        run = client.post(f"/api/sessions/{session}/runs", json={"task": "Report the revenue.", "sources": ["facts.md"]}).json()
+        final, _ = finish(client, run)
+        assert final["status"] == "completed", final["error"]
+    return session
+
+
+def test_a_session_totals_its_runs(tmp_path: Path) -> None:
+    with _app(tmp_path, _replies() + _replies(), prices={"contract-model": {"input": 3.0, "output": 15.0}}) as client:
+        session = _session_runs(client, tmp_path, 2)
+        usage = client.get(f"/api/sessions/{session}/usage").json()
+
+    assert usage["runs"] == 2
+    assert usage["token_usage"] == {"input_tokens": 20_000, "output_tokens": 400,
+                                    "reported_responses": 8, "unreported_responses": 0}
+    assert usage["estimated_cost"] == {"usd": pytest.approx(0.066), "partial": False, "priced_runs": 2}
+
+
+def test_a_session_estimate_is_partial_when_a_run_reported_no_usage(tmp_path: Path) -> None:
+    with _app(tmp_path, _replies() + _replies(report_usage=False), prices={"contract-model": {"input": 3.0, "output": 15.0}}) as client:
+        session = _session_runs(client, tmp_path, 2)
+        usage = client.get(f"/api/sessions/{session}/usage").json()
+
+    assert usage["token_usage"]["unreported_responses"] == 4
+    assert usage["estimated_cost"]["partial"] is True
+
+
+def test_a_session_without_prices_has_tokens_only(tmp_path: Path) -> None:
+    with _app(tmp_path, _replies()) as client:
+        session = _session_runs(client, tmp_path, 1)
+        usage = client.get(f"/api/sessions/{session}/usage").json()
+        missing = client.get(f"/api/sessions/{'0' * 32}/usage")
+
+    assert usage["token_usage"]["input_tokens"] == 10_000 and "estimated_cost" not in usage
+    assert missing.status_code == 404

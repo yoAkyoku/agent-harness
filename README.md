@@ -18,6 +18,15 @@ flowchart LR
   Store -->|cursor / ACK| UI
 ```
 
+![The workbench after a Run: sources on the left, the task in the middle, the saved artifact and its evidence on the right](docs/images/completed-run.png)
+
+<table><tr>
+<td><img src="docs/images/plan-approval.png" alt="Plan approval: the Run waits until you approve the model's plan, or sends it back with your note"></td>
+<td><img src="docs/images/publish-approval.png" alt="Publish approval: the exact artifact, its evidence hashes and the parameter digest the approval binds to"></td>
+</tr></table>
+
+*Screenshots: a scripted Claude reply sequence over a mock SDK transport (no API calls), with plan and publish approval on and a workspace `AGENTS.md` applied.*
+
 ## What it demonstrates
 
 | Capability | How it is built |
@@ -68,7 +77,7 @@ docker run --rm -p 127.0.0.1:8787:8787 agent-harness   # prints the address with
 docker run --rm -p 127.0.0.1:8787:8787 -e ANTHROPIC_API_KEY agent-harness --provider anthropic
 ```
 
-Remote providers cost money per call. Claude defaults to `claude-opus-5-5` at effort `low`; use `--effort` and `--context-window` to tune it. Add `--alt-model <name>` (repeatable) to let each task choose another model of the same provider; the workbench then shows model and effort selectors, and the API accepts `"model"` and, for Claude, `"effort"`. A Run records its choice and a resume keeps it. Every Run totals the input and output tokens its provider reports (`token_usage` in the API, shown under the Run in the workbench). For a cost estimate, give prices in US dollars per million tokens, such as `--price claude-opus-5-5=5,25`; there is no built-in price table, because prices change. A Run pins its model's price when it starts, and an estimate that includes replies without reported usage is marked partial. Claude's private reasoning is never replayed, because the harness rewrites history by design — see [architecture](docs/architecture.md#providers).
+Remote providers cost money per call. Claude defaults to `claude-opus-5-5` at effort `low`; use `--effort` and `--context-window` to tune it. Add `--alt-model <name>` (repeatable) to let each task choose another model of the same provider; the workbench then shows model and effort selectors, and the API accepts `"model"` and, for Claude, `"effort"`. A Run records its choice and a resume keeps it. Every Run totals the input and output tokens its provider reports (`token_usage` in the API, shown under the Run in the workbench), and `GET /api/sessions/{id}/usage` sums a Session's Runs (shown once a Session has more than one Run). For a cost estimate, give prices in US dollars per million tokens, such as `--price claude-opus-5-5=5,25`; there is no built-in price table, because prices change. A Run pins its model's price when it starts, and an estimate that includes replies without reported usage is marked partial. Claude's private reasoning is never replayed, because the harness rewrites history by design — see [architecture](docs/architecture.md#providers).
 
 ### Approving the plan first
 

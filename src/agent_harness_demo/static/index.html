@@ -6,7 +6,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' ws://127.0.0.1:* ws://localhost:*; img-src 'self' data:; object-src 'none'; base-uri 'none'">
   <title>Agent Harness Demo</title>
   <link rel="stylesheet" href="/assets/styles.css?v=9.0.8">
-  <script type="module" src="/assets/app.js?v=12.6"></script>
+  <script type="module" src="/assets/app.js?v=12.8"></script>
 </head>
 <body>
   <div class="workbench">
@@ -110,6 +110,7 @@
             <div class="add-message-row"><input id="add-message-text" maxlength="4000" autocomplete="off" placeholder="例如：也請列出營收數字"><button id="add-message-send" class="subtle-button" type="submit">送出補充</button></div>
           </form>
           <div id="usage" class="usage"></div>
+          <div id="session-usage" class="usage" hidden></div>
           <section id="recovery-card" class="fixture-note" aria-labelledby="recovery-heading" hidden>
             <h3 id="recovery-heading">檢查中斷後的工作</h3>
             <p id="recovery-summary" role="status"></p>

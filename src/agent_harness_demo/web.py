@@ -28,6 +28,7 @@ from .checkpoints import resume_blockers
 from .event_stream import stream_run
 from .implementation import source_identity
 from .instructions import read_instructions
+from .token_usage import session_usage
 from .uploads import save_upload, upload_limit
 from .mcp_hub import MODEL_NAME, McpHub
 from .skills import SKILL_NAME, SkillLibrary
@@ -436,6 +437,13 @@ def create_app(
         if not await storage.session(session_id):
             raise HTTPException(404, "Session not found.")
         return await storage.session_runs(session_id)
+
+    @app.get("/api/sessions/{session_id}/usage")
+    async def get_session_usage(session_id: str) -> dict[str, Any]:
+        """Token totals over the Session's Runs and, when they have prices, a summed estimate."""
+        if not await storage.session(session_id):
+            raise HTTPException(404, "Session not found.")
+        return session_usage(await storage.session_runs(session_id))
 
     @app.get("/api/runs/{run_id}")
     async def get_run(run_id: str) -> dict[str, Any]:

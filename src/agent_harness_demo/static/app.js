@@ -1,6 +1,6 @@
-import {observeEvents} from "/assets/run-stream.js?v=7.1";
-import {memoryPanel} from "/assets/memory.js?v=6.1";
-import {lang, saveLang, t, translatePage} from "/assets/i18n.js?v=1.0";
+import {observeEvents} from "/assets/run-stream.js?v=7.2";
+import {memoryPanel} from "/assets/memory.js?v=6.2";
+import {lang, saveLang, t, translatePage} from "/assets/i18n.js?v=1.1";
 const $ = (id) => document.getElementById(id);
 translatePage();
 const locale = lang === "en" ? "en-US" : "zh-TW";
@@ -57,7 +57,7 @@ function resetPreview() { state.previewArtifact = null; $("revise-artifact").hid
 function newTask() {
   if (state.initializing || state.busy || state.pendingSubmission) return;
   closeStream(); state.session = null; state.run = null; state.approval = null; state.runs = []; state.base = null;
-  $("session-tools").hidden = true; $("publication-workflow").value = "direct";
+  $("session-tools").hidden = true; $("session-usage").hidden = true; $("publication-workflow").value = "direct";
   $("completion-workflow").value = "model_summary";
   state.approvalPending = false; state.cancelPending = false;
   $("approval-card").hidden = true; $("require-publish-approval").checked = true; $("require-plan-approval").checked = false;
@@ -203,6 +203,7 @@ async function refreshSessions() {
   }
 }
 function renderSessionControls() {
+  refreshSessionUsage().catch(showError);
   const supported = Boolean(state.config?.model?.context_capacity_tokens);
   $("session-tools").hidden = !supported || !state.session || !state.runs.length;
   $("run-history").replaceChildren();
@@ -379,13 +380,26 @@ function renderRun(run) {
   return true;
 }
 // Counts against the Run's limits, then the tokens the provider reported and, with a configured price, an estimate.
-function usageText(run) {
-  const tokens = run.token_usage, cost = run.estimated_cost, number = (value) => value.toLocaleString(locale);
-  const parts = [t("模型請求 {count} 次", {count: run.usage.model_calls}), t("工具嘗試 {count} 次", {count: run.usage.tool_calls})];
+function tokenParts(tokens, cost, partialNote) {
+  const number = (value) => value.toLocaleString(locale), parts = [];
   if (tokens?.reported_responses) parts.push(t("Token 輸入 {input}／輸出 {output}", {input: number(tokens.input_tokens), output: number(tokens.output_tokens)}));
   if (tokens?.unreported_responses) parts.push(t("{count} 次回覆未回報用量", {count: tokens.unreported_responses}));
-  if (cost) parts.push(t("估計 US${cost}", {cost: cost.usd.toFixed(4)}) + (cost.partial ? t("（不含未回報部分）") : ""));
-  return parts.join(t("　"));
+  if (cost) parts.push(t("估計 US${cost}", {cost: cost.usd.toFixed(4)}) + (cost.partial ? partialNote : ""));
+  return parts;
+}
+function usageText(run) {
+  return [t("模型請求 {count} 次", {count: run.usage.model_calls}), t("工具嘗試 {count} 次", {count: run.usage.tool_calls}),
+    ...tokenParts(run.token_usage, run.estimated_cost, t("（不含未回報部分）"))].join(t("　"));
+}
+// Totals over the open Session (from the server), shown once it has more than one Run.
+async function refreshSessionUsage() {
+  const session = state.session;
+  if (!session) { $("session-usage").hidden = true; return; }
+  const usage = await api(`/api/sessions/${session.id}/usage`);
+  if (state.session?.id !== session.id) return;
+  $("session-usage").hidden = usage.runs < 2;
+  $("session-usage").textContent = [t("這個對話共 {count} 次執行", {count: usage.runs}),
+    ...tokenParts(usage.token_usage, usage.estimated_cost, t("（部分執行未計價或未回報用量）"))].join(t("　"));
 }
 function renderApproval(run) {
   const approval = run?.approvals?.find((item) => ["pending", "approved"].includes(item.status));
@@ -411,6 +425,7 @@ async function refreshRun(identity, generation) {
   const run = await api(`/api/runs/${identity}`);
   if (generation !== state.generation) return;
   if (renderRun(run)) {
+    if (!activeStatuses.has(run.status)) refreshSessionUsage().catch(showError);
     await renderRecovery(run, generation);
     await renderArtifacts(run, generation);
   }

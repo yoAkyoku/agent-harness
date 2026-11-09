@@ -47,7 +47,7 @@ Runtime 只依賴 `model.py` 的 `DecisionModel` 介面（`request_body`、`cont
 
 目前的 Claude 模型一定會思考，且每個思考區塊綁定產生它的對話前綴；本 harness 會刻意改寫歷史（裁切、執行狀態快照、發布後收尾），改寫後重送思考區塊會被拒絕，所以 Claude adapter 從不重送思考區塊，模型每一輪看不到前一輪的私密推理。這是明確記錄的取捨。
 
-Token 用量來自每次回覆：Chat Completions 供應商回報 `prompt_tokens` 與 `completion_tokens`（串流時以 `include_usage` 要求），Claude 轉接器把 `input_tokens` 與 `output_tokens` 對應成相同名稱。`model.responded` 保存該次回覆的用量，儲存層在同一個交易中把它加進 Run 的 `token_usage`（輸入、輸出，以及有或沒有回報用量的回覆次數），因此總數永遠和已保存的事件一致。單價只來自 `--price MODEL=INPUT,OUTPUT`，且只能指定已設定的模型；受理時會把所選模型的單價固定寫入 Run 的模型紀錄（續做使用當下的單價，因為那些請求是新的花費）。`estimated_cost` 依總數計算，若有回覆未回報用量就標示為不完整。
+Token 用量來自每次回覆：Chat Completions 供應商回報 `prompt_tokens` 與 `completion_tokens`（串流時以 `include_usage` 要求），Claude 轉接器把 `input_tokens` 與 `output_tokens` 對應成相同名稱。`model.responded` 保存該次回覆的用量，儲存層在同一個交易中把它加進 Run 的 `token_usage`（輸入、輸出，以及有或沒有回報用量的回覆次數），因此總數永遠和已保存的事件一致。單價只來自 `--price MODEL=INPUT,OUTPUT`，且只能指定已設定的模型；受理時會把所選模型的單價固定寫入 Run 的模型紀錄（續做使用當下的單價，因為那些請求是新的花費）。`estimated_cost` 依總數計算，若有回覆未回報用量就標示為不完整。`GET /api/sessions/{id}/usage` 加總同一對話的 Run；估算只加總有單價的 Run，若有任何已回覆的 Run 沒有單價或未回報用量，就標示為不完整。
 
 ## MCP 工具與權限規則
 
