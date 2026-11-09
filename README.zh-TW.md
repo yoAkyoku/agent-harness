@@ -68,7 +68,7 @@ docker run --rm -p 127.0.0.1:8787:8787 agent-harness   # 會印出含權杖的�
 docker run --rm -p 127.0.0.1:8787:8787 -e ANTHROPIC_API_KEY agent-harness --provider anthropic
 ```
 
-遠端模型依呼叫計費。Claude 預設 `claude-opus-5-5`、effort `low`，可用 `--effort` 與 `--context-window` 調整。加上 `--alt-model <名稱>`（可重複）後，每個任務都能改用同一供應商的其他模型；工作台會顯示模型與思考強度選單，API 接受 `"model"`，Claude 另可指定 `"effort"`。Run 會記錄所選設定，續做時保留。因為 harness 會刻意改寫歷史，Claude 的私密推理不會被重送，詳見[架構](docs/architecture.zh-TW.md)。
+遠端模型依呼叫計費。Claude 預設 `claude-opus-5-5`、effort `low`，可用 `--effort` 與 `--context-window` 調整。加上 `--alt-model <名稱>`（可重複）後，每個任務都能改用同一供應商的其他模型；工作台會顯示模型與思考強度選單，API 接受 `"model"`，Claude 另可指定 `"effort"`。Run 會記錄所選設定，續做時保留。每個 Run 都會加總供應商回報的輸入與輸出 tokens（API 的 `token_usage`，工作台顯示在 Run 下方）。若要估算費用，請以每百萬 tokens 的美元單價設定，例如 `--price claude-opus-5-5=5,25`；專案沒有內建價格表，因為價格會變動。Run 開始時會固定所用模型的單價；若有回覆未回報用量，估算會標示為不完整。因為 harness 會刻意改寫歷史，Claude 的私密推理不會被重送，詳見[架構](docs/architecture.zh-TW.md)。
 
 ### 先核准計畫再執行
 

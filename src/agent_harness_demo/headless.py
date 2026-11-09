@@ -146,7 +146,8 @@ async def run(arguments: argparse.Namespace, task: str, out: TextIO) -> int:
         final = response.json()
     summary = {"kind": "headless.result", "run": {
         "id": final["id"], "status": final["status"], "result": final.get("result"), "error": final.get("error"),
-        "usage": final.get("usage"),
+        "usage": final.get("usage"), "token_usage": final.get("token_usage"),
+        **({"estimated_cost": final["estimated_cost"]} if final.get("estimated_cost") else {}),
         "artifacts": [{"name": artifact["name"], "sha256": artifact["sha256"], "download_url": base + artifact["download_url"]}
                       for artifact in final.get("artifacts", [])],
     }}

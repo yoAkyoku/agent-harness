@@ -127,6 +127,7 @@ def create_app(
     access_token: str | None = None,
     mcp_config: Path | None = None,
     skills_dir: Path | None = None,
+    prices: dict[str, dict[str, float]] | None = None,
 ) -> FastAPI:
     """Build the workbench app.
 
@@ -141,6 +142,9 @@ def create_app(
 
     `mcp_config` names an `mcpServers` file; its servers start with the app and
     only their allowed, read-only tools can be selected by a Run.
+
+    `prices` maps a model name to US dollars per million input and output tokens;
+    a Run pins its model's price at admission and reports an estimated cost.
     """
     if access_token is not None and len(access_token) < MIN_TOKEN_LENGTH:
         raise ValueError(f"The access token must have at least {MIN_TOKEN_LENGTH} characters.")
@@ -217,7 +221,8 @@ def create_app(
         return {"mode": settings.mode, "model": model.info, "demo_path": str(package / "demo_sources"),
                 "validation": validation, "implementation": implementation,
                 "mcp": mcp.status() if mcp is not None else {"servers": {}},
-                "skills": skills.status() if skills is not None else {"available": [], "excluded": []}}
+                "skills": skills.status() if skills is not None else {"available": [], "excluded": []},
+                "prices": prices or {}}
 
     @app.post("/api/workspaces", status_code=201)
     async def add_workspace(body: WorkspaceInput) -> dict[str, Any]:
@@ -383,6 +388,8 @@ def create_app(
                 if body.effort not in choices.get("efforts", []):
                     raise RunFailure("effort_unavailable", "This model provider has no effort setting.")
                 run_model["effort"] = body.effort
+            if (prices or {}).get(run_model["name"]):
+                run_model["price_per_mtok"] = dict((prices or {})[run_model["name"]])
             run, created = await storage.add_run(session_id, body.task, sources, body.limits.model_dump(), run_model,
                                         validation,
                                         policy,
@@ -459,6 +466,9 @@ def create_app(
             base_reference = {"run_id": base["run_id"], "artifact_id": base["id"]} if base else None
             resumed_model = {**model.info, "name": checkpoint["model"]["name"],
                              **({"effort": checkpoint["model"]["effort"]} if "effort" in checkpoint["model"] else {})}
+            # The resumed Run's requests are new spending, so they use today's configured price.
+            if (prices or {}).get(resumed_model["name"]):
+                resumed_model["price_per_mtok"] = dict((prices or {})[resumed_model["name"]])
             run, created = await storage.add_run(parent["session_id"], checkpoint["task"], sources, checkpoint["limits"], resumed_model,
                 validation, checkpoint["policy"], base_reference, submission_key=body.submission_key,
                 request_sha256=digest, resume_checkpoint=checkpoint)

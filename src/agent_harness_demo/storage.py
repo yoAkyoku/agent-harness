@@ -16,6 +16,7 @@ from uuid import uuid4
 from .context import history_turn
 from .checkpoints import checkpoint_payload, resume_blockers
 from .contracts import PreparedCall, RunFailure
+from .token_usage import add_token_usage, estimated_cost
 
 T = TypeVar("T")
 Record = dict[str, Any]
@@ -96,6 +97,8 @@ class Store:
                 self._connection.execute("ALTER TABLE runs ADD COLUMN context_json TEXT NOT NULL DEFAULT '{}'")
             if "recovery_json" not in columns:
                 self._connection.execute("ALTER TABLE runs ADD COLUMN recovery_json TEXT")
+            if "token_usage_json" not in columns:
+                self._connection.execute("ALTER TABLE runs ADD COLUMN token_usage_json TEXT NOT NULL DEFAULT '{}'")
             if "resume_json" not in columns:
                 self._connection.execute("ALTER TABLE runs ADD COLUMN resume_json TEXT")
             artifact_columns = {row[1] for row in self._connection.execute("PRAGMA table_info(artifacts)")}
@@ -481,6 +484,9 @@ class Store:
             result["cancellation"] = json.loads(result.pop("cancellation_json") or "null")
             result["error"] = json.loads(result.pop("error_json") or "null")
             result["usage"] = {"model_calls": result.pop("model_calls"), "tool_calls": result.pop("tool_calls")}
+            result["token_usage"] = add_token_usage(json.loads(result.pop("token_usage_json") or "{}"), None, count=False)
+            if result["model"].get("price_per_mtok"):
+                result["estimated_cost"] = estimated_cost(result["token_usage"], result["model"]["price_per_mtok"])
             result["artifacts"] = [self._artifact(artifact) for artifact in connection.execute(
                 "SELECT * FROM artifacts WHERE run_id=? ORDER BY rowid", (identity,)
             )]
@@ -519,6 +525,12 @@ class Store:
             if usage is not None:
                 connection.execute("UPDATE runs SET model_calls=?, tool_calls=? WHERE id=?", (
                     usage["model_calls"], usage["tool_calls"], identity,
+                ))
+            if kind == "model.responded":
+                # Totalled with the event, in one transaction, so the totals always match the saved replies.
+                saved = connection.execute("SELECT token_usage_json FROM runs WHERE id=?", (identity,)).fetchone()[0]
+                connection.execute("UPDATE runs SET token_usage_json=? WHERE id=?", (
+                    json.dumps(add_token_usage(json.loads(saved or "{}"), data.get("usage"))), identity,
                 ))
             if result is not None:
                 connection.execute("UPDATE runs SET result=? WHERE id=?", (result, identity))

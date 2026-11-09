@@ -31,6 +31,9 @@ def parser() -> argparse.ArgumentParser:
                                               "(default OPENAI_API_KEY or ANTHROPIC_API_KEY). The key itself is never a flag.")
     parser.add_argument("--alt-model", dest="alt_models", action="append", default=[],
                         help="Another model of the same remote provider that a Run may choose; repeat for more.")
+    parser.add_argument("--price", dest="prices", action="append", default=[], metavar="MODEL=INPUT,OUTPUT",
+                        help="US dollars per million input and output tokens for a configured model, for cost estimates; "
+                             "repeat for more. Without it, Runs show token counts only.")
     parser.add_argument("--context-window", type=int, help="Context budget in tokens for remote providers.")
     parser.add_argument("--effort", choices=("low", "medium", "high", "xhigh", "max"), default="low",
                         help="Claude effort level (thinking depth and token spend).")
@@ -48,6 +51,29 @@ def parser() -> argparse.ArgumentParser:
     parser.add_argument("--fault-once-source-read", action="store_true", help="Controlled validation: fail each Run's first source_read before filesystem access.")
     parser.add_argument("--hold-first-tool", choices=["source_read", "artifact_write"], help="Controlled validation: hold the service's first matching read before access, or publish before result acknowledgement.")
     return parser
+
+
+def build_prices(arguments: argparse.Namespace, settings: ModelSettings) -> dict[str, dict[str, float]]:
+    """Parse --price MODEL=INPUT,OUTPUT entries for configured models; raises ValueError with a user-facing reason."""
+    configured = {settings.name, *settings.alternatives}
+    prices: dict[str, dict[str, float]] = {}
+    for entry in arguments.prices:
+        name, separator, values = entry.partition("=")
+        parts = values.split(",")
+        try:
+            if not separator or len(parts) != 2:
+                raise ValueError
+            numbers = [float(part) for part in parts]
+        except ValueError:
+            raise ValueError(f"--price {entry!r} must look like MODEL=INPUT,OUTPUT, in US dollars per million tokens.") from None
+        if any(not 0 <= number < 10_000 for number in numbers):  # NaN fails this comparison too
+            raise ValueError(f"--price {entry!r} needs prices from 0 to 10000 dollars per million tokens.")
+        if name not in configured:
+            raise ValueError(f"--price names {name!r}, which is not a configured model ({', '.join(sorted(configured))}).")
+        if name in prices:
+            raise ValueError(f"--price is given twice for {name}.")
+        prices[name] = {"input": numbers[0], "output": numbers[1]}
+    return prices
 
 
 def build_settings(arguments: argparse.Namespace) -> ModelSettings:
@@ -97,6 +123,7 @@ def main() -> None:
         cli.error("--port must be between 1 and 65535")
     try:
         settings = build_settings(arguments)
+        prices = build_prices(arguments, settings)
     except ValueError as error:
         cli.error(str(error))
     configured = os.environ.get(TOKEN_ENV)
@@ -106,7 +133,7 @@ def main() -> None:
     try:
         app = create_app(arguments.store.resolve(), model_settings=settings, fault_once_source_read=arguments.fault_once_source_read,
                          hold_first_tool=arguments.hold_first_tool, access_token=token, mcp_config=arguments.mcp_config,
-                         skills_dir=arguments.skills_dir)
+                         skills_dir=arguments.skills_dir, prices=prices)
     except ValueError as error:
         cli.error(str(error))
     shown = "<the value of " + TOKEN_ENV + ">" if configured else token

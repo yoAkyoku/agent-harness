@@ -334,7 +334,8 @@ function renderRun(run) {
   $("execution").hidden = false; $("run-status").textContent = statusNames[run.status] || run.status;
   $("run-status").className = `run-status ${run.status}`;
   $("run-caption").textContent = `${run.validation?.fault_once_source_read ? "受控讀取故障驗證 / " : ""}${run.validation?.hold_first_tool ? "受控同步點驗證 / " : ""}${run.model?.name || run.mode} / 執行 ${run.id.slice(0, 10)} / ${new Date(run.created_at).toLocaleString("zh-TW")}`;
-  $("usage").textContent = `模型請求 ${run.usage.model_calls} 次　工具嘗試 ${run.usage.tool_calls} 次`;
+  $("usage").textContent = usageText(run);
+  $("usage").title = run.model?.price_per_mtok ? `估計依 --price 設定、在這次執行開始時固定的單價：每百萬 tokens 輸入 US$${run.model.price_per_mtok.input}、輸出 US$${run.model.price_per_mtok.output}` : "";
   $("run-result").textContent = run.error ? `${run.error.message} (${run.error.code})` : run.result;
   if (run.status === "cancel_requested") $("run-result").textContent = "已提出取消，等待執行器確認停止。";
   if (run.status === "cancelled") {
@@ -352,6 +353,15 @@ function renderRun(run) {
   $("workspace-breadcrumb").textContent = `${state.workspace?.name || "工作區"} / ${state.session?.title || "任務"}`;
   updateControls();
   return true;
+}
+// Counts against the Run's limits, then the tokens the provider reported and, with a configured price, an estimate.
+function usageText(run) {
+  const tokens = run.token_usage, cost = run.estimated_cost, number = (value) => value.toLocaleString("zh-TW");
+  const parts = [`模型請求 ${run.usage.model_calls} 次`, `工具嘗試 ${run.usage.tool_calls} 次`];
+  if (tokens?.reported_responses) parts.push(`Token 輸入 ${number(tokens.input_tokens)}／輸出 ${number(tokens.output_tokens)}`);
+  if (tokens?.unreported_responses) parts.push(`${tokens.unreported_responses} 次回覆未回報用量`);
+  if (cost) parts.push(`估計 US$${cost.usd.toFixed(4)}${cost.partial ? "（不含未回報部分）" : ""}`);
+  return parts.join("　");
 }
 function renderApproval(run) {
   const approval = run?.approvals?.find((item) => ["pending", "approved"].includes(item.status));
