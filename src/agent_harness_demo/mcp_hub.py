@@ -26,6 +26,7 @@ from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError
 
 from .contracts import RunFailure
+from .remote import ENV_NAME, check_header_env, check_url, read_headers
 
 Record = dict[str, Any]
 SERVER_NAME = re.compile(r"^[a-z0-9][a-z0-9_-]{0,15}$")
@@ -67,17 +68,50 @@ class McpTool:
 @dataclass
 class _Server:
     name: str
-    command: str
+    command: str | None
     args: list[str]
     env: dict[str, str] | None
     cwd: str | None
     allowed: list[str]
     ask: list[str] = field(default_factory=list)
+    url: str | None = None  # a remote server over Streamable HTTP instead of a local command
+    bearer_env: str | None = None  # names of environment variables, never the secrets themselves
+    header_env: dict[str, str] = field(default_factory=dict)
     status: str = "not_started"
     error: str | None = None
     tools: dict[str, McpTool] = field(default_factory=dict)
     excluded: list[Record] = field(default_factory=list)
     client: Any = None
+
+
+def _tool_lists(name: str, entry: Record) -> tuple[list[str], list[str]]:
+    allowed, ask = entry.get("allowedTools"), entry.get("askTools", [])
+    if (not isinstance(allowed, list) or not all(isinstance(item, str) for item in allowed)
+            or not isinstance(ask, list) or not all(isinstance(item, str) for item in ask)):
+        raise ValueError(f"MCP server {name!r}: allowedTools (and optional askTools) must be lists of tool names.")
+    both = set(allowed) & set(ask)
+    if both:
+        raise ValueError(f"MCP server {name!r}: {sorted(both)} listed in both allowedTools and askTools; choose one rule.")
+    return list(allowed), list(ask)
+
+
+def _remote(name: str, entry: Record) -> _Server:
+    """A remote server: an HTTPS URL (plain HTTP only to loopback) and credentials named by environment variable."""
+    if "command" in entry:
+        raise ValueError(f"MCP server {name!r}: use either command (a local server) or url (a remote one), not both.")
+    unknown = set(entry) - {"url", "bearerTokenEnv", "headerEnv", "allowedTools", "askTools"}
+    if unknown:
+        raise ValueError(f"MCP server {name!r}: unknown keys {sorted(unknown)}; credentials are read from environment "
+                         "variables named by bearerTokenEnv or headerEnv, never written in the config.")
+    url = check_url(f"MCP server {name!r}", entry["url"])
+    bearer = entry.get("bearerTokenEnv")
+    if bearer is not None and (not isinstance(bearer, str) or not ENV_NAME.fullmatch(bearer)):
+        raise ValueError(f"MCP server {name!r}: bearerTokenEnv must name an environment variable.")
+    header_env = check_header_env(f"MCP server {name!r}", entry.get("headerEnv", {}))
+    if bearer is not None and any(header.lower() == "authorization" for header in header_env):
+        raise ValueError(f"MCP server {name!r}: set Authorization with bearerTokenEnv or headerEnv, not both.")
+    allowed, ask = _tool_lists(name, entry)
+    return _Server(name, None, [], None, None, allowed, ask, url=url, bearer_env=bearer, header_env=dict(header_env))
 
 
 def load_config(path: Path) -> list[_Server]:
@@ -93,8 +127,11 @@ def load_config(path: Path) -> list[_Server]:
     for name, entry in servers.items():
         if not isinstance(name, str) or not SERVER_NAME.fullmatch(name):
             raise ValueError(f"MCP server name {name!r} must be 1-16 lowercase letters, digits, '-' or '_'.")
-        if not isinstance(entry, dict) or "url" in entry:
-            raise ValueError(f"MCP server {name!r}: only local stdio servers (command/args) are supported.")
+        if not isinstance(entry, dict):
+            raise ValueError(f"MCP server {name!r}: expected an object.")
+        if "url" in entry:
+            parsed.append(_remote(name, entry))
+            continue
         unknown = set(entry) - {"command", "args", "env", "cwd", "allowedTools", "askTools"}
         command, args, env = entry.get("command"), entry.get("args", []), entry.get("env")
         allowed = entry.get("allowedTools")
@@ -145,13 +182,25 @@ class McpHub:
 
     async def start(self) -> None:
         """Connect to every configured server; a server that fails is reported, not fatal."""
+        import httpx2
         from mcp import Client, StdioServerParameters  # the SDK is only needed when MCP is configured
+        from mcp.client.streamable_http import streamable_http_client
 
         for server in self._servers.values():
             try:
-                parameters = StdioServerParameters(command=server.command, args=server.args, env=server.env, cwd=server.cwd)
                 async with asyncio.timeout(START_TIMEOUT_SECONDS):
-                    server.client = await self._stack.enter_async_context(Client(parameters))
+                    if server.url is not None:
+                        # This app owns the HTTP client so it can carry the headers; the SDK keeps redirects on-origin.
+                        http = await self._stack.enter_async_context(httpx2.AsyncClient(
+                            headers=read_headers(server.header_env, bearer_env=server.bearer_env), timeout=httpx2.Timeout(30.0, read=300.0)))
+                        # Streamable HTTP as servers deploy it today: the SDK's "auto" negotiation failed against the
+                        # SDK's own HTTP server in testing (a probe session was rejected), while "legacy" connects.
+                        server.client = await self._stack.enter_async_context(
+                            Client(streamable_http_client(server.url, http_client=http), mode="legacy"))
+                    else:
+                        assert server.command is not None
+                        server.client = await self._stack.enter_async_context(Client(StdioServerParameters(
+                            command=server.command, args=server.args, env=server.env, cwd=server.cwd)))
                     listed: list[Any] = []
                     cursor: str | None = None
                     while True:
@@ -161,6 +210,8 @@ class McpHub:
                         if cursor is None:
                             break
             except Exception as error:  # a broken third-party server must not stop the workbench
+                while isinstance(error, BaseExceptionGroup) and error.exceptions:  # report the cause, not the task group
+                    error = error.exceptions[0]  # type: ignore[assignment]
                 server.status, server.error = "unavailable", f"{type(error).__name__}: {error}"[:300]
                 continue
             for tool in sorted(listed, key=lambda item: item.name):
@@ -180,6 +231,7 @@ class McpHub:
     def status(self) -> Record:
         return {"servers": {name: {
             "status": server.status, **({"error": server.error} if server.error else {}),
+            "transport": "http" if server.url is not None else "stdio", **({"url": server.url} if server.url else {}),
             "tools": [{"name": tool.name, "description": tool.description,
                        "approval": "required" if tool.approval else "none"} for tool in server.tools.values()],
             "excluded": list(server.excluded),

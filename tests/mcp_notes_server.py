@@ -53,5 +53,24 @@ def env_has(name: str) -> str:
     return "present" if name in os.environ else "absent"
 
 
+def _bearer_only(app, token: str):  # type: ignore[no-untyped-def]
+    """Answer 401 to HTTP requests without `Authorization: Bearer <token>`; lifespan passes through."""
+    async def guarded(scope, receive, send):  # type: ignore[no-untyped-def]
+        if scope["type"] == "http" and dict(scope["headers"]).get(b"authorization") != f"Bearer {token}".encode():
+            await send({"type": "http.response.start", "status": 401, "headers": [(b"content-type", b"text/plain")]})
+            await send({"type": "http.response.body", "body": b"missing or wrong token"})
+            return
+        await app(scope, receive, send)
+    return guarded
+
+
 if __name__ == "__main__":
-    server.run()
+    import sys
+
+    if sys.argv[1:2] == ["--http"]:  # Streamable HTTP on the given port, behind NOTES_HTTP_TOKEN
+        import uvicorn
+
+        uvicorn.run(_bearer_only(server.streamable_http_app(), os.environ["NOTES_HTTP_TOKEN"]),
+                    host="127.0.0.1", port=int(sys.argv[2]), log_level="warning")
+    else:
+        server.run()

@@ -51,7 +51,7 @@ Token 用量來自每次回覆：Chat Completions 供應商回報 `prompt_tokens
 
 ## MCP 工具與權限規則
 
-`mcp_hub.py` 在服務啟動時啟動 `--mcp-config` 列出的 stdio 伺服器，服務結束時一併關閉。啟動失敗的伺服器會在 `/api/config` 回報，不會讓工作台停止。只有使用者列在 `allowedTools` 的工具才會提供；伺服器的註記只能縮小這個清單（宣告 `read_only_hint: false` 或 `destructive_hint: true` 的工具會被排除），不能擴大。第三方描述最多 400 字元並標示為不可信，輸入 schema 必須是 4 KiB 以內的有效 JSON Schema 物件。Run 在受理時像選來源一樣選用工具；選擇存在 Run 的政策中，checkpoint 與續做都會保留。呼叫會先依伺服器的 schema 驗證，以 `read_only` 效果派送，限制 30 秒與 64 KiB 文字，結果成為證據（`mcp/<伺服器>/<工具>`、SHA-256、文字），供成果引用並由驗證器檢查。錯誤結果以可修正錯誤回到模型，以修正後重試同一工具來解決。伺服器只會拿到 MCP SDK 預設的最小環境變數與設定中的 `env`。目前不支援遠端伺服器與 OAuth 連接器。
+`mcp_hub.py` 在服務啟動時啟動 `--mcp-config` 列出的 stdio 伺服器，服務結束時一併關閉。啟動失敗的伺服器會在 `/api/config` 回報，不會讓工作台停止。只有使用者列在 `allowedTools` 的工具才會提供；伺服器的註記只能縮小這個清單（宣告 `read_only_hint: false` 或 `destructive_hint: true` 的工具會被排除），不能擴大。第三方描述最多 400 字元並標示為不可信，輸入 schema 必須是 4 KiB 以內的有效 JSON Schema 物件。Run 在受理時像選來源一樣選用工具；選擇存在 Run 的政策中，checkpoint 與續做都會保留。呼叫會先依伺服器的 schema 驗證，以 `read_only` 效果派送，限制 30 秒與 64 KiB 文字，結果成為證據（`mcp/<伺服器>/<工具>`、SHA-256、文字），供成果引用並由驗證器檢查。錯誤結果以可修正錯誤回到模型，以修正後重試同一工具來解決。伺服器只會拿到 MCP SDK 預設的最小環境變數與設定中的 `env`。遠端伺服器（`url`）透過本程式持有的 HTTP client 以 Streamable HTTP 連線，因此能帶上從設定所指名的環境變數（`bearerTokenEnv`、`headerEnv`）讀出的標頭；這些值不會出現在設定檔、`/api/config`、事件或模型的 Context，缺少變數時伺服器會標示為無法使用，錯誤只寫出變數名稱。URL 必須是 HTTPS 或連到迴路位址的 HTTP，SDK 只在同一來源內跟隨重新導向。遠端伺服器以 SDK 的 `legacy` 協定模式連線，因為它的 `auto` 協商在測試中連不上 SDK 自己的 HTTP 伺服器（探測用的 session 被拒絕）。`remote.py` 收納這些端點規則，與 hooks 共用。不支援 OAuth 連接器。
 
 權限規則依工具採 deny → ask → allow：未列出的工具永遠不會提供；`askTools` 的工具可能有副作用，準備好的範圍會帶 `approval: required` 與 `effect: external_effect`。這個範圍是單次核准所綁定摘要的一部分，沒有相符且未過期的核准時，儲存層拒絕派送，因此核准被拒、過期或取消時，呼叫永遠不會執行。已核准的呼叫若在當機中失去結果，會像發布一樣回報為效果未知並阻擋自動續做；它的錯誤也不會自動重試。
 

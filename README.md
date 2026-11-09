@@ -110,18 +110,20 @@ Exit codes: `0` completed, `1` failed, `2` refused request or usage error, `3` c
 
 ### MCP tools
 
-Connect local [MCP](https://modelcontextprotocol.io) servers with a config file in the familiar `mcpServers` shape. Each tool falls under one rule: `allowedTools` (read-only, runs freely), `askTools` (may change data; every call waits for your single-use approval of the exact arguments) or, if unlisted, deny:
+Connect local or remote [MCP](https://modelcontextprotocol.io) servers with a config file in the familiar `mcpServers` shape. Each tool falls under one rule: `allowedTools` (read-only, runs freely), `askTools` (may change data; every call waits for your single-use approval of the exact arguments) or, if unlisted, deny:
 
 ```json
 {"mcpServers": {"notes": {"command": "uvx", "args": ["my-notes-mcp"],
-  "allowedTools": ["search_notes"], "askTools": ["create_note"]}}}
+  "allowedTools": ["search_notes"], "askTools": ["create_note"]},
+  "docs": {"url": "https://mcp.example.com/mcp", "bearerTokenEnv": "DOCS_MCP_TOKEN",
+  "allowedTools": ["search_docs"]}}}
 ```
 
 ```bash
 uv run python -m agent_harness_demo --mcp-config mcp.json --store .private/demo
 ```
 
-`/api/config` lists each server's offered and excluded tools. A Run opts into tools by ticking them in the workbench (marked read-only or approval-each-time), by name in the API (`"mcp_tools": ["mcp__notes__search_notes"]`), or with `--mcp-tool` in headless mode. Results become evidence such as `[mcp/notes/search_notes E2]`, checked like any source. A tool in `allowedTools` that declares side effects is refused; list it in `askTools` to allow it with approval. A denied or expired approval means the call never runs. Servers receive only a minimal environment plus their configured `env`, never the workbench token or API keys. Local stdio servers only for now.
+`/api/config` lists each server's offered and excluded tools. A Run opts into tools by ticking them in the workbench (marked read-only or approval-each-time), by name in the API (`"mcp_tools": ["mcp__notes__search_notes"]`), or with `--mcp-tool` in headless mode. Results become evidence such as `[mcp/notes/search_notes E2]`, checked like any source. A tool in `allowedTools` that declares side effects is refused; list it in `askTools` to allow it with approval. A denied or expired approval means the call never runs. Servers receive only a minimal environment plus their configured `env`, never the workbench token or API keys. A remote server (`url`, Streamable HTTP) must use HTTPS, or plain HTTP to a loopback address. Its credentials are never written in the config: `bearerTokenEnv` names the environment variable holding a bearer token, and `headerEnv` maps other headers to environment variables. A server whose variable is missing, or that refuses the token, is reported as unavailable without the value. OAuth sign-in is not supported.
 
 ### Skills
 
