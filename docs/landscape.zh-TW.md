@@ -67,6 +67,9 @@
 | 23 | 引用 CSV 樣本的值可能放在錯誤欄位。 | 參考產品多交由使用者自行檢查 | `table_columns`：值的標籤正好是所引用表格的欄名，而該值在樣本中只出現在其他欄時，拒絕發布並以可修正錯誤指出正確欄位。 |
 | 24 | 試算表、投影片與圖片不能當來源，表格也受限於模型能讀取的大小。 | Claude、ChatGPT、Codex 的檔案附件 | `.xlsx` 工作表可供表格工具使用（可選 `sheet`），`.pptx` 逐張投影片讀取，圖片在啟用時經 OCR 讀取。20 MiB、200,000 列以內的 CSV 與 Excel 由伺服器計算，大型表格讓模型讀取標示清楚的預覽。 |
 | 25 | 每個 Run 都必須發布檔案，即使只是回答問題。 | Claude 與 ChatGPT 附引用的對話回答 | 回答模式：Run 以答案本身結束，答案必須引用既有證據並通過成果驗證器；`answer.verified` 記錄引用的證據。 |
+| 26 | 無法讀取工作區以外的任何資料。 | Claude、ChatGPT 與 Claude Code 的網頁擷取 | 需選擇開啟的 `web_fetch`（`--allow-web` 加上每個 Run 的 `web_access`）：只讀公開 https 網頁，檢查每個解析與實際連線的位址（防 SSRF 與 DNS rebinding），轉址重新檢查；網頁是不可信、可引用的證據。 |
+| 27 | 加總、平均、比率以外的計算都需要新增內建工具。 | Claude、ChatGPT 與 Codex 沙箱的程式執行 | 需選擇開啟的 `python_run`（`--python-sandbox IMAGE` 加上每個 Run 的 `python_sandbox`）：每次呼叫一個全新 Docker 容器，無網路、選定來源唯讀、無 capabilities，並限制記憶體、CPU、行程數與時間；輸出是附程式碼雜湊的證據。 |
+| 28 | 排程工作可能卡在沒人會處理的核准上。 | Claude Code 與 Codex 的非互動模式 | `headless --unattended` 在第一個核准請求時取消 Run，以退出碼 5 結束並說明需要核准的內容；README 附 cron 與工作排程器設定。多使用者部署不在範圍內，並說明原因。 |
 
 ## 已經具備
 

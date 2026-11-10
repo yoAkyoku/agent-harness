@@ -15,6 +15,8 @@ from .context import added_message, compact_tool_catalog, completed_tool_group, 
 from .contracts import Decision, PendingCorrection, RunCancelled, RunFailure, RunLimits, ToolCall, canonical_tool_arguments
 from .hooks import HookRunner
 from .mcp_hub import McpHub
+from .sandbox import SANDBOX_ERRORS, TOOL_NAME as PYTHON_TOOL, PythonSandbox
+from .web_fetch import TOOL_NAME as WEB_TOOL, WEB_ERRORS, WebFetcher
 from .instructions import instructions_message
 from .skills import SkillLibrary, catalog_message, loader_definition
 from .model import DecisionModel, ModelResponseError
@@ -72,10 +74,13 @@ def project_initial_public_plan(decision: Decision, protocol: str) -> Decision:
 
 class Runtime:
     def __init__(self, store: Store, model: DecisionModel, *, hold_first_tool: Literal["source_read", "artifact_write"] | None = None,
-                 mcp: McpHub | None = None, skills: SkillLibrary | None = None, hooks: HookRunner | None = None) -> None:
+                 mcp: McpHub | None = None, skills: SkillLibrary | None = None, hooks: HookRunner | None = None,
+                 web: WebFetcher | None = None, python: PythonSandbox | None = None) -> None:
         self.store = store
         self.model = model
         self.mcp = mcp
+        self.web = web
+        self.python = python
         self.hooks = hooks
         self.skills = skills
         self.changed = asyncio.Condition()
@@ -295,14 +300,22 @@ class Runtime:
         if selected_skill_names and self.skills is None:
             raise RunFailure("skill_unavailable", "This Run selected skills, but no skills directory is configured.")
         selected_skills = self.skills.select(selected_skill_names) if self.skills is not None and selected_skill_names else {}
+        web_access = bool(run.get("policy", {}).get("web_access"))
+        if web_access and self.web is None:
+            raise RunFailure("web_access_unavailable", "This Run asked for web access, but the workbench does not allow it.")
+        python_access = bool(run.get("policy", {}).get("python_sandbox"))
+        if python_access and self.python is None:
+            raise RunFailure("python_sandbox_unavailable", "This Run asked for the Python sandbox, but the workbench has none.")
         # MCP tools are read-only evidence producers, like the built-in read tools.
-        read_tools = READ_TOOLS | {name for name, tool in mcp_tools.items() if not tool.approval}
+        read_tools = (READ_TOOLS | {name for name, tool in mcp_tools.items() if not tool.approval}
+                      | ({WEB_TOOL} if web_access else set()) | ({PYTHON_TOOL} if python_access else set()))
         tools = Tools(self.store, identity, root, run["sources"], require_citations=require_citations,
                       receipt_completion=receipt_mode, answer_completion=answer_mode,
                       base_artifact=run.get("base_artifact"),
                       fault_once_source_read=bool(run.get("validation", {}).get("fault_once_source_read")),
                       mcp_tools=mcp_tools, mcp_hub=self.mcp, skills=selected_skills,
-                      plan_approval=bool(run.get("policy", {}).get("require_plan_approval")))
+                      plan_approval=bool(run.get("policy", {}).get("require_plan_approval")),
+                      web=self.web if web_access else None, python=self.python if python_access else None)
         if checkpoint is not None:
             tools.restore_evidence(checkpoint["confirmed"])
         label_queries_available = model.settings.mode == "fixture" and any(
@@ -530,6 +543,8 @@ class Runtime:
                 receipt_completion=receipt_mode, include_base=run.get("base_artifact") is not None,
                 answer_completion=answer_mode,
                 extra_tools=[tool.definition() for tool in mcp_tools.values()]
+                + ([self.web.definition()] if web_access and self.web is not None else [])
+                + ([self.python.definition()] if python_access and self.python is not None else [])
                 + ([loader_definition(selected_skills)] if selected_skills else []))
             pending_tools = {correction.call.name for correction in pending.values()}
             if pending_tools == {"number_calculate"}:
@@ -1017,7 +1032,7 @@ class Runtime:
                         await self._record(identity, "tool.failed", {"call_id": call.identity, "tool": call.name, "code": error.code})
                         await feedback(call, error, retryable=call.name in read_tools and error.code in {
                             "source_unavailable", "invalid_table", "invalid_calculation",
-                            "mcp_tool_error", "mcp_result_too_large",
+                            "mcp_tool_error", "mcp_result_too_large", *WEB_ERRORS, *SANDBOX_ERRORS,
                         })
                         continue
                     if (run["mode"] != "fixture" and call.name == "source_read"

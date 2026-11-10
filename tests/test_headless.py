@@ -63,3 +63,17 @@ def test_rejected_request_exits_two_without_events(tmp_path: Path) -> None:
     assert missing.returncode == 2 and missing.stdout == ""
     assert "missing.md" in missing.stderr or "source" in missing.stderr.lower()
     assert no_token.returncode == 2 and "AGENT_HARNESS_TOKEN" in no_token.stderr
+
+
+def test_unattended_run_stops_at_an_approval_instead_of_waiting(tmp_path: Path) -> None:
+    source = _source(tmp_path)
+    with running_service(tmp_path / "store") as service:
+        result = _headless(str(service.client.base_url), "--workspace", str(source), "--source", "facts.md",
+                           "--task", "Save a source snapshot.", "--require-publish-approval", "--unattended")
+
+    assert result.returncode == 5, result.stderr
+    summary = json.loads(result.stdout.splitlines()[-1])
+    assert summary["run"]["status"] == "cancelled" and summary["run"]["artifacts"] == []
+    assert summary["run"]["needs_approval"]["tool"] == "artifact_write"
+    assert len(summary["run"]["needs_approval"]["parameters_sha256"]) == 64
+    assert "--unattended cancels it" in result.stderr

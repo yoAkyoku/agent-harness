@@ -71,9 +71,17 @@ Token 用量來自每次回覆：Chat Completions 供應商回報 `prompt_tokens
 
 `hooks.py` 在啟動時載入 `--hooks-config`。Hook 可以是 HTTP webhook，或在加上 `--allow-command-hooks` 時使用 command：以 `create_subprocess_exec` 啟動的參數清單（絕不經過 shell；寫成指令字串會是設定錯誤），payload 從 stdin 傳入，只拿到最小環境變數加上 `passEnv`，工作目錄是 hooks 設定檔所在資料夾，逾時會被終止。結束碼非 0 或輸出不是 JSON 決定都視為拒絕。Command hooks 以使用者的權限執行，沒有沙箱。runtime 在所有內建守門（包括本步提供工具的檢查）之後、核准與派送之前執行 `before_tool` hooks，因此 hook 只會看到原本就會執行的呼叫，以及它們的正規化參數。每個相符 hook 的回覆都記錄為 `hook.decided`；任何一個 deny 會產生 `hook_denied`，這是會消耗修正額度、但不要求補做的修正（模型可以改做別的事）。Hooks 失敗時一律拒絕：端點連不上、逾時、非 200 回覆、無效 JSON、未知的決定或缺少憑證環境變數，都視為 deny。`after_tool` hooks 在 `tool.completed` 之後執行，收到結果摘要（不含來源文字），記錄為 `hook.notified`，失敗不會影響 Run。Hooks 不能修改參數，驗證器也從不參考它們。
 
+## 網頁
+
+整條網頁路徑都在 `web_fetch.py`。`WebFetcher.check` 只接受預設連接埠、不含帳密的 `https://` 網址；設定 `--web-allow-domain` 時須在允許的網域內；主機解析出的每個位址都必須是全域位址（`ipaddress.is_global`，IPv4 映射的 IPv6 以 IPv4 判斷，並排除多播）。連線後 `check_peer` 讀取實際到達的位址，不是公開位址就拒絕，補上解析與連線之間的空檔（DNS rebinding）。用戶端本身從不跟隨轉址；`fetch` 最多跟隨三次，每個目標都重新執行 `check`。只有應用程式有 fetcher（`--allow-web`）且 Run 的 policy 有 `web_access` 時，runtime 才提供這個工具；否則呼叫會在驗證時被當成未知工具，而准入時會以 `web_access_unavailable` 拒絕 `web_access`。結果是 `path` 為最終網址的證據，因此引用、多來源正文連結與驗證器都把它當成來源處理；續做的 Run 只接受與 `fetch` 產生格式完全相同的檢查點網頁。測試會替換傳輸層與解析器。
+
+## Python 沙箱
+
+`sandbox.py` 每次呼叫只組出一個 `docker run`（`PythonSandbox.command`），從不經過 shell。執行器可以替換：測試會記錄指令與暫存的檔案；在有 Docker 與映像的環境（CI 中為必跑）還有一個測試會啟動真實容器。暫存時只複製 Run 已准入的來源、逐一重新檢查雜湊，放進新的暫存資料夾，設為使用者 65534 可讀，呼叫後刪除。輸出會讀到結束，但只保留前 64 KiB，因此大量輸出不會塞滿記憶體；逾時時用戶端會以容器的唯一名稱執行 `docker kill`。結束碼 0 產生證據；125（Docker 無法啟動容器）為 `sandbox_unavailable`；其他結束碼為 `python_failed`，逾時為 `python_timeout`，兩者都可修正。和 `web_fetch` 一樣，只有應用程式有沙箱且 Run 的 policy 要求時才提供這個工具；續做的 Run 只接受程式碼、輸出文字與選定來源雜湊都相符的檢查點輸出。
+
 ## 無頭用戶端
 
-`agent_harness.headless` 只是一般的觀察者：透過 HTTP API 建立工作區、Session 與 Run，再以 `flow=ack` 讀取持久事件串流，逐筆確認，串流中斷時從最後的 cursor 重新接上（已輸出的序號會略過）。它原樣輸出事件為 NDJSON，並把終止狀態對應成退出碼。觀察者從不擁有執行，所以用戶端結束時 Run 仍會繼續。重新連線的路徑目前還沒有測試。
+`agent_harness.headless` 只是一般的觀察者：透過 HTTP API 建立工作區、Session 與 Run，再以 `flow=ack` 讀取持久事件串流，逐筆確認，串流中斷時從最後的 cursor 重新接上（已輸出的序號會略過）。它原樣輸出事件為 NDJSON，並把終止狀態對應成退出碼。觀察者從不擁有執行，所以用戶端結束時 Run 仍會繼續。重新連線的路徑目前還沒有測試。加上 `--unattended` 時，用戶端會在第一個 `approval.requested` 事件取消 Run 並以退出碼 5 結束，因此排程工作不會等待不在場的人。
 
 ## 執行與觀察分開
 

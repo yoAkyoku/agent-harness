@@ -87,6 +87,18 @@ docker run --rm -p 127.0.0.1:8787:8787 -e ANTHROPIC_API_KEY agent-harness --prov
 
 把工作區的固定做法寫在根目錄的 `AGENTS.md`（UTF-8，最多 8 KiB）。資料夾有這個檔案時，工作台會顯示「套用工作區的 AGENTS.md」勾選框與內容預覽；API 使用 `"project_instructions": true`，無頭模式用 `--project-instructions`。Run 開始時會固定記錄這份文字與 SHA-256，之後修改檔案不會影響執行中或續做的 Run，事件串流也會記錄套用的是哪個版本。這些指令只調整做法，放在 harness 規則之下，不能增加來源、工具或批准。
 
+### 讀取公開網頁
+
+網頁存取預設關閉。啟動工作台時加上 `--allow-web`（可再用 `--web-allow-domain example.com` 限定網域，可重複），再在 Run 勾選「允許讀取公開網頁」（API：`"web_access": true`，無頭模式：`--web`）。該 Run 才會拿到 `web_fetch`，每次讀一個 https 網頁：HTML 只保留可見文字（去除 script 與 style），最多下載 2 MiB、保留 256 KiB 文字，截斷時會標示 `[truncated: …]`。網頁成為帶網址、SHA-256 與擷取時間的證據，以 `[網址 EID]` 引用，並和其他來源一樣受驗證；網頁內容標示為不可信資料，絕不當成指令。
+
+請求只能到達公開網路。只接受預設連接埠的 `https://`，網址不得含帳密；主機解析出的每個位址都必須是公開位址（私有網段、本機、`169.254.169.254` 等鏈路本地位址、電信級 NAT 與保留網段一律拒絕），連線實際到達的位址也會再檢查一次，以防 DNS rebinding。轉址由程式逐次處理，最多三次，每次都重新檢查。只讀取文字回應。被拒絕或失敗的擷取會以可修正錯誤回饋給模型。
+
+### 在沙箱執行 Python
+
+表格工具涵蓋不到的計算（中位數、迴歸、重整表格），可以讓 Run 撰寫並執行 Python。預設關閉：先拉取映像（`docker pull python:3.12-slim`，或自備含 pandas 的映像），啟動工作台時加上 `--python-sandbox python:3.12-slim`（`docker` 不在 `PATH` 時再加 `--docker 路徑`），再在 Run 勾選「允許在隔離容器執行 Python」（API：`"python_sandbox": true`，無頭模式：`--python`）。工作台啟動時會確認映像存在。
+
+每次 `python_run` 都啟動全新容器：`--pull never`、無網路、唯讀根檔案系統、64 MiB 的 `/tmp`、移除所有 Linux capabilities、`no-new-privileges`、以使用者 65534 執行、記憶體 512 MiB（不含 swap）、1 顆 CPU、128 個行程、30 秒，逾時即強制終止容器。容器只看得到這個 Run 選定的來源：確認雜湊後複製，依工作區路徑以唯讀方式掛載在 `/data`。程式碼經由 stdin 傳入。結束碼為 0 的輸出成為證據（`[python_run EID]`），記錄程式碼、其 SHA-256 與可讀檔案的雜湊；輸出上限 64 KiB，截斷會標示。失敗或逾時會附上 stderr 結尾回饋給模型。隔離邊界是 Docker 容器，不是虛擬機。
+
 ### 不產生檔案、直接回答
 
 如果要的是答案而不是交付檔案，請選「直接回答」（API：`"completion_workflow": "answer"`，無頭模式：`--answer`）。模型不會拿到 `artifact_write`，而是以答案本身結束；答案必須以 `[來源 EID]` 引用所用的證據。每個被引用的 ID 都必須存在，答案也要通過與成果檔案相同的驗證器，沒有引用或引用錯誤的答案會退回模型修正。通過驗證的答案就是 Run 的結果，`answer.verified` 事件會記錄所引用證據的路徑與 SHA-256。這個模式需要真實模型，也不能搭配草稿核對。
@@ -116,7 +128,31 @@ export AGENT_HARNESS_TOKEN=...   # 工作台啟動時使用的權杖
 uv run python -m agent_harness.headless --workspace ./docs --source notes.md --task "把筆記整理成 summary.md"
 ```
 
-退出碼：`0` 完成、`1` 失敗、`2` 請求被拒或用法錯誤、`3` 已取消、`4` 已中斷。用戶端逐筆確認事件，串流中斷時從上次的 cursor 重新接上；結束用戶端不會停止 Run。
+退出碼：`0` 完成、`1` 失敗、`2` 請求被拒或用法錯誤、`3` 已取消、`4` 已中斷、`5` 需要核准（使用 `--unattended` 時）。用戶端逐筆確認事件，串流中斷時從上次的 cursor 重新接上；結束用戶端不會停止 Run。
+
+### 排程與無人值守執行
+
+本專案沒有內建排程器，而是由作業系統的排程工具呼叫無頭模式。讓工作台持續執行（例如登入時啟動），並在 `AGENT_HARNESS_TOKEN` 設定固定權杖；權杖放在只有自己帳號能讀的檔案，不要寫在排程定義裡。加上 `--unattended` 後，需要核准的 Run（計畫、發布或 `askTools` 的 MCP 呼叫）會被取消，工作以退出碼 `5` 結束並附上 `needs_approval`，而不是一直等待；需要人確認的事不會在沒人看的情況下執行。帶日期的 `--submission-key` 讓重試的排程回到同一個 Run，而不是再開一個。
+
+cron（Linux、macOS）：
+
+```bash
+0 7 * * 1  cd /srv/reports && AGENT_HARNESS_TOKEN="$(cat ~/.config/agent-harness/token)" uv run python -m agent_harness.headless --workspace /srv/reports --source sales.csv --task-file weekly.txt --unattended --submission-key "weekly-$(date +\%F)" >> runs.ndjson
+```
+
+Windows 工作排程器，指令寫在 `C:\reports\weekly.ps1`：
+
+```powershell
+$env:AGENT_HARNESS_TOKEN = Get-Content "$env:APPDATA\agent-harness\token"
+uv run python -m agent_harness.headless --workspace C:\reports --source sales.csv --task-file weekly.txt --unattended --submission-key "weekly-$(Get-Date -Format yyyy-MM-dd)" >> C:\reports\runs.ndjson
+exit $LASTEXITCODE
+```
+
+```powershell
+schtasks /Create /TN "Weekly report" /SC WEEKLY /D MON /ST 07:00 /TR "powershell -NoProfile -File C:\reports\weekly.ps1"
+```
+
+退出碼讓排程工具知道結果；Run 的每個事件都在 NDJSON 檔與工作台裡。
 
 ### MCP 工具
 
@@ -191,7 +227,9 @@ docker build -f Dockerfile.test --secret id=ca,src=host-ca.pem -t agent-harness-
 
 ## 限制
 
-單一使用者、只綁定 localhost 並需每次啟動的權杖、受限工具：每個任務最多八份來源（UTF-8 文字每份 256 KiB；CSV 與 Excel 表格每份 20 MiB、200,000 列，模型讀到的是預覽；PDF、Word、PowerPoint 每份 10 MiB 且擷取文字不超過 256 KiB；圖片與掃描 PDF 需加上 `--tesseract`）；沒有 shell、瀏覽器或網路工具，沒有多租戶或分散式 worker，也不宣稱正式環境的效能。引用能證明數值來源，不代表每句話都正確。已發布成果不等於整個 Run 完成。中斷時效果未知的操作不會自動重送或回滾，續做必須明確建立新 Run。
+單一使用者、只綁定 localhost 並需每次啟動的權杖、受限工具：每個任務最多八份來源（UTF-8 文字每份 256 KiB；CSV 與 Excel 表格每份 20 MiB、200,000 列，模型讀到的是預覽；PDF、Word、PowerPoint 每份 10 MiB 且擷取文字不超過 256 KiB；圖片與掃描 PDF 需加上 `--tesseract`）；沒有 shell 或瀏覽器工具（Python 只能在需選擇開啟的 Docker 沙箱執行），網路存取只有需選擇開啟、僅限公開 https 網頁的 `web_fetch`，沒有多租戶或分散式 worker，也不宣稱正式環境的效能。引用能證明數值來源，不代表每句話都正確。已發布成果不等於整個 Run 完成。中斷時效果未知的操作不會自動重送或回滾，續做必須明確建立新 Run。
+
+為什麼不做多使用者或雲端部署：上述保證建立在「一個人、一台機器、一份本機儲存」之上。核准綁定在操作的那個人；來源是那個人本來就能讀的檔案；事件紀錄與成果都在一份有租約保護的 SQLite 儲存裡。共用服務需要帳號與角色、各租戶隔離的工作區／儲存／權杖／沙箱、跨 worker 的工作佇列、機密管理，以及「誰核准了什麼」的稽核。那是以這個核心為基礎的另一個產品，不是加個旗標就能完成，因此刻意不做，而不是做一半。
 
 ## 授權
 

@@ -40,6 +40,8 @@ from .ownership import StoreLease
 from .runtime import Runtime
 from .sources import MAX_SOURCES, admit_sources, catalog, configure_ocr, read_source, relevant_excerpts, workspace_root
 from .storage import Store
+from .sandbox import PythonSandbox, Runner
+from .web_fetch import Resolver, WebFetcher
 
 # Host names the app answers to; anything else (DNS rebinding) is refused.
 TRUSTED_HOSTS: tuple[str, ...] = ("127.0.0.1", "localhost")
@@ -84,6 +86,10 @@ class RunInput(BaseModel):
     effort: Literal["low", "medium", "high", "xhigh", "max"] | None = None
     # Installed skills whose descriptions this Run sees; their instructions load on request.
     skills: list[Annotated[str, Field(pattern=SKILL_NAME.pattern, max_length=64)]] = Field(default_factory=list, max_length=16)
+    # Offer web_fetch (public https pages as evidence); the workbench must also be started with web access.
+    web_access: bool = Field(default=False, strict=True)
+    # Offer python_run (a locked-down Docker container); the workbench must be started with --python-sandbox.
+    python_sandbox: bool = Field(default=False, strict=True)
 
 
 class ResumeInput(BaseModel):
@@ -139,6 +145,13 @@ def create_app(
     ocr_command: list[str] | None = None,
     ocr_languages: str = "eng",
     oauth_redirect_url: str | None = None,
+    allow_web: bool = False,
+    web_allow_domains: tuple[str, ...] = (),
+    web_transport: httpx.AsyncBaseTransport | None = None,
+    web_resolver: Resolver | None = None,
+    python_image: str | None = None,
+    docker_command: str = "docker",
+    sandbox_runner: Runner | None = None,
 ) -> FastAPI:
     """Build the workbench app.
 
@@ -156,6 +169,12 @@ def create_app(
 
     `prices` maps a model name to US dollars per million input and output tokens;
     a Run pins its model's price at admission and reports an estimated cost.
+
+    `allow_web` lets Runs that ask for it use web_fetch on public https pages (optionally only
+    `web_allow_domains`); `web_transport` and `web_resolver` replace the network in tests.
+
+    `python_image` enables python_run in that (already pulled) Docker image for Runs that ask;
+    `sandbox_runner` replaces Docker in tests.
     """
     if access_token is not None and len(access_token) < MIN_TOKEN_LENGTH:
         raise ValueError(f"The access token must have at least {MIN_TOKEN_LENGTH} characters.")
@@ -172,6 +191,10 @@ def create_app(
     configure_ocr(ocr_command, ocr_languages)  # PDFs without a text layer go through OCR only when this is set
     hooks = (HookRunner.from_config(hooks_config, hooks_transport, allow_commands=allow_command_hooks)
              if hooks_config is not None else None)
+    web = (WebFetcher(allowed_domains=web_allow_domains, transport=web_transport, resolver=web_resolver)
+           if allow_web else None)
+    python = (PythonSandbox(python_image, docker=docker_command, runner=sandbox_runner)
+              if python_image is not None else None)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -186,13 +209,15 @@ def create_app(
                 await storage.recover_interrupted()
                 if mcp is not None:
                     await mcp.start()
+                if python is not None:
+                    await python.check()
                 if settings.mode == "anthropic":
                     from .anthropic_adapter import AnthropicAdapter
 
                     claude = AnthropicAdapter(settings, transport=anthropic_transport)
                     await claude.prepare()
                     model = claude
-                    runtime = Runtime(storage, model, hold_first_tool=hold_first_tool, mcp=mcp, skills=skills, hooks=hooks)
+                    runtime = Runtime(storage, model, hold_first_tool=hold_first_tool, mcp=mcp, skills=skills, hooks=hooks, web=web, python=python)
                     try:
                         yield
                     finally:
@@ -204,7 +229,7 @@ def create_app(
                         adapter = ModelAdapter(client, settings, transport_fixture=transport is not None)
                         await adapter.prepare()
                         model = adapter
-                        runtime = Runtime(storage, model, hold_first_tool=hold_first_tool, mcp=mcp, skills=skills, hooks=hooks)
+                        runtime = Runtime(storage, model, hold_first_tool=hold_first_tool, mcp=mcp, skills=skills, hooks=hooks, web=web, python=python)
                         try:
                             yield
                         finally:
@@ -214,6 +239,8 @@ def create_app(
                     await mcp.close()
                 if hooks is not None:
                     await hooks.close()
+                if web is not None:
+                    await web.close()
                 await storage.close()
         finally:
             await asyncio.to_thread(lease.close)
@@ -240,7 +267,9 @@ def create_app(
                 "mcp": mcp.status() if mcp is not None else {"servers": {}},
                 "skills": skills.status() if skills is not None else {"available": [], "excluded": []},
                 "prices": prices or {}, "hooks": hooks.status() if hooks is not None else [],
-                "ocr": {"enabled": ocr_command is not None, **({"languages": ocr_languages} if ocr_command else {})}}
+                "ocr": {"enabled": ocr_command is not None, **({"languages": ocr_languages} if ocr_command else {})},
+                "web": web.status() if web is not None else {"enabled": False},
+                "python": python.status() if python is not None else {"enabled": False}}
 
     @app.post("/api/workspaces", status_code=201)
     async def add_workspace(body: WorkspaceInput) -> dict[str, Any]:
@@ -390,7 +419,7 @@ def create_app(
         for optional in ("model", "effort"):
             if effective[optional] is None:
                 del effective[optional]
-        for flag in ("require_plan_approval", "project_instructions"):
+        for flag in ("require_plan_approval", "project_instructions", "web_access", "python_sandbox"):
             if not effective[flag]:
                 del effective[flag]
         if not body.skills:
@@ -435,6 +464,14 @@ def create_app(
                     raise RunFailure("skill_unavailable", "No skills directory is configured for this workbench.")
                 skills.select(body.skills)
                 policy["skills"] = sorted(set(body.skills))
+            if body.web_access:
+                if web is None:
+                    raise RunFailure("web_access_unavailable", "Web access is off; start the workbench with --allow-web.")
+                policy["web_access"] = True
+            if body.python_sandbox:
+                if python is None:
+                    raise RunFailure("python_sandbox_unavailable", "No Python sandbox; start the workbench with --python-sandbox IMAGE.")
+                policy["python_sandbox"] = True
             run_model = dict(model.info)
             choices = model.info.get("choices", {})
             if body.model is not None and body.model != model.info["name"]:

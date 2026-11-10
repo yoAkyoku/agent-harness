@@ -6,6 +6,9 @@
 Every saved event is printed as one JSON line, exactly as the workbench streams it,
 followed by one `{"kind": "headless.result", ...}` line. The exit code reports the
 outcome. The client only observes: stopping it does not stop the Run.
+
+For scheduled jobs, --unattended never leaves a Run waiting for someone to approve: when the Run
+asks for an approval, the client cancels it and exits with code 5 (needs approval).
 """
 from __future__ import annotations
 
@@ -16,6 +19,7 @@ import json
 import os
 from pathlib import Path
 import sys
+from collections.abc import Awaitable, Callable
 from typing import Any, TextIO
 from urllib.parse import urlsplit
 from uuid import uuid4
@@ -27,6 +31,7 @@ from websockets.exceptions import ConnectionClosedError, InvalidHandshake
 from .local import TOKEN_ENV
 
 EXIT_CODES = {"completed": 0, "failed": 1, "cancelled": 3, "interrupted": 4}
+NEEDS_APPROVAL = 5
 REQUEST_ERROR = 2
 LOOPBACK = {"127.0.0.1", "localhost", "::1"}
 RECONNECT_ATTEMPTS = 5
@@ -42,7 +47,7 @@ def parser() -> argparse.ArgumentParser:
         prog="python -m agent_harness.headless",
         description="Run one task on a running workbench and print its events as NDJSON on stdout.",
         epilog=f"The access token is read from {TOKEN_ENV}. Exit codes: 0 completed, 1 failed, "
-               "2 refused request or usage error, 3 cancelled, 4 interrupted.")
+               "2 refused request or usage error, 3 cancelled, 4 interrupted, 5 needed an approval (--unattended).")
     cli.add_argument("--url", default="http://127.0.0.1:8787", help="Workbench address (default %(default)s).")
     cli.add_argument("--workspace", required=True, help="Folder that holds the sources.")
     cli.add_argument("--source", dest="sources", action="append", required=True,
@@ -58,6 +63,14 @@ def parser() -> argparse.ArgumentParser:
                      help="Apply the workspace's AGENTS.md to this Run.")
     cli.add_argument("--answer", action="store_true",
                      help="Answer directly instead of publishing a file; the answer must cite evidence.")
+    cli.add_argument("--web", action="store_true",
+                     help="Let this Run read public https pages (the workbench must run with --allow-web).")
+    cli.add_argument("--python", action="store_true",
+                     help="Let this Run use the Python sandbox (the workbench must run with --python-sandbox).")
+    cli.add_argument("--require-publish-approval", action="store_true",
+                     help="Ask for an approval before the artifact is saved (with --unattended the Run then stops at that point).")
+    cli.add_argument("--unattended", action="store_true",
+                     help="For scheduled runs: if the Run asks for an approval, cancel it and exit 5 instead of waiting.")
     cli.add_argument("--max-steps", type=int, help="Model decision limit for this Run.")
     cli.add_argument("--max-tool-calls", type=int, help="Tool call limit for this Run.")
     cli.add_argument("--submission-key", help="Re-sending the same key returns the original Run instead of starting another.")
@@ -93,7 +106,8 @@ async def _post(client: httpx.AsyncClient, path: str, body: dict[str, Any]) -> A
     return response.json()
 
 
-async def _stream(base: str, headers: dict[str, str], run_id: str, out: TextIO) -> None:
+async def _stream(base: str, headers: dict[str, str], run_id: str, out: TextIO,
+                  on_event: Callable[[dict[str, Any]], Awaitable[None]] | None = None) -> None:
     """Print events from the durable stream, acknowledging each; reconnect from the last cursor."""
     socket_base = "ws" + base[len("http"):]
     last = 0
@@ -110,6 +124,8 @@ async def _stream(base: str, headers: dict[str, str], run_id: str, out: TextIO) 
                     out.flush()
                     last = event["sequence"]
                     failures = 0
+                    if on_event is not None:
+                        await on_event(event)
                     await socket.send(json.dumps({"ack": last}))
             return  # a normal close: the Run is terminal and every event was delivered
         except (OSError, ConnectionClosedError, InvalidHandshake, TimeoutError) as error:
@@ -139,12 +155,26 @@ async def run(arguments: argparse.Namespace, task: str, out: TextIO) -> int:
         body["project_instructions"] = True
     if arguments.answer:
         body["completion_workflow"] = "answer"
+    if arguments.require_publish_approval:
+        body["require_publish_approval"] = True
+    if arguments.web:
+        body["web_access"] = True
+    if arguments.python:
+        body["python_sandbox"] = True
     async with httpx.AsyncClient(base_url=base, headers=headers, trust_env=False, timeout=30) as client:
         workspace = await _post(client, "/api/workspaces", {"path": str(Path(arguments.workspace).resolve())})
         session = await _post(client, "/api/sessions", {"workspace_id": workspace["id"]})
         started = await _post(client, f"/api/sessions/{session['id']}/runs", body)
         print(f"Run {started['id']} accepted; events follow on stdout.", file=sys.stderr, flush=True)
-        await _stream(base, headers, started["id"], out)
+        needed: list[dict[str, Any]] = []
+
+        async def stop_at_approval(event: dict[str, Any]) -> None:
+            if event.get("kind") == "approval.requested" and not needed:
+                needed.append(event.get("data") or {})
+                print("The Run asked for an approval; --unattended cancels it.", file=sys.stderr, flush=True)
+                await _post(client, f"/api/runs/{started['id']}/cancel", {})
+
+        await _stream(base, headers, started["id"], out, stop_at_approval if arguments.unattended else None)
         response = await client.get(f"/api/runs/{started['id']}")
         response.raise_for_status()
         final = response.json()
@@ -152,11 +182,15 @@ async def run(arguments: argparse.Namespace, task: str, out: TextIO) -> int:
         "id": final["id"], "status": final["status"], "result": final.get("result"), "error": final.get("error"),
         "usage": final.get("usage"), "token_usage": final.get("token_usage"),
         **({"estimated_cost": final["estimated_cost"]} if final.get("estimated_cost") else {}),
+        **({"needs_approval": {"tool": needed[0].get("tool"), "effect": (needed[0].get("scope") or {}).get("effect"),
+                               "parameters_sha256": needed[0].get("parameters_sha256")}} if needed else {}),
         "artifacts": [{"name": artifact["name"], "sha256": artifact["sha256"], "download_url": base + artifact["download_url"]}
                       for artifact in final.get("artifacts", [])],
     }}
     out.write(json.dumps(summary, ensure_ascii=False, separators=(",", ":")) + "\n")
     out.flush()
+    if needed and final["status"] == "cancelled":
+        return NEEDS_APPROVAL
     return EXIT_CODES.get(final["status"], EXIT_CODES["failed"])
 
 

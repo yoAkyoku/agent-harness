@@ -153,6 +153,11 @@ def _read_raw(root: Path, relative: str) -> tuple[str, bytes]:
     return suffix, raw
 
 
+def source_bytes(root: Path, relative: str) -> bytes:
+    """A source's bytes, under the same scope and size checks as every other read."""
+    return _read_raw(root, relative)[1]
+
+
 def read_source(root: Path, relative: str) -> dict[str, Any]:
     """What the model reads of a source: its text, or a labelled preview of a large table."""
     try:

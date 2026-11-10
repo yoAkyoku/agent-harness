@@ -26,6 +26,8 @@ const EN = {
   "本機任務工作台": "Local task workbench",
   "介面語言": "Language",
   "上傳檔案": "Upload files",
+  "允許在隔離容器執行 Python（無網路、來源唯讀，輸出需引用）": "Allow running Python in an isolated container (no network, sources read-only, output must be cited)",
+  "允許讀取公開網頁（web_fetch；內容視為不可信資料，需引用網址）": "Allow reading public web pages (web_fetch; their text is untrusted and must be cited by URL)",
   "直接回答（不產生檔案，需引用證據）": "Answer directly (no file; facts must cite evidence)",
   "直接回答須由真實模型引用證據作答；固定示範流程請使用模型摘要回覆。": "A direct answer needs a real model that cites evidence; with the scripted fixture, use the model summary.",
   "直接回答不會發布檔案，不能搭配草稿核對。": "A direct answer publishes no file, so it cannot be combined with draft review.",

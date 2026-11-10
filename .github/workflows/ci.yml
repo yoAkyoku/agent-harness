@@ -29,6 +29,9 @@ jobs:
       - name: Install Tesseract for the real OCR test
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng
+      - name: Pull the image for the real Python sandbox test
+        if: runner.os == 'Linux'
+        run: docker pull python:3.12-slim
       - name: Type-check
         run: uv run mypy
       - name: Check workbench JavaScript
@@ -40,6 +43,8 @@ jobs:
         env:
           # On Linux the real OCR test must run, not skip.
           REQUIRE_TESSERACT: ${{ runner.os == 'Linux' && '1' || '' }}
+          # Likewise the real Docker sandbox test (Docker is preinstalled on the Ubuntu runner).
+          REQUIRE_DOCKER_SANDBOX: ${{ runner.os == 'Linux' && '1' || '' }}
 
   docker:
     name: Docker image

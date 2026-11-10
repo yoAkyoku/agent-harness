@@ -30,7 +30,7 @@ function updateControls() {
   memories.setBusy(locked);
   $("start-task").disabled = state.initializing || state.busy || (!state.pendingSubmission && (!state.workspace || !state.selected.size));
   $("start-task").firstChild.textContent = (state.busy ? t("執行中") : state.pendingSubmission ? t("重試這次提交") : state.base ? t("建立修改版本") : t("開始任務")) + " ";
-  for (const id of ["new-task", "lang-select", "upload-files", "use-demo", "workspace-path", "task-input", "require-plan-approval", "require-publish-approval", "publication-workflow", "completion-workflow", "run-history", "base-artifact", "revise-artifact"]) $(id).disabled = locked;
+  for (const id of ["new-task", "lang-select", "upload-files", "use-demo", "workspace-path", "task-input", "require-plan-approval", "require-publish-approval", "web-access", "python-sandbox", "publication-workflow", "completion-workflow", "run-history", "base-artifact", "revise-artifact"]) $(id).disabled = locked;
   $("workspace-form").querySelector("button").disabled = locked;
   document.querySelectorAll(".session-button").forEach((button) => { button.disabled = locked; });
   document.querySelectorAll(".source-item input").forEach((input) => { input.disabled = locked || (state.selected.size >= 8 && !input.checked); });
@@ -61,6 +61,7 @@ function newTask() {
   $("completion-workflow").value = "model_summary";
   state.approvalPending = false; state.cancelPending = false;
   $("approval-card").hidden = true; $("require-publish-approval").checked = true; $("require-plan-approval").checked = false;
+  $("web-access").checked = false; $("python-sandbox").checked = false;
   $("use-instructions").checked = Boolean(state.instructions?.instructions);
   $("execution").hidden = true; resetPlan(); $("timeline").replaceChildren(); resetPreview(); clearError();
   $("task-input").value = t("讀取已選來源，保存一份可檢查的來源快照。");
@@ -254,6 +255,8 @@ async function openHistoricalRun(identity) {
   $("require-publish-approval").checked = Boolean(state.run.policy?.require_publish_approval);
   $("require-plan-approval").checked = Boolean(state.run.policy?.require_plan_approval);
   $("use-instructions").checked = Boolean(state.run.policy?.project_instructions);
+  $("web-access").checked = Boolean(state.run.policy?.web_access);
+  $("python-sandbox").checked = Boolean(state.run.policy?.python_sandbox);
   $("publication-workflow").value = state.run.policy?.publication_workflow || "direct";
   $("completion-workflow").value = state.run.policy?.completion_workflow || "model_summary";
   await refreshSessionRuns();
@@ -315,6 +318,8 @@ async function startTask(event) {
       const body = {task: $("task-input").value, sources: [...state.selected], require_publish_approval: $("require-publish-approval").checked, require_plan_approval: $("require-plan-approval").checked, publication_workflow: $("publication-workflow").value, completion_workflow: $("completion-workflow").value, submission_key: crypto.randomUUID()};
       if (state.mcpSelected.size) body.mcp_tools = [...state.mcpSelected];
       if (state.instructions?.instructions && $("use-instructions").checked) body.project_instructions = true;
+      if (state.config.web?.enabled && $("web-access").checked) body.web_access = true;
+      if (state.config.python?.enabled && $("python-sandbox").checked) body.python_sandbox = true;
       const slash = body.task.trim().match(/^\/([a-z0-9]+(?:-[a-z0-9]+)*)(?:\s|$)/);
       if (slash && availableSkills().some((skill) => skill.name === slash[1])) { state.skillSelected.add(slash[1]); renderSkills(); }
       if (state.skillSelected.size) body.skills = [...state.skillSelected];
@@ -371,6 +376,8 @@ async function restorePendingSubmission() {
   $("require-publish-approval").checked = pending.body.require_publish_approval;
   $("require-plan-approval").checked = Boolean(pending.body.require_plan_approval);
   $("use-instructions").checked = Boolean(pending.body.project_instructions);
+  $("web-access").checked = Boolean(pending.body.web_access);
+  $("python-sandbox").checked = Boolean(pending.body.python_sandbox);
   $("publication-workflow").value = pending.body.publication_workflow || "direct";
   $("completion-workflow").value = pending.body.completion_workflow || "model_summary";
   state.base = pending.body.base_artifact || null;
@@ -488,7 +495,9 @@ async function resumeRun() {
     body: {task: run.task, sources: run.sources.map((source) => source.path), require_publish_approval: Boolean(run.policy?.require_publish_approval), require_plan_approval: Boolean(run.policy?.require_plan_approval), publication_workflow: run.policy?.publication_workflow || "direct", completion_workflow: run.policy?.completion_workflow || "model_summary", submission_key: crypto.randomUUID(),
       ...(run.policy?.mcp_tools?.length ? {mcp_tools: run.policy.mcp_tools} : {}),
       ...(run.policy?.skills?.length ? {skills: run.policy.skills} : {}),
-      ...(run.policy?.project_instructions ? {project_instructions: true} : {})}};
+      ...(run.policy?.project_instructions ? {project_instructions: true} : {}),
+      ...(run.policy?.web_access ? {web_access: true} : {}),
+      ...(run.policy?.python_sandbox ? {python_sandbox: true} : {})}};
   try {
     localStorage.setItem(pendingStorageKey, JSON.stringify(pending)); state.pendingSubmission = pending;
     await startTask({preventDefault() {}});
@@ -679,6 +688,8 @@ try {
   $("mode-description").textContent = local ? t("先選來源，再交代資料分析或文件整理任務。計畫、工具與成果可逐筆檢查；模型輸出仍需對照來源。") : t("依固定步驟讀取已選來源、保存來源快照；此模式不會理解任意任務。");
   if (state.config.validation?.fault_once_source_read) $("mode-description").textContent += ` ${t("受控驗證模式：每筆任務首次來源讀取會刻意失敗一次。")}`;
   if (state.config.validation?.hold_first_tool) $("mode-description").textContent += ` ${t("受控同步點驗證：本服務首個指定工具會暫停，供取消／併發觀察。")}`;
+  $("web-access-option").hidden = !state.config.web?.enabled;
+  $("python-sandbox-option").hidden = !state.config.python?.enabled;
   renderMcpTools(); selectSkills(); renderModelChoices();
   await refreshSessions(); await restorePendingSubmission(); updateControls();
 } catch (error) { showError(error); }

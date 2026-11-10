@@ -56,6 +56,14 @@ def parser() -> argparse.ArgumentParser:
     parser.add_argument("--tesseract", type=Path,
                         help="A local Tesseract program; PDFs without a text layer are then read through OCR.")
     parser.add_argument("--ocr-languages", help="Tesseract language codes joined by +, such as eng+chi_tra (default eng).")
+    parser.add_argument("--allow-web", action="store_true",
+                        help="Let Runs that ask for it read public https pages with web_fetch (private and local addresses are always refused).")
+    parser.add_argument("--web-allow-domain", dest="web_domains", action="append", default=[],
+                        help="Limit web_fetch to this domain and its subdomains; repeat for more. Needs --allow-web.")
+    parser.add_argument("--python-sandbox", metavar="IMAGE",
+                        help="Let Runs that ask for it run Python in this Docker image (pull it first): no network, "
+                             "selected sources read-only, time and memory limits.")
+    parser.add_argument("--docker", default="docker", help="The Docker command for --python-sandbox (default %(default)s).")
     parser.add_argument("--allow-command-hooks", action="store_true",
                         help="Allow hooks that start local programs (argument lists, never a shell) from --hooks-config.")
     parser.add_argument("--fault-once-source-read", action="store_true", help="Controlled validation: fail each Run's first source_read before filesystem access.")
@@ -75,6 +83,28 @@ def build_ocr(arguments: argparse.Namespace) -> list[str] | None:
     if arguments.ocr_languages is not None and not re.fullmatch(r"[A-Za-z_]{2,20}(\+[A-Za-z_]{2,20}){0,7}", arguments.ocr_languages):
         raise ValueError("--ocr-languages takes Tesseract language codes joined by +, such as eng+chi_tra.")
     return [str(program)]
+
+
+def build_web_domains(arguments: argparse.Namespace) -> tuple[str, ...]:
+    """Domains from --web-allow-domain; raises ValueError with a user-facing reason."""
+    if arguments.web_domains and not arguments.allow_web:
+        raise ValueError("--web-allow-domain needs --allow-web.")
+    domains = tuple(domain.lower().strip(".") for domain in arguments.web_domains)
+    label = r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
+    for domain in domains:
+        if not re.fullmatch(rf"{label}(?:\.{label})+", domain):
+            raise ValueError(f"--web-allow-domain {domain!r} must be a domain name such as example.com.")
+    return domains
+
+
+def build_python_image(arguments: argparse.Namespace) -> str | None:
+    """The Docker image from --python-sandbox; raises ValueError with a user-facing reason."""
+    image = arguments.python_sandbox
+    if image is None:
+        return None
+    if not re.fullmatch(r"[a-z0-9][a-z0-9._/:@-]{0,254}", image):
+        raise ValueError("--python-sandbox takes a Docker image name such as python:3.12-slim.")
+    return str(image)
 
 
 def build_prices(arguments: argparse.Namespace, settings: ModelSettings) -> dict[str, dict[str, float]]:
@@ -149,6 +179,8 @@ def main() -> None:
         settings = build_settings(arguments)
         prices = build_prices(arguments, settings)
         ocr_command = build_ocr(arguments)
+        web_domains = build_web_domains(arguments)
+        python_image = build_python_image(arguments)
     except ValueError as error:
         cli.error(str(error))
     configured = os.environ.get(TOKEN_ENV)
@@ -161,7 +193,9 @@ def main() -> None:
                          skills_dir=arguments.skills_dir, prices=prices, hooks_config=arguments.hooks_config,
                          allow_command_hooks=arguments.allow_command_hooks,
                          ocr_command=ocr_command, ocr_languages=arguments.ocr_languages or "eng",
-                         oauth_redirect_url=f"http://127.0.0.1:{arguments.port}{OAUTH_CALLBACK_PATH}")
+                         oauth_redirect_url=f"http://127.0.0.1:{arguments.port}{OAUTH_CALLBACK_PATH}",
+                         allow_web=arguments.allow_web, web_allow_domains=web_domains,
+                         python_image=python_image, docker_command=arguments.docker)
     except ValueError as error:
         cli.error(str(error))
     shown = "<the value of " + TOKEN_ENV + ">" if configured else token

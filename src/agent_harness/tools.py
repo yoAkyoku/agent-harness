@@ -19,6 +19,8 @@ from .sources import (MAX_SOURCE_BYTES, MAX_SOURCE_PATH, MAX_SOURCES, TABLE_EXTE
                       query_source_labels, read_source, read_table)
 from .storage import Record, Store
 from .tables import ratio_percent, table_result
+from .sandbox import PARAMETERS as PYTHON_PARAMETERS, TOOL_NAME as PYTHON_TOOL, PythonSandbox, is_run_evidence
+from .web_fetch import PARAMETERS as WEB_PARAMETERS, TOOL_NAME as WEB_TOOL, WebFetcher, is_page_evidence
 
 
 def _table_cells(line: str) -> list[str]:
@@ -367,8 +369,11 @@ class Tools:
                  fault_once_source_read: bool = False, receipt_completion: bool = False, answer_completion: bool = False,
                  base_artifact: Record | None = None, mcp_tools: dict[str, McpTool] | None = None,
                  mcp_hub: McpHub | None = None, skills: dict[str, Skill] | None = None,
-                 plan_approval: bool = False) -> None:
+                 plan_approval: bool = False, web: WebFetcher | None = None,
+                 python: PythonSandbox | None = None) -> None:
         self.store = store
+        self.web = web  # set only when the workbench allows web access and this Run asked for it
+        self.python = python  # likewise for the Docker sandbox
         # With plan approval, a plan the user has not approved needs a single-use approval;
         # `accepted_plan` is the last plan this Run saved (so, with plan approval, the last approved one).
         self.plan_approval = plan_approval
@@ -406,6 +411,13 @@ class Tools:
                 expected = mcp_evidence(self.mcp_tools[call["tool"]], result.get("arguments", {}), result.get("text", ""))
                 if {key: value for key, value in result.items() if key != "evidence_id"} != expected:
                     raise RunFailure("checkpoint_evidence_invalid", "Restored MCP evidence must match its recorded text and tool.")
+            elif call["tool"] == WEB_TOOL:
+                if not is_page_evidence(result):
+                    raise RunFailure("checkpoint_evidence_invalid", "Restored web evidence is not a fetched page record.")
+            elif call["tool"] == PYTHON_TOOL:
+                if not is_run_evidence(result) or any(
+                        self.sources.get(item.get("path"), {}).get("sha256") != item.get("sha256") for item in result["data_files"]):
+                    raise RunFailure("checkpoint_evidence_invalid", "Restored sandbox evidence must match selected source versions.")
             elif call["tool"] not in {"source_read", "table_inspect", "table_aggregate", "number_calculate", "base_artifact_read"}:
                 raise RunFailure("checkpoint_evidence_invalid", "The checkpoint contains an unsupported evidence producer.")
             elif call["tool"] == "base_artifact_read":
@@ -480,6 +492,19 @@ class Tools:
                 mcp_fields = tuple(str(part) for part in list(error.absolute_path)[:1]) or tuple(call.arguments)
                 raise RunFailure("invalid_arguments", f"Invalid MCP tool input at {error.json_path}: {error.message[:200]}",
                                  correctable_fields=mcp_fields) from error
+            return
+        if call.name == WEB_TOOL and self.web is not None:
+            try:
+                Draft202012Validator(WEB_PARAMETERS).validate(call.arguments)
+            except ValidationError as error:
+                raise RunFailure("invalid_arguments", "web_fetch takes one https:// URL.", correctable_fields=("url",)) from error
+            return
+        if call.name == PYTHON_TOOL and self.python is not None:
+            try:
+                Draft202012Validator(PYTHON_PARAMETERS).validate(call.arguments)
+            except ValidationError as error:
+                raise RunFailure("invalid_arguments", "python_run takes non-empty code of at most 20000 characters.",
+                                 correctable_fields=("code",)) from error
             return
         if call.name not in DEFINITIONS or (call.name == "base_artifact_read" and self.base_artifact is None):
             raise RunFailure("unknown_tool", "The requested tool is not available to this Run.")
@@ -564,6 +589,8 @@ class Tools:
             "artifact_directory": str(self.store.directory / "artifacts"),
             "effect": ((("external_effect" if self.mcp_tools[call.name].approval else "read_only"))
                        if call.name in self.mcp_tools else "read_only" if call.name == LOADER and self.skills
+                       else "read_only" if call.name == WEB_TOOL and self.web is not None
+                       else "read_only" if call.name == PYTHON_TOOL and self.python is not None
                        else DEFINITIONS[call.name]["effect"]),
             "sources": deepcopy(list(self.sources.values()))}
         if call.name in self.mcp_tools:
@@ -605,6 +632,10 @@ class Tools:
             if self.mcp_hub is None:
                 raise RunFailure("mcp_unavailable", "No MCP servers are connected.")
             return self._evidence(await self.mcp_hub.call(self.mcp_tools[call.name], prepared.arguments))
+        if call.name == WEB_TOOL and self.web is not None:
+            return self._evidence(await self.web.fetch(prepared.arguments["url"]))
+        if call.name == PYTHON_TOOL and self.python is not None:
+            return self._evidence(await self.python.run(prepared.arguments["code"], self.root, list(self.sources.values())))
         return await self.actions[call.name](prepared.arguments)
 
     async def _list(self, arguments: Record) -> Record:

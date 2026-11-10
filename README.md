@@ -87,6 +87,18 @@ Tick “Let me approve the plan before sources are read and the Run proceeds”,
 
 Put house rules for a workspace in an `AGENTS.md` at its root (UTF-8, at most 8 KiB). When the folder has one, the workbench shows it with an “Apply the workspace's AGENTS.md” checkbox and a preview; the API takes `"project_instructions": true`, and headless mode `--project-instructions`. The Run pins the text and its SHA-256 when it starts, so editing the file later does not change a running or resumed Run, and the event stream records which version applied. The instructions shape how the work is done; they are placed below the harness rules and cannot add sources, tools or approvals.
 
+### Reading public web pages
+
+Web access is off by default. Start the workbench with `--allow-web` (optionally `--web-allow-domain example.com`, repeatable, to stay within named domains), then tick “Allow reading public web pages” for a Run (API: `"web_access": true`, headless: `--web`). The Run is then offered `web_fetch`, which reads one https page: HTML is reduced to its visible text (scripts and styles dropped), at most 2 MiB is downloaded and 256 KiB of text kept, and a cut is labelled `[truncated: …]`. The page becomes evidence with its URL, SHA-256 and fetch time, cited as `[URL EID]` and checked like any source; its text is labelled untrusted data, never instructions.
+
+Requests can only reach the public internet. Only `https://` on the default port, without credentials in the URL; every address the host resolves to must be public (private, loopback, link-local such as `169.254.169.254`, carrier-grade NAT and reserved ranges are refused), and the address the connection actually reached is checked again, against DNS rebinding. Redirects are followed by hand, at most three, each checked the same way. Only text responses are read. A refused or failed fetch goes back to the model as a correctable error.
+
+### Running Python in a sandbox
+
+For calculations the table tools do not cover (a median, a regression, a reshaped table), a Run can write and run Python. It is off by default: pull an image (`docker pull python:3.12-slim`, or your own image with pandas), start the workbench with `--python-sandbox python:3.12-slim` (and `--docker PATH` if `docker` is not on `PATH`), then tick “Allow running Python” for a Run (API: `"python_sandbox": true`, headless: `--python`). The workbench checks at startup that the image is present.
+
+Each `python_run` call starts a fresh container with `--pull never`, no network, a read-only root file system, a 64 MiB `/tmp`, no Linux capabilities, `no-new-privileges`, user 65534, 512 MiB of memory (no swap), one CPU, 128 processes and 30 seconds; when time is up the container is killed. It sees only the Run's selected sources, copied after their hashes are checked and mounted read-only at `/data` under their workspace paths. The code goes in on stdin. Output from a run that exits 0 is evidence (`[python_run EID]`) that records the code, its SHA-256 and the hashes of the files it could read; output is capped at 64 KiB and a cut is labelled. A failure or timeout goes back to the model with the end of stderr. The container boundary is Docker's: it is not a virtual machine.
+
 ### Answering without a file
 
 For a question rather than a deliverable, choose “Answer directly” (API: `"completion_workflow": "answer"`, headless: `--answer`). The model is not offered `artifact_write`; it ends with the answer itself, which must cite the evidence it uses as `[source EID]`. Every cited ID must exist and the answer passes the same verifiers as an artifact, so an uncited or wrongly cited answer goes back to the model. The verified answer is the Run's result, and an `answer.verified` event records the paths and SHA-256 of what it cites. It needs a real model and cannot be combined with draft review.
@@ -116,7 +128,31 @@ export AGENT_HARNESS_TOKEN=...   # the token the workbench was started with
 uv run python -m agent_harness.headless --workspace ./docs --source notes.md --task "Summarise the notes into summary.md"
 ```
 
-Exit codes: `0` completed, `1` failed, `2` refused request or usage error, `3` cancelled, `4` interrupted. The client acknowledges each event and reconnects from its last cursor if the stream drops; stopping it does not stop the Run.
+Exit codes: `0` completed, `1` failed, `2` refused request or usage error, `3` cancelled, `4` interrupted, `5` needed an approval (with `--unattended`). The client acknowledges each event and reconnects from its last cursor if the stream drops; stopping it does not stop the Run.
+
+### Scheduled and unattended runs
+
+There is no built-in scheduler; the operating system's scheduler calls headless mode. Keep the workbench running (for example started at logon) with a fixed token in `AGENT_HARNESS_TOKEN`, stored in a file only your account can read rather than in the job definition. Pass `--unattended` so a Run that asks for an approval (a plan, a publication or an `askTools` MCP call) is cancelled and the job exits with code `5` and a `needs_approval` entry instead of waiting; nothing that needs a person runs unseen. A dated `--submission-key` makes a retried job return the same Run instead of starting another.
+
+cron (Linux, macOS):
+
+```bash
+0 7 * * 1  cd /srv/reports && AGENT_HARNESS_TOKEN="$(cat ~/.config/agent-harness/token)" uv run python -m agent_harness.headless --workspace /srv/reports --source sales.csv --task-file weekly.txt --unattended --submission-key "weekly-$(date +\%F)" >> runs.ndjson
+```
+
+Windows Task Scheduler, with the command in `C:\reports\weekly.ps1`:
+
+```powershell
+$env:AGENT_HARNESS_TOKEN = Get-Content "$env:APPDATA\agent-harness\token"
+uv run python -m agent_harness.headless --workspace C:\reports --source sales.csv --task-file weekly.txt --unattended --submission-key "weekly-$(Get-Date -Format yyyy-MM-dd)" >> C:\reports\runs.ndjson
+exit $LASTEXITCODE
+```
+
+```powershell
+schtasks /Create /TN "Weekly report" /SC WEEKLY /D MON /ST 07:00 /TR "powershell -NoProfile -File C:\reports\weekly.ps1"
+```
+
+The exit code tells the scheduler what happened; every event of the Run is in the NDJSON file and in the workbench.
 
 ### MCP tools
 
@@ -191,7 +227,9 @@ Tests go through the public HTTP/WebSocket interface and replace only the model'
 
 ## Limits
 
-Single user, bound to localhost behind a per-launch token, with restricted tools: at most eight sources per task (UTF-8 text up to 256 KiB; CSV and Excel tables up to 20 MiB and 200,000 rows, previewed for the model; PDF, Word and PowerPoint files up to 10 MiB whose extracted text fits 256 KiB; images and scanned PDFs only with `--tesseract`), no shell, browser or network tools, no multi-tenant or distributed workers, and no production performance claims. A citation proves where a value came from, not that every sentence is correct. A published artifact does not mean the Run completed. Effects whose outcome is unknown after a crash are never retried or rolled back; continuing requires an explicit new Run.
+Single user, bound to localhost behind a per-launch token, with restricted tools: at most eight sources per task (UTF-8 text up to 256 KiB; CSV and Excel tables up to 20 MiB and 200,000 rows, previewed for the model; PDF, Word and PowerPoint files up to 10 MiB whose extracted text fits 256 KiB; images and scanned PDFs only with `--tesseract`), no shell or browser tools (Python runs only in the opt-in Docker sandbox), network access only through the opt-in `web_fetch` for public https pages, no multi-tenant or distributed workers, and no production performance claims. A citation proves where a value came from, not that every sentence is correct. A published artifact does not mean the Run completed. Effects whose outcome is unknown after a crash are never retried or rolled back; continuing requires an explicit new Run.
+
+Why there is no multi-user or hosted deployment: the guarantees above rest on one person, one machine and one local store. Approvals bind to the person at the keyboard; sources are files that person can already read; the event log and artifacts live in one SQLite store with one lease. A shared service would need accounts and roles, per-tenant isolation of workspaces, stores, tokens and sandboxes, a job queue across workers, secrets management and audit of who approved what. That is a different product built around this core, not a flag on it, so it is left out rather than half-done.
 
 ## License
 

@@ -6,7 +6,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' ws://127.0.0.1:* ws://localhost:*; img-src 'self' data:; object-src 'none'; base-uri 'none'">
   <title>Agent Harness Demo</title>
   <link rel="stylesheet" href="/assets/styles.css?v=9.0.8">
-  <script type="module" src="/assets/app.js?v=13.2"></script>
+  <script type="module" src="/assets/app.js?v=13.4"></script>
 </head>
 <body>
   <div class="workbench">
@@ -98,6 +98,8 @@
             <p id="instructions-problem" class="mcp-hint" hidden></p>
             <p class="mcp-hint">指令只調整做法與格式，不能增加來源、工具或批准。開始時會記錄這份內容與 SHA-256，續做時沿用同一份。</p>
           </fieldset>
+          <label id="web-access-option" class="approval-option" hidden><input id="web-access" type="checkbox"> 允許讀取公開網頁（web_fetch；內容視為不可信資料，需引用網址）</label>
+          <label id="python-sandbox-option" class="approval-option" hidden><input id="python-sandbox" type="checkbox"> 允許在隔離容器執行 Python（無網路、來源唯讀，輸出需引用）</label>
           <label class="approval-option"><input id="require-plan-approval" type="checkbox"> 先讓我核准計畫，再開始讀取來源與執行</label>
           <label class="approval-option"><input id="require-publish-approval" type="checkbox" checked> 保存成果前，由我確認這次內容</label>
           <div class="composer-bottom"><span id="selection-hint">先從左側選擇資料來源</span><button id="start-task" class="primary-button" type="submit" disabled>開始任務 <span aria-hidden="true">↗</span></button></div>
