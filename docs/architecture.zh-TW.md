@@ -41,6 +41,8 @@ Artifact使用不可變身分、SHA及精確bytes保存。版本修改釘住完�
 
 PDF 與 Word 檔在 `sources.py` 中也是來源：`read_source` 保留檔案本身位元組的 SHA-256 與大小（因此受理、摘錄與讀取都能像其他來源一樣偵測文件變更），並回傳擷取的文字給模型。`pypdf` 逐頁讀取 PDF 並標上 `[page N]`；`python-docx` 依文件順序讀取 `.docx` 的段落與表格。擷取在解析前與解析中都有上限（檔案 10 MiB、200 頁、解壓後 50 MiB、文字 256 KiB），加密、掃描或損壞的文件會以 `source_unavailable` 附上原因拒絕，不會當成空白讀取。加上 `--tesseract` 時，完全沒有文字層的 PDF 會改走 OCR：`pypdfium2` 把每頁轉成 300 dpi 灰階影像並寫成 PGM（不需影像函式庫），以 `<程式> <影像> stdout -l <語言>` 執行指定的程式，每頁有逾時上限，文字標上 `[page N, OCR]`，來源也帶有 `ocr: "tesseract"`。OCR 上限 30 頁並依檔案雜湊快取，因此受理、摘錄與讀取共用一次結果。多數測試使用替身程式；另有一項測試對轉成影像的頁面執行真正的 Tesseract，CI 會在 Ubuntu 安裝 Tesseract 並要求這項測試必須執行。
 
+圖片也可以由本機視覺模型轉錄（`vision.py`，`--vision-model`）。`VisionTranscriber.check` 在啟動時執行，模型未安裝、沒有 digest 或沒有標示 vision 就拒絕啟動。轉錄文字在來源中標示為模型轉錄，記錄在 `transcription`（模型、digest，以及同時有 OCR 時的 `unconfirmed_numbers`：OCR 文字中找不到的轉錄數字），並帶進證據附錄（`transcription_note`）與 `answer.verified`。驗證器把它當成一般來源文字處理，所以讓讀者知道它可能有誤的是標示，而不是驗證器。
+
 `uploads.py` 是唯一會寫入工作區的程式。它驗證檔名（不含資料夾、分隔符、控制字元或保留名稱，且為來源副檔名），只讀取不超過該類型上限的請求內容，並用讀取來源的同一套函式檢查能否讀取，全部在寫入之前完成。內容先寫入 `uploads/` 中的隱藏暫存檔，再以硬連結放到正式名稱；名稱已存在時，這個動作在 Windows 與 POSIX 上都會失敗，因此同時上傳不會取代既有檔案，寫到一半的檔案也不會被列出。`uploads` 若是連結、junction 或檔案則拒絕。
 
 ## 模型供應商

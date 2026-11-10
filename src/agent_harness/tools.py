@@ -20,6 +20,7 @@ from .sources import (MAX_SOURCE_BYTES, MAX_SOURCE_PATH, MAX_SOURCES, TABLE_EXTE
 from .storage import Record, Store
 from .tables import ratio_percent, table_result
 from .sandbox import PARAMETERS as PYTHON_PARAMETERS, TOOL_NAME as PYTHON_TOOL, PythonSandbox, is_run_evidence
+from .vision import transcription_note
 from .web_fetch import PARAMETERS as WEB_PARAMETERS, TOOL_NAME as WEB_TOOL, WebFetcher, is_page_evidence
 
 
@@ -779,7 +780,8 @@ class Tools:
                     notes.append(f"- [{identity}] artifact {evidence['artifact_id']} ({evidence['name']}, version {evidence['version']}, Run {evidence['origin_run_id']}):L{evidence['line_start']}-L{evidence['line_end']} SHA-256 {evidence['sha256']}; artifact snapshot, not a fresh source calculation")
                 elif "path" in evidence:
                     notes.append(f"- [{identity}] {evidence['path']}:L{evidence['line_start']}-L{evidence['line_end']} SHA-256 {evidence['sha256']}"
-                                 + (f"; {evidence['operation']}({evidence['column']}) = {evidence['value']}" if "value" in evidence else ""))
+                                 + (f"; {evidence['operation']}({evidence['column']}) = {evidence['value']}" if "value" in evidence else "")
+                                 + transcription_note(evidence))
                 else:
                     references.extend(evidence["inputs"])
                     notes.append(f"- [{identity}] {evidence['operation']}({', '.join(evidence['inputs'])}) = {evidence['value']}")

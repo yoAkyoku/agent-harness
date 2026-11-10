@@ -1,0 +1,51 @@
+[
+  {
+    "id": "table-image-value",
+    "exit_code": 0,
+    "seconds": 34,
+    "status": "completed",
+    "result": "east 地區的 Units 是 508 [sales-table.png E1]。",
+    "error": null,
+    "artifacts": [],
+    "needs_approval": null,
+    "tools": [
+      "plan_update",
+      "source_read",
+      "task_finish"
+    ],
+    "transcriptions": [
+      {
+        "kind": "model_transcription",
+        "model": "qwen3.5:9b-q4_K_M",
+        "digest": "56671c2ab9385f9cfcb404638e32cd62d88e3501d44822208363c010179a3c90"
+      }
+    ],
+    "rejected": [],
+    "stderr": "Run 25438c9d6b9e486d9a02de6661a3becb accepted; events follow on stdout.\n"
+  },
+  {
+    "id": "chart-image-max",
+    "exit_code": 0,
+    "seconds": 15,
+    "status": "completed",
+    "result": "根據長條圖顯示，工單數最多的一天是星期四（Thu），共有 62 張工單 [tickets-chart.png E1]。",
+    "error": null,
+    "artifacts": [],
+    "needs_approval": null,
+    "tools": [
+      "plan_update",
+      "workspace_list",
+      "source_read",
+      "task_finish"
+    ],
+    "transcriptions": [
+      {
+        "kind": "model_transcription",
+        "model": "qwen3.5:9b-q4_K_M",
+        "digest": "56671c2ab9385f9cfcb404638e32cd62d88e3501d44822208363c010179a3c90"
+      }
+    ],
+    "rejected": [],
+    "stderr": "Run 2d08b690a36f4358adfc921de7add422 accepted; events follow on stdout.\n"
+  }
+]

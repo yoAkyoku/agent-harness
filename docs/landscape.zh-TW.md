@@ -70,6 +70,7 @@
 | 26 | 無法讀取工作區以外的任何資料。 | Claude、ChatGPT 與 Claude Code 的網頁擷取 | 需選擇開啟的 `web_fetch`（`--allow-web` 加上每個 Run 的 `web_access`）：只讀公開 https 網頁，檢查每個解析與實際連線的位址（防 SSRF 與 DNS rebinding），轉址重新檢查；網頁是不可信、可引用的證據。 |
 | 27 | 加總、平均、比率以外的計算都需要新增內建工具。 | Claude、ChatGPT 與 Codex 沙箱的程式執行 | 需選擇開啟的 `python_run`（`--python-sandbox IMAGE` 加上每個 Run 的 `python_sandbox`）：每次呼叫一個全新 Docker 容器，無網路、選定來源唯讀、無 capabilities，並限制記憶體、CPU、行程數與時間；輸出是附程式碼雜湊的證據。 |
 | 28 | 排程工作可能卡在沒人會處理的核准上。 | Claude Code 與 Codex 的非互動模式 | `headless --unattended` 在第一個核准請求時取消 Run，以退出碼 5 結束並說明需要核准的內容；README 附 cron 與工作排程器設定。多使用者部署不在範圍內，並說明原因。 |
+| 29 | 圖片只能經 OCR 讀取，圖表、照片與手寫常讀不好。 | Claude、ChatGPT 與 Gemini 的圖片輸入 | 需選擇開啟的 `--vision-model`（本機支援 vision 的 Ollama 模型）：轉錄標示為模型輸出並記錄模型 digest，證據附錄與 `answer.verified` 都會註明；同時設定 Tesseract 時會與 OCR 交叉比對數字。 |
 
 ## 已經具備
 

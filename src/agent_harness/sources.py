@@ -1,7 +1,8 @@
 """A bounded catalog of text sources inside an explicit workspace.
 
 Text files are read as UTF-8. PDF, Word, Excel and PowerPoint files are sources too, and so are
-images when OCR is configured: the model sees their extracted text, while the source's SHA-256
+images when OCR or a vision model is configured: the model sees their extracted text (a vision
+model's labelled as a model transcription), while the source's SHA-256
 and size stay those of the file's bytes, so a changed document is detected like any changed source.
 
 Tables (CSV, and each sheet of an .xlsx workbook) can be far larger than what a model should read:
@@ -18,10 +19,14 @@ import re
 import hashlib
 import zipfile
 from collections.abc import Iterator
+from copy import deepcopy
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .contracts import RunFailure
+
+if TYPE_CHECKING:
+    from .vision import VisionTranscriber
 
 TEXT_EXTENSIONS = {".md", ".txt", ".csv", ".json"}
 TABLE_EXTENSIONS = {".csv", ".xlsx"}
@@ -42,6 +47,9 @@ OCR_SCALE = 300 / 72  # render at 300 dpi, Tesseract's preferred resolution
 OCR_PAGE_TIMEOUT_SECONDS = 60
 MAX_OCR_PAGES = 30
 _OCR_CACHE: dict[tuple[str, tuple[str, ...], str], str] = {}
+# Optional transcription of images by a local vision model (configure_vision); off unless --vision-model is set.
+VISION: "VisionTranscriber | None" = None
+_IMAGE_CACHE: dict[tuple[str, tuple[str, ...], str, tuple[str, str]], tuple[str, dict[str, Any]]] = {}
 MAX_SOURCES = 8
 MAX_SOURCE_PATH = 500
 MAX_LABELLED_LINES = 16
@@ -286,6 +294,7 @@ def configure_ocr(command: list[str] | None, languages: str = "eng") -> None:
     global OCR_COMMAND, OCR_LANGUAGES
     OCR_COMMAND, OCR_LANGUAGES = (tuple(command) if command else None), languages
     _OCR_CACHE.clear()
+    _IMAGE_CACHE.clear()
 
 
 def _ocr_text(raw: bytes, count: int) -> str:
@@ -338,24 +347,59 @@ def _run_ocr(image: Path, label: str) -> str:
     return done.stdout.decode("utf-8", errors="replace").strip()
 
 
-def _image_text(suffix: str, raw: bytes) -> tuple[str, dict[str, Any]]:
-    """An image source is read through OCR, which the workbench enables with --tesseract."""
-    if OCR_COMMAND is None:
-        raise RunFailure("source_unavailable", "An image is read through OCR; start the workbench with --tesseract to read it.")
-    key = (hashlib.sha256(raw).hexdigest(), OCR_COMMAND, OCR_LANGUAGES)
-    if key not in _OCR_CACHE:
-        import tempfile
+def configure_vision(transcriber: "VisionTranscriber | None") -> None:
+    """Transcribe image sources with this local vision model too; None turns it off."""
+    global VISION
+    VISION = transcriber
+    _IMAGE_CACHE.clear()
 
-        with tempfile.TemporaryDirectory(prefix="agent-harness-ocr-") as folder:
-            image = Path(folder) / f"image{suffix}"
-            image.write_bytes(raw)
-            content = _run_ocr(image, "the image")
-        if not content:
-            raise RunFailure("source_unavailable", "OCR found no text in the image.")
-        if len(_OCR_CACHE) >= 32:
-            _OCR_CACHE.pop(next(iter(_OCR_CACHE)))
-        _OCR_CACHE[key] = _bounded_text([f"[image, OCR]\n{content}"], "")
-    return _OCR_CACHE[key], {"converted_from": suffix.lstrip("."), "ocr": "tesseract"}
+
+def _image_text(suffix: str, raw: bytes) -> tuple[str, dict[str, Any]]:
+    """An image source is read through OCR (--tesseract), a vision model (--vision-model), or both.
+
+    A vision model's text is labelled as a model transcription; with OCR too, both readings are
+    given and the transcription's numbers that OCR did not find are listed on its label.
+    """
+    if OCR_COMMAND is None and VISION is None:
+        raise RunFailure("source_unavailable", "An image is read through OCR or a vision model; start the workbench "
+                         "with --tesseract or --vision-model to read it.")
+    key = (hashlib.sha256(raw).hexdigest(), OCR_COMMAND or (), OCR_LANGUAGES, VISION.identity if VISION else ("", ""))
+    if key not in _IMAGE_CACHE:
+        details: dict[str, Any] = {"converted_from": suffix.lstrip(".")}
+        parts: list[str] = []
+        ocr = ""
+        if OCR_COMMAND is not None:
+            import tempfile
+
+            with tempfile.TemporaryDirectory(prefix="agent-harness-ocr-") as folder:
+                image = Path(folder) / f"image{suffix}"
+                image.write_bytes(raw)
+                ocr = _run_ocr(image, "the image")
+            if ocr:
+                parts.append(f"[image, OCR]\n{ocr}")
+                details["ocr"] = "tesseract"
+        if VISION is not None:
+            from .vision import unconfirmed_numbers
+
+            transcription = VISION.transcribe(raw)
+            if transcription:
+                label = f"[image, model transcription by {VISION.model}; not verbatim source text"
+                record: dict[str, Any] = {"kind": "model_transcription", "model": VISION.model, "digest": VISION.digest}
+                if OCR_COMMAND is not None:
+                    unconfirmed = unconfirmed_numbers(transcription, ocr)
+                    record["unconfirmed_numbers"] = unconfirmed
+                    if unconfirmed:
+                        label += "; numbers not found by OCR: " + ", ".join(unconfirmed)
+                parts.append(f"{label}]\n{transcription}")
+                details["transcription"] = record
+        if not parts:
+            engines = " or ".join(name for name, on in (("OCR", OCR_COMMAND), ("the vision model", VISION)) if on)
+            raise RunFailure("source_unavailable", f"{engines} found no text in the image.")
+        if len(_IMAGE_CACHE) >= 32:
+            _IMAGE_CACHE.pop(next(iter(_IMAGE_CACHE)))
+        _IMAGE_CACHE[key] = (_bounded_text(parts, "\n\n"), details)
+    text, details = _IMAGE_CACHE[key]
+    return text, deepcopy(details)
 
 
 def _check_archive(raw: bytes, label: str) -> None:

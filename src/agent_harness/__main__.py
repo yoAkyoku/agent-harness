@@ -8,6 +8,7 @@ import secrets
 import uvicorn
 
 from .local import MIN_TOKEN_LENGTH, OAUTH_CALLBACK_PATH, TOKEN_ENV
+from .vision import valid_model_name
 from .web import create_app
 from .model import ModelSettings
 
@@ -56,6 +57,9 @@ def parser() -> argparse.ArgumentParser:
     parser.add_argument("--tesseract", type=Path,
                         help="A local Tesseract program; PDFs without a text layer are then read through OCR.")
     parser.add_argument("--ocr-languages", help="Tesseract language codes joined by +, such as eng+chi_tra (default eng).")
+    parser.add_argument("--vision-model", metavar="MODEL",
+                        help="A local Ollama model with vision (such as qwen3.5:9b-q4_K_M); images are then also "
+                             "transcribed by it, labelled as model output, not verbatim text.")
     parser.add_argument("--allow-web", action="store_true",
                         help="Let Runs that ask for it read public https pages with web_fetch (private and local addresses are always refused).")
     parser.add_argument("--web-allow-domain", dest="web_domains", action="append", default=[],
@@ -181,6 +185,8 @@ def main() -> None:
         ocr_command = build_ocr(arguments)
         web_domains = build_web_domains(arguments)
         python_image = build_python_image(arguments)
+        if arguments.vision_model is not None and not valid_model_name(arguments.vision_model):
+            raise ValueError("--vision-model must name an installed local Ollama model (no cloud models).")
     except ValueError as error:
         cli.error(str(error))
     configured = os.environ.get(TOKEN_ENV)
@@ -195,7 +201,8 @@ def main() -> None:
                          ocr_command=ocr_command, ocr_languages=arguments.ocr_languages or "eng",
                          oauth_redirect_url=f"http://127.0.0.1:{arguments.port}{OAUTH_CALLBACK_PATH}",
                          allow_web=arguments.allow_web, web_allow_domains=web_domains,
-                         python_image=python_image, docker_command=arguments.docker)
+                         python_image=python_image, docker_command=arguments.docker,
+                         vision_model=arguments.vision_model)
     except ValueError as error:
         cli.error(str(error))
     shown = "<the value of " + TOKEN_ENV + ">" if configured else token

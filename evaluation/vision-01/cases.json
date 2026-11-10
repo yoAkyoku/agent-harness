@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "model": "qwen3.5:9b-q4_K_M",
+  "vision_model": "qwen3.5:9b-q4_K_M",
+  "protocol": "json_tools, thinking off",
+  "purpose": "One real-model run per image case: the vision model transcribes, the decision model answers from the labelled transcription. Truth fixed before any run.",
+  "limits": {
+    "max_steps": 12,
+    "max_tool_calls": 20,
+    "max_corrections": 2
+  },
+  "cases": [
+    {
+      "id": "table-image-value",
+      "flags": [
+        "--answer"
+      ],
+      "sources": [
+        "sales-table.png"
+      ],
+      "task": "圖片中的表格，east 地區的 Units 是多少？請直接回答並附來源。",
+      "truth": {
+        "must_contain": [
+          "508"
+        ],
+        "artifacts": 0
+      }
+    },
+    {
+      "id": "chart-image-max",
+      "flags": [
+        "--answer"
+      ],
+      "sources": [
+        "tickets-chart.png"
+      ],
+      "task": "這張長條圖中，哪一天的工單數最多？是多少？請直接回答並附來源。",
+      "truth": {
+        "must_contain": [
+          "Thu",
+          "62"
+        ],
+        "artifacts": 0
+      }
+    }
+  ]
+}

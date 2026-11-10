@@ -251,7 +251,10 @@ class Runtime:
         """Record which evidence a verified answer cites, so the result stays traceable without a file."""
         cited = sorted(body_evidence_ids(text) & set(evidence), key=lambda key: int(key[1:]))
         await self._record(identity, "answer.verified", {"cited": [
-            {"evidence_id": key, "path": evidence[key].get("path"), "sha256": evidence[key].get("sha256")} for key in cited]})
+            {"evidence_id": key, "path": evidence[key].get("path"), "sha256": evidence[key].get("sha256"),
+             # A cited image read by a vision model says so: its text is a model transcription, not the file's text.
+             **({"transcription": evidence[key]["transcription"]} if "transcription" in evidence[key] else {})}
+            for key in cited]})
 
     async def _wait_approval(self, identity: str, approval_id: str) -> None:
         async with self.changed:

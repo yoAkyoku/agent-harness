@@ -70,6 +70,7 @@ The products' mechanisms were used as a checklist against the code. Each item re
 | 26 | The harness could not read anything outside the workspace. | Web fetch in Claude, ChatGPT and Claude Code | Opt-in `web_fetch` (`--allow-web` plus per-Run `web_access`): public https pages only, every resolved and connected address checked (SSRF and DNS rebinding), redirects re-checked; the page is untrusted, citable evidence. |
 | 27 | Calculations beyond sum, mean and ratio needed a new built-in tool. | Code execution in Claude, ChatGPT and Codex sandboxes | Opt-in `python_run` (`--python-sandbox IMAGE` plus per-Run `python_sandbox`): a fresh Docker container per call with no network, the selected sources read-only, no capabilities and memory, CPU, process and time limits; output is evidence with the code's hash. |
 | 28 | A scheduled job could hang on an approval no one would give. | Claude Code and Codex non-interactive modes | `headless --unattended` cancels the Run at the first approval request and exits 5 with what needed approval; README shows cron and Task Scheduler setups. Multi-user hosting is out of scope, with the reasons stated. |
+| 29 | Images could be read only through OCR, which misses charts, photos and handwriting. | Image input in Claude, ChatGPT and Gemini | Opt-in `--vision-model` (a local Ollama model with vision): the transcription is labelled as model output with the model's digest, disclosed in the evidence appendix and `answer.verified`, and its numbers are cross-checked against OCR when Tesseract is set too. |
 
 ## Already in place
 

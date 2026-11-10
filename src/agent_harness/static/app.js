@@ -1,6 +1,6 @@
 import {observeEvents} from "/assets/run-stream.js?v=7.2";
 import {memoryPanel} from "/assets/memory.js?v=6.2";
-import {lang, saveLang, t, translatePage} from "/assets/i18n.js?v=1.1";
+import {lang, saveLang, t, translatePage} from "/assets/i18n.js?v=1.2";
 const $ = (id) => document.getElementById(id);
 translatePage();
 const locale = lang === "en" ? "en-US" : "zh-TW";
@@ -190,7 +190,7 @@ function renderSources() {
   $("sources").replaceChildren();
   if (!state.sources.length) {
     const message = document.createElement("p"); message.className = "sidebar-note";
-    message.textContent = t("找不到可用來源。請加入 UTF-8 的 .md、.txt、.json（每份不超過 256 KiB）、CSV 或 Excel 表格（每份不超過 20 MiB），或 PDF、Word、PowerPoint（每份不超過 10 MiB）；圖片需以 --tesseract 啟用 OCR。");
+    message.textContent = t("找不到可用來源。請加入 UTF-8 的 .md、.txt、.json（每份不超過 256 KiB）、CSV 或 Excel 表格（每份不超過 20 MiB），或 PDF、Word、PowerPoint（每份不超過 10 MiB）；圖片需以 --tesseract（OCR）或 --vision-model（視覺模型轉錄）啟用。");
     $("sources").append(message); return;
   }
   for (const [index, source] of state.sources.entries()) {

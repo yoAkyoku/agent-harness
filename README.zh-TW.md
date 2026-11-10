@@ -105,7 +105,9 @@ docker run --rm -p 127.0.0.1:8787:8787 -e ANTHROPIC_API_KEY agent-harness --prov
 
 ### 試算表、投影片、圖片與大型表格
 
-Excel（`.xlsx`）檔視為表格：`table_inspect` 與 `table_aggregate` 可加上 `sheet` 指定工作表（預設第一個），`source_read` 則把每個工作表以 CSV 呈現在 `[sheet 名稱]` 之下，數值為最後一次儲存的結果。PowerPoint（`.pptx`）檔逐張投影片讀取文字（`[slide N]`），包含表格的每一列。圖片（`.png`、`.jpg`）在設定 `--tesseract` 時經 OCR 讀取（`[image, OCR]`），否則會附上原因拒絕。
+Excel（`.xlsx`）檔視為表格：`table_inspect` 與 `table_aggregate` 可加上 `sheet` 指定工作表（預設第一個），`source_read` 則把每個工作表以 CSV 呈現在 `[sheet 名稱]` 之下，數值為最後一次儲存的結果。PowerPoint（`.pptx`）檔逐張投影片讀取文字（`[slide N]`），包含表格的每一列。圖片（`.png`、`.jpg`）在設定 `--tesseract` 時經 OCR 讀取（`[image, OCR]`），設定 `--vision-model` 時由本機視覺模型轉錄，兩者也可同時使用；都沒有設定時會附上原因拒絕。
+
+視覺模型讀得懂圖表、照片、手寫與表格版面，這些 OCR 常讀不好；但它產生的是模型輸出，不是檔案原文，可能看錯數字，也可能寫出圖片裡沒有的字。因此 `--vision-model MODEL`（已下載、標示支援 vision 的 Ollama 模型，例如 `qwen3.5:9b-q4_K_M`；啟動時檢查，不符合就不啟動）預設關閉，轉錄文字會標上 `[image, model transcription by MODEL; not verbatim source text]`。來源會記錄模型名稱與 digest（`transcription`）；成果的證據附錄會註明引用內容包含模型轉錄，直接回答的 `answer.verified` 事件也會記錄。同時設定 `--tesseract` 時兩種結果都會提供，轉錄中 OCR 沒有讀到的數字會列在標籤上（`numbers not found by OCR: …`）與 `transcription.unconfirmed_numbers`，不一致會被呈現，而不是默默挑一個。轉錄結果依檔案雜湊與模型快取。掃描 PDF 仍只經 Tesseract。
 
 表格可能遠大於模型適合讀取的量：20 MiB、200,000 列以內的 CSV 與 Excel，由表格工具在伺服器端完整計算。表格太大、無法整份讀取時，`source_read` 會回傳標示清楚的預覽（欄名、前 20 列與總列數，並帶有 `preview: true`），提醒模型改用表格工具計算；不會默默截斷。
 

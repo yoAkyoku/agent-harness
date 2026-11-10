@@ -38,9 +38,10 @@ from .local import MIN_TOKEN_LENGTH, OAUTH_CALLBACK_PATH, AccessTokenMiddleware,
 from .model import DecisionModel, FixtureTransport, ModelAdapter, ModelSettings
 from .ownership import StoreLease
 from .runtime import Runtime
-from .sources import MAX_SOURCES, admit_sources, catalog, configure_ocr, read_source, relevant_excerpts, workspace_root
+from .sources import MAX_SOURCES, admit_sources, catalog, configure_ocr, configure_vision, read_source, relevant_excerpts, workspace_root
 from .storage import Store
 from .sandbox import PythonSandbox, Runner
+from .vision import VisionTranscriber
 from .web_fetch import Resolver, WebFetcher
 
 # Host names the app answers to; anything else (DNS rebinding) is refused.
@@ -152,6 +153,8 @@ def create_app(
     python_image: str | None = None,
     docker_command: str = "docker",
     sandbox_runner: Runner | None = None,
+    vision_model: str | None = None,
+    vision_transport: httpx.BaseTransport | None = None,
 ) -> FastAPI:
     """Build the workbench app.
 
@@ -175,6 +178,9 @@ def create_app(
 
     `python_image` enables python_run in that (already pulled) Docker image for Runs that ask;
     `sandbox_runner` replaces Docker in tests.
+
+    `vision_model` names a local Ollama model that advertises vision; image sources are then also
+    transcribed by it, labelled as model output. `vision_transport` replaces Ollama in tests.
     """
     if access_token is not None and len(access_token) < MIN_TOKEN_LENGTH:
         raise ValueError(f"The access token must have at least {MIN_TOKEN_LENGTH} characters.")
@@ -189,6 +195,8 @@ def create_app(
            if mcp_config is not None else None)
     skills = SkillLibrary.from_directory(skills_dir) if skills_dir is not None else None
     configure_ocr(ocr_command, ocr_languages)  # PDFs without a text layer go through OCR only when this is set
+    vision = VisionTranscriber(vision_model, transport=vision_transport) if vision_model is not None else None
+    configure_vision(vision)  # images are transcribed by a vision model only when this is set
     hooks = (HookRunner.from_config(hooks_config, hooks_transport, allow_commands=allow_command_hooks)
              if hooks_config is not None else None)
     web = (WebFetcher(allowed_domains=web_allow_domains, transport=web_transport, resolver=web_resolver)
@@ -211,6 +219,8 @@ def create_app(
                     await mcp.start()
                 if python is not None:
                     await python.check()
+                if vision is not None:
+                    await asyncio.to_thread(vision.check)
                 if settings.mode == "anthropic":
                     from .anthropic_adapter import AnthropicAdapter
 
@@ -241,6 +251,8 @@ def create_app(
                     await hooks.close()
                 if web is not None:
                     await web.close()
+                if vision is not None:
+                    vision.close()
                 await storage.close()
         finally:
             await asyncio.to_thread(lease.close)
@@ -269,7 +281,8 @@ def create_app(
                 "prices": prices or {}, "hooks": hooks.status() if hooks is not None else [],
                 "ocr": {"enabled": ocr_command is not None, **({"languages": ocr_languages} if ocr_command else {})},
                 "web": web.status() if web is not None else {"enabled": False},
-                "python": python.status() if python is not None else {"enabled": False}}
+                "python": python.status() if python is not None else {"enabled": False},
+                "vision": vision.status() if vision is not None else {"enabled": False}}
 
     @app.post("/api/workspaces", status_code=201)
     async def add_workspace(body: WorkspaceInput) -> dict[str, Any]:
