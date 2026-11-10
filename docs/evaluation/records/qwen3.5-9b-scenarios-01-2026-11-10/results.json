@@ -1,0 +1,134 @@
+[
+  {
+    "id": "answer-policy",
+    "exit_code": 0,
+    "seconds": 51,
+    "status": "completed",
+    "result": "退款期限為收到商品後 30 天內 [policy.md E1]。超過 5000 元的退款由財務主管林怡君核准 [policy.md E1]。",
+    "error": null,
+    "artifacts": [],
+    "needs_approval": null,
+    "tools": [
+      "plan_update",
+      "workspace_list",
+      "source_read",
+      "task_finish"
+    ],
+    "rejected": [],
+    "stderr": "Run f596e9b7d4594a2ca7eed689675d247d accepted; events follow on stdout.\n"
+  },
+  {
+    "id": "excel-sheet-sum",
+    "exit_code": 0,
+    "seconds": 38,
+    "status": "completed",
+    "result": "sales.xlsx 的 Q2 工作表中，amount 欄的總和是 6563 [sales.xlsx E2]。",
+    "error": null,
+    "artifacts": [],
+    "needs_approval": null,
+    "tools": [
+      "plan_update",
+      "table_inspect",
+      "table_aggregate",
+      "task_finish"
+    ],
+    "rejected": [],
+    "stderr": "Run 61791ac82b69411e84e5e855e4a61e91 accepted; events follow on stdout.\n"
+  },
+  {
+    "id": "pptx-risks",
+    "exit_code": 0,
+    "seconds": 15,
+    "status": "completed",
+    "result": "簡報列出的主要風險有三項：\n1. 資料遷移延誤 [review.pptx E1]\n2. 供應商合約到期 [review.pptx E1]\n3. 測試人力不足 [review.pptx E1]",
+    "error": null,
+    "artifacts": [],
+    "needs_approval": null,
+    "tools": [
+      "plan_update",
+      "workspace_list",
+      "source_read",
+      "task_finish"
+    ],
+    "rejected": [],
+    "stderr": "Run 7eba4489e29244ce9cdad9f5262ea3ed accepted; events follow on stdout.\n"
+  },
+  {
+    "id": "large-csv-mean",
+    "exit_code": 0,
+    "seconds": 16,
+    "status": "completed",
+    "result": "orders.csv 中 amount 欄的平均值為 1020.61 [orders.csv E2]。",
+    "error": null,
+    "artifacts": [],
+    "needs_approval": null,
+    "tools": [
+      "plan_update",
+      "table_inspect",
+      "table_aggregate",
+      "task_finish"
+    ],
+    "rejected": [],
+    "stderr": "Run 8bded621776b476d9b909c111dec948c accepted; events follow on stdout.\n"
+  },
+  {
+    "id": "web-example",
+    "exit_code": 0,
+    "seconds": 16,
+    "status": "completed",
+    "result": "https://example.com/ 是一個用於文檔範例的網域，不提供實際服務，不建議用於測試或監控。[E2]",
+    "error": null,
+    "artifacts": [],
+    "needs_approval": null,
+    "tools": [
+      "plan_update",
+      "workspace_list",
+      "source_read",
+      "web_fetch",
+      "task_finish"
+    ],
+    "rejected": [
+      "task_finish:missing_answer_citation"
+    ],
+    "stderr": "Run 4fd6a1905d4a4e45af1048673f6c5022 accepted; events follow on stdout.\n"
+  },
+  {
+    "id": "python-median",
+    "exit_code": 0,
+    "seconds": 17,
+    "status": "completed",
+    "result": "orders.csv 中 amount 欄的中位數為 1031.0 [python_run E2]。",
+    "error": null,
+    "artifacts": [],
+    "needs_approval": null,
+    "tools": [
+      "plan_update",
+      "table_inspect",
+      "python_run",
+      "task_finish"
+    ],
+    "rejected": [],
+    "stderr": "Run 6491b94459ac4676a839cd881c1731a1 accepted; events follow on stdout.\n"
+  },
+  {
+    "id": "unattended-approval",
+    "exit_code": 5,
+    "seconds": 14,
+    "status": "cancelled",
+    "result": "",
+    "error": null,
+    "artifacts": [],
+    "needs_approval": {
+      "tool": "artifact_write",
+      "effect": "immutable_artifact",
+      "parameters_sha256": "616497653d07d5bcb69a90439473a1d31426f557cc48389932790b6496d2c0d9"
+    },
+    "tools": [
+      "plan_update",
+      "workspace_list",
+      "source_read"
+    ],
+    "rejected": [],
+    "stderr": "Run 7f42d10fe79b438e953a9e4ad6f6cf5a accepted; events follow on stdout.\nThe Run asked for an approval; --unattended cancels it.\n"
+  }
+]

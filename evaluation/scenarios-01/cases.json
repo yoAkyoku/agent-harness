@@ -1,0 +1,140 @@
+{
+  "version": 1,
+  "model": "qwen3.5:9b-q4_K_M",
+  "protocol": "json_tools, thinking off",
+  "purpose": "One real-model run per usage scenario added on 2026-11-10 (answer mode, Excel, PowerPoint, large tables, web_fetch, the Python sandbox, unattended headless). Truth fixed before any run.",
+  "limits": {
+    "max_steps": 12,
+    "max_tool_calls": 20,
+    "max_corrections": 2
+  },
+  "cases": [
+    {
+      "id": "answer-policy",
+      "scenario": "B answer mode",
+      "flags": [
+        "--answer"
+      ],
+      "sources": [
+        "policy.md"
+      ],
+      "task": "退款期限是幾天？超過 5000 元的退款由誰核准？請直接回答並附來源。",
+      "truth": {
+        "must_contain": [
+          "30",
+          "林怡君"
+        ],
+        "artifacts": 0
+      }
+    },
+    {
+      "id": "excel-sheet-sum",
+      "scenario": "A Excel",
+      "flags": [
+        "--answer"
+      ],
+      "sources": [
+        "sales.xlsx"
+      ],
+      "task": "sales.xlsx 的 Q2 工作表中，amount 欄的總和是多少？請直接回答並附來源。",
+      "truth": {
+        "must_contain": [
+          "6563"
+        ],
+        "not_contain": [
+          "7194"
+        ],
+        "artifacts": 0
+      }
+    },
+    {
+      "id": "pptx-risks",
+      "scenario": "A PowerPoint",
+      "flags": [
+        "--answer"
+      ],
+      "sources": [
+        "review.pptx"
+      ],
+      "task": "簡報列出的主要風險有哪些？請直接回答並附來源。",
+      "truth": {
+        "must_contain": [
+          "資料遷移延誤",
+          "供應商合約到期",
+          "測試人力不足"
+        ],
+        "artifacts": 0
+      }
+    },
+    {
+      "id": "large-csv-mean",
+      "scenario": "C large table",
+      "flags": [
+        "--answer"
+      ],
+      "sources": [
+        "orders.csv"
+      ],
+      "task": "orders.csv 共有 500 筆訂單，amount 欄的平均值是多少？請用工具計算全部資料，直接回答並附來源。",
+      "truth": {
+        "must_contain_number": "1020.61",
+        "artifacts": 0
+      }
+    },
+    {
+      "id": "web-example",
+      "scenario": "D web_fetch",
+      "flags": [
+        "--answer",
+        "--web"
+      ],
+      "sources": [
+        "web-notes.md"
+      ],
+      "task": "請讀取 web-notes.md 中的網址，說明那個網頁表示這個網域是做什麼用的，直接回答並以網址引用。",
+      "truth": {
+        "must_contain_any": [
+          "documentation",
+          "文件",
+          "範例",
+          "example"
+        ],
+        "cites": "https://example.com/",
+        "artifacts": 0
+      }
+    },
+    {
+      "id": "python-median",
+      "scenario": "E python sandbox",
+      "flags": [
+        "--answer",
+        "--python"
+      ],
+      "sources": [
+        "orders.csv"
+      ],
+      "task": "請用 Python 計算 orders.csv 中 amount 欄的中位數，直接回答並附來源。",
+      "truth": {
+        "must_contain_number": "1031.0",
+        "cites": "python_run",
+        "artifacts": 0
+      }
+    },
+    {
+      "id": "unattended-approval",
+      "scenario": "F unattended",
+      "flags": [
+        "--require-publish-approval",
+        "--unattended"
+      ],
+      "sources": [
+        "policy.md"
+      ],
+      "task": "請把退款政策整理成重點摘要，保存為 summary.md 並附來源。",
+      "truth": {
+        "exit_code": 5,
+        "artifacts": 0
+      }
+    }
+  ]
+}
