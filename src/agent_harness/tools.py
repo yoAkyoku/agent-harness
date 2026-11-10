@@ -286,6 +286,10 @@ DEFINITIONS: dict[str, Record] = {
     },
 }
 ARTIFACT_TOOLS = {"artifact_write", "artifact_draft"}
+ANSWER_PARAMETERS: Record = {
+    "type": "object", "properties": {"summary": {"type": "string", "minLength": 1, "maxLength": 4000, "pattern": r"\S"}},
+    "required": ["summary"], "additionalProperties": False,
+}
 ARTIFACT_RECEIPT_PARAMETERS: Record = {
     "type": "object", "properties": {"artifact_ids": {"type": "array", "minItems": 1, "maxItems": 20,
         "uniqueItems": True, "items": {"type": "string", "pattern": "^[a-f0-9]{32}$"}}},
@@ -307,19 +311,25 @@ DRAFT_PUBLICATION_PARAMETERS: Record = {
 def model_tools(*, require_citations: bool = False, include_tables: bool = True, include_labels: bool = True,
                 include_sheets: bool = False,
                 include_finish: bool = False, include_draft: bool = False,
-                receipt_completion: bool = False, include_base: bool = False,
+                receipt_completion: bool = False, include_base: bool = False, answer_completion: bool = False,
                 aggregate_operations: tuple[str, ...] = ("sum", "mean"),
                 extra_tools: list[Record] | None = None) -> list[Record]:
     definitions = deepcopy(DEFINITIONS)
     if not include_base:
         del definitions["base_artifact_read"]
-    if not include_draft:
+    if answer_completion:
+        del definitions["artifact_write"], definitions["artifact_draft"]
+    elif not include_draft:
         del definitions["artifact_draft"]
     else:
         definitions["artifact_write"]["parameters"] = deepcopy(DRAFT_PUBLICATION_PARAMETERS)
         definitions["artifact_write"]["description"] = "Publish latest draft SHA256; same citations. Edits need artifact_draft."
     if not include_finish:
         del definitions["task_finish"]
+    elif answer_completion:
+        definitions["task_finish"]["parameters"] = deepcopy(ANSWER_PARAMETERS)
+        definitions["task_finish"]["description"] = ("Answer the task directly; this answer is the result and no file is published. "
+                                                     "Cite every fact as [source EID] from tool results.")
     elif receipt_completion:
         definitions["task_finish"]["parameters"] = deepcopy(ARTIFACT_RECEIPT_PARAMETERS)
         definitions["task_finish"]["description"] = "If task met, select published artifact IDs for a verified delivery receipt. No factual summary."
@@ -354,7 +364,7 @@ def model_tools(*, require_citations: bool = False, include_tables: bool = True,
 
 class Tools:
     def __init__(self, store: Store, run_id: str, root: Path, sources: list[Record], *, require_citations: bool = False,
-                 fault_once_source_read: bool = False, receipt_completion: bool = False,
+                 fault_once_source_read: bool = False, receipt_completion: bool = False, answer_completion: bool = False,
                  base_artifact: Record | None = None, mcp_tools: dict[str, McpTool] | None = None,
                  mcp_hub: McpHub | None = None, skills: dict[str, Skill] | None = None,
                  plan_approval: bool = False) -> None:
@@ -368,6 +378,7 @@ class Tools:
         self.mcp_hub = mcp_hub
         self.run_id = run_id
         self.receipt_completion = receipt_completion
+        self.answer_completion = answer_completion
         self.root = root
         self.sources = {source["path"]: source for source in sources}
         self.evidence: dict[str, Record] = {}
@@ -474,6 +485,7 @@ class Tools:
             raise RunFailure("unknown_tool", "The requested tool is not available to this Run.")
         try:
             parameters = (ARTIFACT_RECEIPT_PARAMETERS if call.name == "task_finish" and self.receipt_completion
+                          else ANSWER_PARAMETERS if call.name == "task_finish" and self.answer_completion
                           else DEFINITIONS[call.name]["parameters"])
             Draft202012Validator(parameters).validate(call.arguments)
         except ValidationError as error:

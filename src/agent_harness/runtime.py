@@ -20,8 +20,8 @@ from .skills import SkillLibrary, catalog_message, loader_definition
 from .model import DecisionModel, ModelResponseError
 from .sources import TABLE_EXTENSIONS
 from .storage import Record, Store
-from .tools import Tools, model_tools
-from .verifiers import artifact_body, completion_summary, verify_artifact
+from .tools import Tools, body_evidence_ids, model_tools
+from .verifiers import artifact_body, completion_summary, verify_answer, verify_artifact
 
 logger = logging.getLogger(__name__)
 READ_TOOLS = {"source_read", "table_inspect", "table_aggregate", "number_calculate", "base_artifact_read"}
@@ -213,11 +213,14 @@ class Runtime:
             error["diagnostics"] = diagnostics
         await self._record(identity, "run.failed", error, status="failed", error=error)
 
-    async def _require_completion(self, identity: str, has_pending_error: bool, *, unpublished_draft: bool = False) -> None:
+    async def _require_completion(self, identity: str, has_pending_error: bool, *, unpublished_draft: bool = False,
+                                  answer: bool = False) -> None:
         if has_pending_error:
             raise RunFailure("unresolved_tool_error", "The model ended with an uncorrected tool error.")
         if unpublished_draft:
             raise RunFailure("unpublished_draft", "A staged candidate has not been published.")
+        if answer:
+            return  # answer mode publishes nothing; the answer was verified against the evidence
         saved = await self.store.run(identity)
         if not saved or not (saved["artifacts"] or saved["inherited_artifacts"]):
             raise RunFailure("missing_artifact", "The model finished without publishing an artifact.")
@@ -233,10 +236,17 @@ class Runtime:
             texts.append(raw.decode("utf-8"))
         return texts
 
-    async def _complete(self, identity: str, text: str, has_pending_error: bool, *, unpublished_draft: bool = False) -> None:
+    async def _complete(self, identity: str, text: str, has_pending_error: bool, *, unpublished_draft: bool = False,
+                        answer: bool = False) -> None:
         await self._check_cancel(identity)
-        await self._require_completion(identity, has_pending_error, unpublished_draft=unpublished_draft)
+        await self._require_completion(identity, has_pending_error, unpublished_draft=unpublished_draft, answer=answer)
         await self._record(identity, "run.completed", {"text": text}, status="completed", result=text)
+
+    async def _record_answer(self, identity: str, text: str, evidence: dict[str, Record]) -> None:
+        """Record which evidence a verified answer cites, so the result stays traceable without a file."""
+        cited = sorted(body_evidence_ids(text) & set(evidence), key=lambda key: int(key[1:]))
+        await self._record(identity, "answer.verified", {"cited": [
+            {"evidence_id": key, "path": evidence[key].get("path"), "sha256": evidence[key].get("sha256")} for key in cited]})
 
     async def _wait_approval(self, identity: str, approval_id: str) -> None:
         async with self.changed:
@@ -273,6 +283,8 @@ class Runtime:
         checkpoint = run.get("resume_checkpoint")
         review_mode = run.get("policy", {}).get("publication_workflow") == "draft_review"
         receipt_mode = run.get("policy", {}).get("completion_workflow") == "artifact_receipt"
+        # Answer mode: no file is published; the cited, verified answer is the Run's result.
+        answer_mode = run.get("policy", {}).get("completion_workflow") == "answer"
         latest_draft: Record | None = None
         draft_step = 0
         selected_mcp = run.get("policy", {}).get("mcp_tools", [])
@@ -286,7 +298,7 @@ class Runtime:
         # MCP tools are read-only evidence producers, like the built-in read tools.
         read_tools = READ_TOOLS | {name for name, tool in mcp_tools.items() if not tool.approval}
         tools = Tools(self.store, identity, root, run["sources"], require_citations=require_citations,
-                      receipt_completion=receipt_mode,
+                      receipt_completion=receipt_mode, answer_completion=answer_mode,
                       base_artifact=run.get("base_artifact"),
                       fault_once_source_read=bool(run.get("validation", {}).get("fault_once_source_read")),
                       mcp_tools=mcp_tools, mcp_hub=self.mcp, skills=selected_skills,
@@ -324,6 +336,9 @@ class Runtime:
             )
         if selected_skills:
             messages[0]["content"] += catalog_message(selected_skills)
+        if answer_mode:
+            messages[0]["content"] += ("此任務以回答結束，不發布檔案：讀取來源後用 task_finish 的 summary 直接回答，"
+                                       "每個事實與數值緊接引用 [來源 EID]；缺資料就說明未提供。")
         project_instructions = run.get("policy", {}).get("project_instructions")
         if project_instructions:
             messages[0]["content"] += instructions_message(project_instructions)
@@ -485,13 +500,15 @@ class Runtime:
                     await self._record(identity, "message.delivered", {"message_id": queued["message_id"], "step": step})
             finish_available = False
             published_this_run = False
-            if ((receipt_mode or model.settings.thinking or model.info.get("requires_tool_finish") is True
+            if ((receipt_mode or answer_mode or model.settings.thinking or model.info.get("requires_tool_finish") is True
                  or model.info.get("offers_tool_finish") is True)
                     and navigation_state["plan_saved"] and latest_draft is None
                     and all(correction.call.name == "task_finish" for correction in pending.values())):
                 current = await self.store.run(identity)
                 published_this_run = bool(current and current["artifacts"])
-                finish_available = bool(current and (current["artifacts"] or current["inherited_artifacts"]))
+                # Answer mode ends with the answer itself, once there is evidence to cite.
+                finish_available = (bool(tools.evidence) if answer_mode
+                                    else bool(current and (current["artifacts"] or current["inherited_artifacts"])))
             if publication_finalization_pending:
                 assert publication_finalization_name is not None
                 messages[0]["content"] = (
@@ -500,7 +517,8 @@ class Runtime:
                 )
             else:
                 messages[0]["content"] = system_content + (
-                    "Published. If task met, reply via task_finish; else work." if finish_available else ""
+                    ("When you can answer, reply via task_finish citing [source EID]; else work." if answer_mode
+                     else "Published. If task met, reply via task_finish; else work.") if finish_available else ""
                 ) + (
                     "上一則文字答案尚未發布，不能以純文字結束。請以 artifact_write 將完整交付內容保存為使用者要求的檔案，正文引用已讀來源，格式 [原檔名 EID]，citations 只填證據 ID。此次只允許 artifact_write。"
                     if publication_recovery_pending else ""
@@ -510,6 +528,7 @@ class Runtime:
                 include_sheets=any(Path(source["path"]).suffix.lower() == ".xlsx" for source in run["sources"]),
                 include_labels=label_queries_available, include_finish=finish_available, include_draft=review_mode,
                 receipt_completion=receipt_mode, include_base=run.get("base_artifact") is not None,
+                answer_completion=answer_mode,
                 extra_tools=[tool.definition() for tool in mcp_tools.values()]
                 + ([loader_definition(selected_skills)] if selected_skills else []))
             pending_tools = {correction.call.name for correction in pending.values()}
@@ -805,6 +824,26 @@ class Runtime:
             if not decision.calls:
                 if receipt_mode:
                     raise RunFailure("receipt_required", "Completion requires a model-selected artifact receipt.")
+                if answer_mode:
+                    # A plain-text ending is the answer: held to the same citations and verifiers as task_finish.
+                    answer_failure = verify_answer(decision.text, tools.evidence)
+                    if answer_failure is not None:
+                        if corrections >= limits.max_corrections or step >= limits.max_steps:
+                            raise answer_failure
+                        corrections += 1
+                        messages.pop()  # the rejected reply stays in the events, not in the model's next request
+                        completion_recovery_pending = True
+                        completion_recovery_note = (f" The previous answer was rejected: {answer_failure.message} "
+                                                    "Reply with task_finish only, citing [source EID] for every fact.")
+                        await self._record(identity, "completion.recovery_requested", {
+                            "failed_step": step, "retry_step": step + 1, "reason": answer_failure.code,
+                            "error": {"code": answer_failure.code, "message": answer_failure.message},
+                            "remaining_corrections": limits.max_corrections - corrections, "tools": ["task_finish"],
+                        })
+                        continue
+                    await self._record_answer(identity, decision.text, tools.evidence)
+                    await self._complete(identity, decision.text, bool(pending), answer=True)
+                    return
                 current = await self.store.run(identity)
                 missing_artifact = not current or not (current["artifacts"] or current["inherited_artifacts"])
                 if (missing_artifact and decision.text.strip() and not review_mode and latest_draft is None
@@ -892,8 +931,13 @@ class Runtime:
                             raise RunFailure("invalid_completion", "Completion must be a separate model decision after tool results.")
                         blocking = any(correction.call.name != "task_finish" or not correction.matches(call, step)
                                        for correction in pending.values())
-                        await self._require_completion(identity, blocking, unpublished_draft=latest_draft is not None)
-                        if run["mode"] != "fixture" and not receipt_mode and isinstance(call.arguments.get("summary"), str):
+                        await self._require_completion(identity, blocking, unpublished_draft=latest_draft is not None,
+                                                       answer=answer_mode)
+                        if answer_mode and isinstance(call.arguments.get("summary"), str):
+                            answer_failure = verify_answer(call.arguments["summary"], tools.evidence)
+                            if answer_failure is not None:
+                                raise answer_failure
+                        elif run["mode"] != "fixture" and not receipt_mode and isinstance(call.arguments.get("summary"), str):
                             claim_failure = completion_summary(call.arguments["summary"], await self._published_texts(identity))
                             if claim_failure is not None:
                                 raise claim_failure
@@ -918,7 +962,7 @@ class Runtime:
                         "invalid_arguments", "invalid_evidence", "missing_evidence",
                         "evidence_section_mismatch", "missing_body_citation",
                         "missing_calculation_citation", "unsupported_completion_claim", "mixed_source_roles",
-                        "column_mismatch", "tool_not_offered", "hook_denied",
+                        "column_mismatch", "missing_answer_citation", "tool_not_offered", "hook_denied",
                     }, owed=error.code not in {"tool_not_offered", "hook_denied"})
                     continue
                 reused = next((confirmed for confirmed in checkpoint["confirmed"]
@@ -1012,7 +1056,10 @@ class Runtime:
                         del pending[failed]
                 messages.append({"role": "tool", "tool_call_id": call.identity, "content": json.dumps(result, ensure_ascii=False)})
                 if call.name == "task_finish":
-                    await self._complete(identity, result["summary"], bool(pending), unpublished_draft=latest_draft is not None)
+                    if answer_mode:
+                        await self._record_answer(identity, result["summary"], tools.evidence)
+                    await self._complete(identity, result["summary"], bool(pending), unpublished_draft=latest_draft is not None,
+                                         answer=answer_mode)
                     return
             if (finalization_candidate is not None and not receipt_mode and not pending and latest_draft is None):
                 _, finalization_result = finalization_candidate

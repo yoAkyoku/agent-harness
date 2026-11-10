@@ -75,7 +75,8 @@ class RunInput(BaseModel):
     # Apply the workspace's AGENTS.md; its text and SHA-256 are pinned into the Run at admission.
     project_instructions: bool = Field(default=False, strict=True)
     publication_workflow: Literal["direct", "draft_review"] = "direct"
-    completion_workflow: Literal["model_summary", "artifact_receipt"] = "model_summary"
+    # "answer": no file is published; the model's cited, verified answer is the result.
+    completion_workflow: Literal["model_summary", "artifact_receipt", "answer"] = "model_summary"
     # Read-only MCP tools this Run may use, chosen like its sources (names from /api/config).
     mcp_tools: list[Annotated[str, Field(pattern=MODEL_NAME.pattern)]] = Field(default_factory=list, max_length=16)
     # One of the configured models (and, for Claude, an effort level) instead of the defaults.
@@ -419,7 +420,10 @@ def create_app(
                 policy["project_instructions"] = instructions
             if body.publication_workflow == "draft_review":
                 policy["publication_workflow"] = body.publication_workflow
-            if body.completion_workflow == "artifact_receipt":
+            if body.completion_workflow == "answer" and (settings.mode == "fixture" or body.publication_workflow == "draft_review"):
+                raise RunFailure("unsupported_workflow", "Answer mode needs a real model and publishes nothing, so it "
+                                 "cannot be combined with the scripted fixture or with draft review.")
+            if body.completion_workflow in {"artifact_receipt", "answer"}:
                 policy["completion_workflow"] = body.completion_workflow
             if body.mcp_tools:
                 if mcp is None:

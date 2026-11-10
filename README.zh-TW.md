@@ -87,6 +87,10 @@ docker run --rm -p 127.0.0.1:8787:8787 -e ANTHROPIC_API_KEY agent-harness --prov
 
 把工作區的固定做法寫在根目錄的 `AGENTS.md`（UTF-8，最多 8 KiB）。資料夾有這個檔案時，工作台會顯示「套用工作區的 AGENTS.md」勾選框與內容預覽；API 使用 `"project_instructions": true`，無頭模式用 `--project-instructions`。Run 開始時會固定記錄這份文字與 SHA-256，之後修改檔案不會影響執行中或續做的 Run，事件串流也會記錄套用的是哪個版本。這些指令只調整做法，放在 harness 規則之下，不能增加來源、工具或批准。
 
+### 不產生檔案、直接回答
+
+如果要的是答案而不是交付檔案，請選「直接回答」（API：`"completion_workflow": "answer"`，無頭模式：`--answer`）。模型不會拿到 `artifact_write`，而是以答案本身結束；答案必須以 `[來源 EID]` 引用所用的證據。每個被引用的 ID 都必須存在，答案也要通過與成果檔案相同的驗證器，沒有引用或引用錯誤的答案會退回模型修正。通過驗證的答案就是 Run 的結果，`answer.verified` 事件會記錄所引用證據的路徑與 SHA-256。這個模式需要真實模型，也不能搭配草稿核對。
+
 ### 試算表、投影片、圖片與大型表格
 
 Excel（`.xlsx`）檔視為表格：`table_inspect` 與 `table_aggregate` 可加上 `sheet` 指定工作表（預設第一個），`source_read` 則把每個工作表以 CSV 呈現在 `[sheet 名稱]` 之下，數值為最後一次儲存的結果。PowerPoint（`.pptx`）檔逐張投影片讀取文字（`[slide N]`），包含表格的每一列。圖片（`.png`、`.jpg`）在設定 `--tesseract` 時經 OCR 讀取（`[image, OCR]`），否則會附上原因拒絕。

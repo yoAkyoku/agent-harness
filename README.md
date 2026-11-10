@@ -87,6 +87,10 @@ Tick “Let me approve the plan before sources are read and the Run proceeds”,
 
 Put house rules for a workspace in an `AGENTS.md` at its root (UTF-8, at most 8 KiB). When the folder has one, the workbench shows it with an “Apply the workspace's AGENTS.md” checkbox and a preview; the API takes `"project_instructions": true`, and headless mode `--project-instructions`. The Run pins the text and its SHA-256 when it starts, so editing the file later does not change a running or resumed Run, and the event stream records which version applied. The instructions shape how the work is done; they are placed below the harness rules and cannot add sources, tools or approvals.
 
+### Answering without a file
+
+For a question rather than a deliverable, choose “Answer directly” (API: `"completion_workflow": "answer"`, headless: `--answer`). The model is not offered `artifact_write`; it ends with the answer itself, which must cite the evidence it uses as `[source EID]`. Every cited ID must exist and the answer passes the same verifiers as an artifact, so an uncited or wrongly cited answer goes back to the model. The verified answer is the Run's result, and an `answer.verified` event records the paths and SHA-256 of what it cites. It needs a real model and cannot be combined with draft review.
+
 ### Spreadsheets, slides, images and large tables
 
 Excel (`.xlsx`) files are tables: `table_inspect` and `table_aggregate` take an optional `sheet` (the first sheet by default), and `source_read` shows every sheet as CSV under a `[sheet NAME]` line, with cell values as last saved. PowerPoint (`.pptx`) files are read as text per slide (`[slide N]`), including table rows. Images (`.png`, `.jpg`) are read through OCR when `--tesseract` is set (`[image, OCR]`), and refused with that reason otherwise.

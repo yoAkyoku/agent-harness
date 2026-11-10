@@ -6,7 +6,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' ws://127.0.0.1:* ws://localhost:*; img-src 'self' data:; object-src 'none'; base-uri 'none'">
   <title>Agent Harness Demo</title>
   <link rel="stylesheet" href="/assets/styles.css?v=9.0.8">
-  <script type="module" src="/assets/app.js?v=13.1"></script>
+  <script type="module" src="/assets/app.js?v=13.2"></script>
 </head>
 <body>
   <div class="workbench">
@@ -75,7 +75,7 @@
           <select id="publication-workflow" aria-describedby="publication-workflow-hint"><option value="direct">直接提出保存</option><option value="draft_review">先草稿，再由模型核對後提出保存</option></select>
           <p id="publication-workflow-hint">草稿流程會多用一次以上模型決策。草稿尚非可下載成果，內容仍需檢查。</p>
           <label for="completion-workflow">完成時如何回覆？</label>
-          <select id="completion-workflow" aria-describedby="completion-workflow-hint"><option value="model_summary">由模型回覆摘要</option><option value="artifact_receipt">只確認已發布的檔案</option></select>
+          <select id="completion-workflow" aria-describedby="completion-workflow-hint"><option value="model_summary">由模型回覆摘要</option><option value="artifact_receipt">只確認已發布的檔案</option><option value="answer">直接回答（不產生檔案，需引用證據）</option></select>
           <p id="completion-workflow-hint">檔案確認僅列出模型選定、已核對的成果；正文仍需檢查。</p>
           <div id="model-choice" class="model-choice" hidden>
             <label for="model-select">模型</label><select id="model-select"></select>

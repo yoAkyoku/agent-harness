@@ -362,6 +362,21 @@ def table_columns(content: str, evidence: dict[str, Record]) -> RunFailure | Non
 DEFAULT_VERIFIERS: tuple[Verifier, ...] = (calculation_citations, consistent_source_roles, table_columns)
 
 
+def verify_answer(text: str, evidence: dict[str, Record]) -> RunFailure | None:
+    """An answer (answer mode) must cite existing evidence and pass the same verifiers as an artifact."""
+    cited = body_evidence_ids(text)
+    if not cited:
+        return RunFailure("missing_answer_citation", "Cite the evidence each fact comes from as [source EID] in the answer, "
+                          "using evidence IDs from this Run's tool results.", correctable_fields=("summary",))
+    unknown = sorted(cited - set(evidence), key=lambda identity: int(identity[1:]))
+    if unknown:
+        return RunFailure("invalid_evidence", f"The answer cites {', '.join(unknown)}, which no tool result of this Run produced.",
+                          correctable_fields=("summary",))
+    failure = verify_artifact(text, evidence)
+    # The answer is task_finish's summary, so that is the field a correction changes.
+    return RunFailure(failure.code, failure.message, correctable_fields=("summary",)) if failure is not None else None
+
+
 def verify_artifact(content: str, evidence: dict[str, Record],
                     verifiers: tuple[Verifier, ...] = DEFAULT_VERIFIERS) -> RunFailure | None:
     """Return the first verifier failure, so the model fixes one problem class at a time."""

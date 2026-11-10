@@ -302,6 +302,12 @@ async function startTask(event) {
       if (state.config.mode === "fixture" && $("publication-workflow").value === "draft_review") {
         throw new Error(t("固定示範流程僅支援直接保存。請將成果流程改為「直接提出保存」後再開始。"));
       }
+      if (state.config.mode === "fixture" && $("completion-workflow").value === "answer") {
+        throw new Error(t("直接回答須由真實模型引用證據作答；固定示範流程請使用模型摘要回覆。"));
+      }
+      if ($("completion-workflow").value === "answer" && $("publication-workflow").value === "draft_review") {
+        throw new Error(t("直接回答不會發布檔案，不能搭配草稿核對。"));
+      }
       if (state.config.mode === "fixture" && $("completion-workflow").value === "artifact_receipt") {
         throw new Error(t("檔案確認須由真實模型選擇成果；固定示範流程請使用模型摘要回覆。"));
       }
@@ -666,6 +672,7 @@ try {
   const local = state.config.mode !== "fixture";  // a real model: local Ollama, OpenAI-compatible or Claude
   $("publication-workflow").querySelector('option[value="draft_review"]').disabled = !local;
   $("completion-workflow").querySelector('option[value="artifact_receipt"]').disabled = !local;
+  $("completion-workflow").querySelector('option[value="answer"]').disabled = !local;
   if (!local) $("publication-workflow-hint").textContent = t("固定示範流程僅支援直接保存來源快照。草稿核對須使用本機模型模式。");
   $("mode-badge").textContent = local ? state.config.model.name : t("模擬模型");
   $("mode-title").textContent = !local ? t("這是一條可檢查的示範流程") : state.config.mode === "local" ? t("由本機模型選擇工具與產生成果") : t("由遠端模型選擇工具與產生成果");

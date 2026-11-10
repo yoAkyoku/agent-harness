@@ -62,6 +62,8 @@ The completion reply is checked as well. After publication the finalization requ
 
 Every failure returns to the model as a correctable error; the model decides how to fix it.
 
+In answer mode (`completion_workflow: "answer"`) nothing is published, so the answer itself is verified. `artifact_write` and `artifact_draft` are not offered; `task_finish` (with a 4000-character answer) is offered to every model once a plan is saved and some evidence exists. `verify_answer` requires at least one bracketed evidence ID, refuses IDs no tool produced, and then runs the default verifiers on the answer, reporting `summary` as the field to correct. A plain-text ending is checked the same way and, if rejected, becomes a `task_finish`-only recovery step. The completion check skips the artifact requirement, and `answer.verified` records the cited evidence's paths and hashes.
+
 ## Providers
 
 The runtime depends on a small protocol (`DecisionModel` in `model.py`): `request_body`, `context_budget`, `decide`, `settings` and `info`.
