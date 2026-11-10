@@ -23,10 +23,12 @@ import hashlib
 from html.parser import HTMLParser
 import ipaddress
 import re
+import ssl
 from typing import Any
 from urllib.parse import urljoin, urlsplit
 
 import httpx
+import truststore
 
 from .contracts import RunFailure
 
@@ -56,6 +58,12 @@ def is_public(address: str) -> bool:
     if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
         ip = ip.ipv4_mapped
     return ip.is_global and not ip.is_multicast
+
+
+def system_ssl_context() -> ssl.SSLContext:
+    """Verify certificates against the operating system's trust store, not a bundled list, so pages load
+    behind HTTPS-inspecting security software or a company proxy that the system already trusts."""
+    return truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 
 
 async def system_resolver(host: str) -> list[str]:
@@ -121,7 +129,8 @@ class WebFetcher:
                  resolver: Resolver | None = None) -> None:
         self.allowed_domains = tuple(domain.lower().strip(".") for domain in allowed_domains)
         self._resolver = resolver or system_resolver
-        self._client = httpx.AsyncClient(transport=transport, trust_env=False, follow_redirects=False,
+        self._client = httpx.AsyncClient(transport=transport, verify=system_ssl_context(), trust_env=False,
+                                         follow_redirects=False,
                                          timeout=TIMEOUT_SECONDS, headers={"User-Agent": USER_AGENT})
 
     async def close(self) -> None:

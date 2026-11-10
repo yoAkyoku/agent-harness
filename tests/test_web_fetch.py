@@ -224,3 +224,16 @@ def test_headless_web_flag_is_refused_by_a_workbench_without_web_access(tmp_path
         result = _headless(str(service.client.base_url), "--workspace", str(source), "--source", "facts.md",
                            "--task", "Read the web.", "--web")
     assert result.returncode == 2 and "web_access_unavailable" in result.stderr
+
+
+def test_certificates_are_checked_against_the_system_trust_store() -> None:
+    import ssl
+
+    import truststore
+
+    from agent_harness.web_fetch import system_ssl_context
+
+    context = system_ssl_context()
+    # The operating system's store (so HTTPS inspection the system trusts works), never verification turned off.
+    assert isinstance(context, truststore.SSLContext)
+    assert context.verify_mode == ssl.CERT_REQUIRED and context.check_hostname is True

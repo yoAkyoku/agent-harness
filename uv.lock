@@ -22,6 +22,7 @@ dependencies = [
     { name = "pypdfium2" },
     { name = "python-docx" },
     { name = "python-pptx" },
+    { name = "truststore" },
     { name = "uvicorn", extra = ["standard"] },
     { name = "websockets" },
 ]
@@ -45,6 +46,7 @@ requires-dist = [
     { name = "pypdfium2", specifier = ">=4.30,<6" },
     { name = "python-docx", specifier = ">=1.1,<2" },
     { name = "python-pptx", specifier = ">=1.0,<2" },
+    { name = "truststore", specifier = ">=0.10,<1" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.34,<1" },
     { name = "websockets", specifier = ">=13,<18" },
 ]
