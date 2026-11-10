@@ -5,6 +5,7 @@ from decimal import Decimal, InvalidOperation, localcontext
 import io
 
 from .contracts import RunFailure
+from .sources import MAX_TABLE_ROWS
 from .storage import Record
 
 
@@ -51,10 +52,11 @@ def table_result(source: Record, column: str | None = None, operation: str = "su
         start = reader.line_num + 1
         rows: list[list[str]] = []
         for row in reader:
-            if len(rows) >= 5000 or len(row) != len(columns):
+            if len(rows) >= MAX_TABLE_ROWS or len(row) != len(columns):
                 raise ValueError
             rows.append(row)
-        result: Record = {"path": source["path"], "sha256": source["sha256"], "columns": columns,
+        result: Record = {"path": source["path"], **({"sheet": source["sheet"]} if source.get("sheet") else {}),
+                          "sha256": source["sha256"], "columns": columns,
                           "rows": len(rows), "line_start": start, "line_end": reader.line_num}
         if column is None:
             result["sample"] = rows[:3]
@@ -71,7 +73,7 @@ def table_result(source: Record, column: str | None = None, operation: str = "su
             result.update({"column": column, "operation": operation, "value": format(value, "f")})
         return result
     except (csv.Error, StopIteration, ValueError, IndexError, InvalidOperation) as error:
-        raise RunFailure("invalid_table", "Use a nonempty rectangular CSV with distinct headers and finite decimal values; limits: 5000 rows, 64 columns, 30 integer and 12 fractional digits.") from error
+        raise RunFailure("invalid_table", "Use a nonempty rectangular CSV with distinct headers and finite decimal values; limits: 200000 rows, 64 columns, 30 integer and 12 fractional digits.") from error
 
 
 def ratio_percent(numerator: str, denominator: str) -> str:

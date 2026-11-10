@@ -7,8 +7,12 @@ from pathlib import Path
 import sys
 
 mode, count_file, image, destination, flag, languages = sys.argv[1:7]
-header = Path(image).read_bytes()[:32].split()
-assert header[0] == b"P5" and int(header[1]) > 0 and int(header[2]) > 0 and header[3] == b"255", header
+data = Path(image).read_bytes()
+if data.startswith(b"P5"):  # a rendered PDF page
+    header = data[:32].split()
+    assert int(header[1]) > 0 and int(header[2]) > 0 and header[3] == b"255", header
+else:  # an image source, passed as it is
+    assert data.startswith((b"\x89PNG", b"\xff\xd8")), data[:8]
 assert destination == "stdout" and flag == "-l"
 with open(count_file, "a", encoding="utf-8") as count:
     count.write(languages + "\n")

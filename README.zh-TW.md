@@ -87,6 +87,12 @@ docker run --rm -p 127.0.0.1:8787:8787 -e ANTHROPIC_API_KEY agent-harness --prov
 
 把工作區的固定做法寫在根目錄的 `AGENTS.md`（UTF-8，最多 8 KiB）。資料夾有這個檔案時，工作台會顯示「套用工作區的 AGENTS.md」勾選框與內容預覽；API 使用 `"project_instructions": true`，無頭模式用 `--project-instructions`。Run 開始時會固定記錄這份文字與 SHA-256，之後修改檔案不會影響執行中或續做的 Run，事件串流也會記錄套用的是哪個版本。這些指令只調整做法，放在 harness 規則之下，不能增加來源、工具或批准。
 
+### 試算表、投影片、圖片與大型表格
+
+Excel（`.xlsx`）檔視為表格：`table_inspect` 與 `table_aggregate` 可加上 `sheet` 指定工作表（預設第一個），`source_read` 則把每個工作表以 CSV 呈現在 `[sheet 名稱]` 之下，數值為最後一次儲存的結果。PowerPoint（`.pptx`）檔逐張投影片讀取文字（`[slide N]`），包含表格的每一列。圖片（`.png`、`.jpg`）在設定 `--tesseract` 時經 OCR 讀取（`[image, OCR]`），否則會附上原因拒絕。
+
+表格可能遠大於模型適合讀取的量：20 MiB、200,000 列以內的 CSV 與 Excel，由表格工具在伺服器端完整計算。表格太大、無法整份讀取時，`source_read` 會回傳標示清楚的預覽（欄名、前 20 列與總列數，並帶有 `preview: true`），提醒模型改用表格工具計算；不會默默截斷。
+
 ### PDF 與 Word 來源
 
 工作區中的 PDF 與 Word（`.docx`）檔會和其他來源一起列出。模型讀到的是擷取出的文字：PDF 每頁標上 `[page N]`，Word 表格轉成 `儲存格 | 儲存格` 的列。引用與變更偵測使用檔案本身的雜湊。加密 PDF 或損壞的檔案會附上原因拒絕，不會當成空白讀取。沒有文字層的掃描 PDF 也會被拒絕，除非你用 `--tesseract` 指定本機的 [Tesseract](https://github.com/tesseract-ocr/tesseract)（其他語言加上 `--ocr-languages eng+chi_tra`）：這時每頁會轉成影像再經 OCR 讀取，並標上 `[page N, OCR]`，避免把辨識結果誤當成文字層。OCR 結果依檔案雜湊快取，上限 30 頁。限制：每個檔案 10 MiB、200 頁、`.docx` 解壓後 50 MiB、擷取文字 256 KiB。
@@ -181,7 +187,7 @@ docker build -f Dockerfile.test --secret id=ca,src=host-ca.pem -t agent-harness-
 
 ## 限制
 
-單一使用者、只綁定 localhost 並需每次啟動的權杖、受限工具：每個任務最多八份來源（UTF-8 文字每份 256 KiB，或 PDF、Word 檔每份 10 MiB 且擷取文字不超過 256 KiB；OCR 需加上 `--tesseract`）；沒有 shell、瀏覽器或網路工具，沒有多租戶或分散式 worker，也不宣稱正式環境的效能。引用能證明數值來源，不代表每句話都正確。已發布成果不等於整個 Run 完成。中斷時效果未知的操作不會自動重送或回滾，續做必須明確建立新 Run。
+單一使用者、只綁定 localhost 並需每次啟動的權杖、受限工具：每個任務最多八份來源（UTF-8 文字每份 256 KiB；CSV 與 Excel 表格每份 20 MiB、200,000 列，模型讀到的是預覽；PDF、Word、PowerPoint 每份 10 MiB 且擷取文字不超過 256 KiB；圖片與掃描 PDF 需加上 `--tesseract`）；沒有 shell、瀏覽器或網路工具，沒有多租戶或分散式 worker，也不宣稱正式環境的效能。引用能證明數值來源，不代表每句話都正確。已發布成果不等於整個 Run 完成。中斷時效果未知的操作不會自動重送或回滾，續做必須明確建立新 Run。
 
 ## 授權
 

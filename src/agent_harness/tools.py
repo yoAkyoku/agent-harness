@@ -15,7 +15,8 @@ from .arithmetic_evidence import require_csv_arithmetic_evidence
 from .contracts import PreparedCall, RunFailure, ToolCall, canonical_tool_arguments
 from .mcp_hub import McpHub, McpTool, mcp_evidence
 from .skills import LOADER, Skill, loader_definition
-from .sources import MAX_SOURCE_BYTES, MAX_SOURCE_PATH, MAX_SOURCES, labelled_source_lines, query_source_labels, read_source
+from .sources import (MAX_SOURCE_BYTES, MAX_SOURCE_PATH, MAX_SOURCES, TABLE_EXTENSIONS, labelled_source_lines,
+                      query_source_labels, read_source, read_table)
 from .storage import Record, Store
 from .tables import ratio_percent, table_result
 
@@ -220,6 +221,7 @@ def bare_referenced_evidence_ids(content: str) -> set[str]:
 MAX_ARTIFACT_BYTES = MAX_SOURCES * MAX_SOURCE_BYTES + 32_768
 PATH_SCHEMA = {"type": "string", "minLength": 1, "maxLength": MAX_SOURCE_PATH}
 EVIDENCE_SCHEMA = {"type": "string", "pattern": "^E[1-9][0-9]*$"}
+SHEET_SCHEMA = {"type": "string", "minLength": 1, "maxLength": 100}
 
 DEFINITIONS: dict[str, Record] = {
     "plan_update": {
@@ -231,12 +233,13 @@ DEFINITIONS: dict[str, Record] = {
     "table_inspect": {
         "effect": "read_only",
         "description": "Inspect CSV headers, rows, sample, full-column aggregatable_columns, hash and lines. Availability is not a computed value: use table_aggregate even if all rows fit.",
-        "parameters": {"type": "object", "properties": {"path": PATH_SCHEMA}, "required": ["path"], "additionalProperties": False},
+        "parameters": {"type": "object", "properties": {"path": PATH_SCHEMA, "sheet": SHEET_SCHEMA},
+                       "required": ["path"], "additionalProperties": False},
     },
     "table_aggregate": {
         "effect": "read_only",
         "description": "Sum/mean a full numeric CSV column; return numeric evidence_id for calculation/citation.",
-        "parameters": {"type": "object", "properties": {"path": PATH_SCHEMA,
+        "parameters": {"type": "object", "properties": {"path": PATH_SCHEMA, "sheet": SHEET_SCHEMA,
             "column": {"type": "string", "minLength": 1, "maxLength": 100}, "operation": {"enum": ["sum", "mean"]}},
             "required": ["path", "column", "operation"], "additionalProperties": False},
     },
@@ -302,6 +305,7 @@ DRAFT_PUBLICATION_PARAMETERS: Record = {
 
 
 def model_tools(*, require_citations: bool = False, include_tables: bool = True, include_labels: bool = True,
+                include_sheets: bool = False,
                 include_finish: bool = False, include_draft: bool = False,
                 receipt_completion: bool = False, include_base: bool = False,
                 aggregate_operations: tuple[str, ...] = ("sum", "mean"),
@@ -324,6 +328,11 @@ def model_tools(*, require_citations: bool = False, include_tables: bool = True,
         definitions["source_read"]["description"] = "Read a selected UTF-8 source with hash."
     else:
         definitions["source_read"]["parameters"]["required"].append("labels")
+    for name in ("table_inspect", "table_aggregate"):
+        if include_sheets:  # offered only when a workbook is selected, so CSV-only requests are unchanged
+            definitions[name]["description"] += " For an Excel workbook, name the sheet (default: the first sheet)."
+        else:
+            del definitions[name]["parameters"]["properties"]["sheet"]
     if not include_tables:
         for name in ("table_inspect", "table_aggregate", "number_calculate"):
             del definitions[name]
@@ -486,8 +495,12 @@ class Tools:
             raise RunFailure("invalid_arguments", f"Invalid tool input at {error.json_path}: {error.validator} constraint.{hint}", correctable_fields=fields) from error
         if call.name in {"source_read", "table_inspect", "table_aggregate"} and call.arguments["path"] not in self.sources:
             raise RunFailure("source_forbidden", "The requested source was not selected for this task.")
-        if call.name in {"table_inspect", "table_aggregate"} and Path(call.arguments["path"]).suffix.lower() != ".csv":
-            raise RunFailure("invalid_arguments", "Table tools require a selected CSV file.")
+        if call.name in {"table_inspect", "table_aggregate"} and Path(call.arguments["path"]).suffix.lower() not in TABLE_EXTENSIONS:
+            raise RunFailure("invalid_arguments", "Table tools require a selected CSV or Excel file.")
+        if (call.name in {"table_inspect", "table_aggregate"} and "sheet" in call.arguments
+                and Path(call.arguments["path"]).suffix.lower() != ".xlsx"):
+            raise RunFailure("invalid_arguments", "Only Excel workbooks have sheets; omit sheet for a CSV file.",
+                             correctable_fields=("sheet",))
         references = call.arguments.get("citations", []) if call.name in ARTIFACT_TOOLS else []
         if call.name == "number_calculate":
             references = [call.arguments["numerator"], call.arguments["denominator"]]
@@ -629,13 +642,20 @@ class Tools:
     async def _finish(self, arguments: Record) -> Record:
         return {"summary": arguments["summary"]}
 
+    async def _table(self, arguments: Record) -> Record:
+        """The whole table (a CSV file or one workbook sheet), checked against the admitted version."""
+        table = await asyncio.to_thread(read_table, self.root, arguments["path"], arguments.get("sheet"))
+        if table["sha256"] != self.sources[arguments["path"]]["sha256"]:
+            raise RunFailure("source_changed", "The source changed after task admission. Start a new task with its current version.")
+        return table
+
     async def _inspect(self, arguments: Record) -> Record:
-        source = await self._source(arguments["path"])
-        return self._evidence(await asyncio.to_thread(table_result, source))
+        table = await self._table(arguments)
+        return self._evidence(await asyncio.to_thread(table_result, table))
 
     async def _aggregate(self, arguments: Record) -> Record:
-        source = await self._source(arguments["path"])
-        return self._evidence(await asyncio.to_thread(table_result, source, arguments["column"], arguments["operation"]))
+        table = await self._table(arguments)
+        return self._evidence(await asyncio.to_thread(table_result, table, arguments["column"], arguments["operation"]))
 
     async def _calculate(self, arguments: Record) -> Record:
         refs = [arguments["numerator"], arguments["denominator"]]

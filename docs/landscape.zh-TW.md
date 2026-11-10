@@ -65,6 +65,7 @@
 | 21 | Harness 之外無法否決或觀察工具呼叫。 | Claude Code、Codex、opencode 的 hooks | 工具呼叫前（允許／拒絕；任何 deny 優先；連不上或回覆無效視為 deny）與呼叫後（只觀察）的 HTTP webhook，並記錄為 Run 事件。本機程式只能以參數清單執行（絕不經過 shell），需加上 `--allow-command-hooks`，且只給最小環境變數；hooks 不能修改參數，驗證器也不參考它們。 |
 | 22 | Token 用量與費用只能看單一 Run。 | Claude Code 與 opencode 的 session 費用 | `GET /api/sessions/{id}/usage` 加總對話中的所有 Run；有 Run 沒有單價或未回報用量時，估算標示為不完整。 |
 | 23 | 引用 CSV 樣本的值可能放在錯誤欄位。 | 參考產品多交由使用者自行檢查 | `table_columns`：值的標籤正好是所引用表格的欄名，而該值在樣本中只出現在其他欄時，拒絕發布並以可修正錯誤指出正確欄位。 |
+| 24 | 試算表、投影片與圖片不能當來源，表格也受限於模型能讀取的大小。 | Claude、ChatGPT、Codex 的檔案附件 | `.xlsx` 工作表可供表格工具使用（可選 `sheet`），`.pptx` 逐張投影片讀取，圖片在啟用時經 OCR 讀取。20 MiB、200,000 列以內的 CSV 與 Excel 由伺服器計算，大型表格讓模型讀取標示清楚的預覽。 |
 
 ## 已經具備
 

@@ -170,7 +170,7 @@ const EN = {
   "每次需核准": "Approval each time",
   "唯讀": "Read-only",
   "（伺服器未提供說明）": "(no description from the server)",
-  "找不到可用來源。請加入 UTF-8 的 .md、.txt、.csv、.json（每份不超過 256 KiB），或 PDF、Word（.docx，每份不超過 10 MiB）。": "No usable sources found. Add UTF-8 .md, .txt, .csv or .json files (up to 256 KiB each), or PDF and Word (.docx) files (up to 10 MiB each).",
+  "找不到可用來源。請加入 UTF-8 的 .md、.txt、.json（每份不超過 256 KiB）、CSV 或 Excel 表格（每份不超過 20 MiB），或 PDF、Word、PowerPoint（每份不超過 10 MiB）；圖片需以 --tesseract 啟用 OCR。": "No usable sources found. Add UTF-8 .md, .txt or .json files (up to 256 KiB each), CSV or Excel tables (up to 20 MiB each), or PDF, Word or PowerPoint files (up to 10 MiB each); images need OCR enabled with --tesseract.",
   "查看": "View",
   "查看來源 {path}": "View source {path}",
   "來源預覽": "Source preview",

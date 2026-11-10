@@ -21,7 +21,7 @@ def _equation_key(text: str) -> str:
 
 
 def require_csv_arithmetic_evidence(content: str, evidence: list[Record]) -> None:
-    if not any(Path(record["path"]).suffix.lower() == ".csv" for record in evidence if "path" in record):
+    if not any(Path(record["path"]).suffix.lower() in {".csv", ".xlsx"} for record in evidence if "path" in record):
         return
     for path in sorted({record["path"] for record in evidence if "path" in record}, key=len, reverse=True):
         content = content.replace(path, "")

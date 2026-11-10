@@ -87,6 +87,12 @@ Tick “Let me approve the plan before sources are read and the Run proceeds”,
 
 Put house rules for a workspace in an `AGENTS.md` at its root (UTF-8, at most 8 KiB). When the folder has one, the workbench shows it with an “Apply the workspace's AGENTS.md” checkbox and a preview; the API takes `"project_instructions": true`, and headless mode `--project-instructions`. The Run pins the text and its SHA-256 when it starts, so editing the file later does not change a running or resumed Run, and the event stream records which version applied. The instructions shape how the work is done; they are placed below the harness rules and cannot add sources, tools or approvals.
 
+### Spreadsheets, slides, images and large tables
+
+Excel (`.xlsx`) files are tables: `table_inspect` and `table_aggregate` take an optional `sheet` (the first sheet by default), and `source_read` shows every sheet as CSV under a `[sheet NAME]` line, with cell values as last saved. PowerPoint (`.pptx`) files are read as text per slide (`[slide N]`), including table rows. Images (`.png`, `.jpg`) are read through OCR when `--tesseract` is set (`[image, OCR]`), and refused with that reason otherwise.
+
+Tables can be much larger than what a model should read: CSV and Excel files up to 20 MiB and 200,000 rows are computed whole on the server by the table tools. When a table is too large to read in full, `source_read` returns a labelled preview (headers, the first 20 rows and the total row count, `preview: true`) that tells the model to compute with the table tools; nothing is cut silently.
+
 ### PDF and Word sources
 
 PDF and Word (`.docx`) files in the workspace are listed with the other sources. The model reads their extracted text: PDF pages are marked `[page N]`, and Word tables become `cell | cell` rows. Citations and change detection use the hash of the file itself. An encrypted PDF or a damaged file is refused with a reason rather than read as empty. A scanned PDF with no text layer is refused too, unless you name a local [Tesseract](https://github.com/tesseract-ocr/tesseract) with `--tesseract` (and `--ocr-languages eng+chi_tra` for other languages): its pages are then rendered and read through OCR, marked `[page N, OCR]` so recognized text is never mistaken for a text layer. OCR results are cached by the file's hash and limited to 30 pages. Limits: 10 MiB per file, 200 pages, 50 MiB unpacked for `.docx`, and 256 KiB of extracted text.
@@ -181,7 +187,7 @@ Tests go through the public HTTP/WebSocket interface and replace only the model'
 
 ## Limits
 
-Single user, bound to localhost behind a per-launch token, with restricted tools: at most eight sources per task (UTF-8 text up to 256 KiB, or PDF and Word files up to 10 MiB whose extracted text fits 256 KiB; OCR only with `--tesseract`), no shell, browser or network tools, no multi-tenant or distributed workers, and no production performance claims. A citation proves where a value came from, not that every sentence is correct. A published artifact does not mean the Run completed. Effects whose outcome is unknown after a crash are never retried or rolled back; continuing requires an explicit new Run.
+Single user, bound to localhost behind a per-launch token, with restricted tools: at most eight sources per task (UTF-8 text up to 256 KiB; CSV and Excel tables up to 20 MiB and 200,000 rows, previewed for the model; PDF, Word and PowerPoint files up to 10 MiB whose extracted text fits 256 KiB; images and scanned PDFs only with `--tesseract`), no shell, browser or network tools, no multi-tenant or distributed workers, and no production performance claims. A citation proves where a value came from, not that every sentence is correct. A published artifact does not mean the Run completed. Effects whose outcome is unknown after a crash are never retried or rolled back; continuing requires an explicit new Run.
 
 ## License
 

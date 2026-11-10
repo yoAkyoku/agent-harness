@@ -65,6 +65,7 @@ The products' mechanisms were used as a checklist against the code. Each item re
 | 21 | Nothing outside the harness could veto or observe a tool call. | Hooks in Claude Code, Codex and opencode | HTTP webhooks before tool calls (allow/deny; any deny wins; unreachable or invalid counts as deny) and after them (observe only), recorded as Run events. Local programs as argument lists (never a shell) only with `--allow-command-hooks`, with a minimal environment; hooks cannot change arguments and verifiers ignore them. |
 | 22 | Token usage and cost were per Run only. | Session cost in Claude Code and opencode | `GET /api/sessions/{id}/usage` sums a Session's Runs; the estimate is partial when a Run is unpriced or reported no usage. |
 | 23 | A value cited to a CSV sample could sit under the wrong column. | Review left to the user in the reference products | `table_columns`: when a value's label is exactly a column of the cited table and the value appears in the sample only under other columns, publication is refused with a correctable error naming the right column. |
+| 24 | Spreadsheets, slides and images could not be sources, and tables were limited to what the model could read. | File attachments in Claude, ChatGPT and Codex | `.xlsx` sheets are tables for the table tools (optional `sheet`), `.pptx` is read per slide, images go through OCR when enabled. CSV and Excel tables up to 20 MiB and 200,000 rows are computed on the server, while the model reads a labelled preview of large ones. |
 
 ## Already in place
 

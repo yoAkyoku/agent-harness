@@ -18,6 +18,7 @@ from .mcp_hub import McpHub
 from .instructions import instructions_message
 from .skills import SkillLibrary, catalog_message, loader_definition
 from .model import DecisionModel, ModelResponseError
+from .sources import TABLE_EXTENSIONS
 from .storage import Record, Store
 from .tools import Tools, model_tools
 from .verifiers import artifact_body, completion_summary, verify_artifact
@@ -293,7 +294,7 @@ class Runtime:
         if checkpoint is not None:
             tools.restore_evidence(checkpoint["confirmed"])
         label_queries_available = model.settings.mode == "fixture" and any(
-            Path(source["path"]).suffix.lower() != ".csv" for source in run["sources"]
+            Path(source["path"]).suffix.lower() not in TABLE_EXTENSIONS for source in run["sources"]
         )
         messages: list[Record] = [
             {"role": "system", "content": (
@@ -505,7 +506,8 @@ class Runtime:
                     if publication_recovery_pending else ""
                 ) + (completion_recovery_note if completion_recovery_pending else "")
             available_tools = model_tools(require_citations=require_citations,
-                include_tables=any(Path(source["path"]).suffix.lower() == ".csv" for source in run["sources"]),
+                include_tables=any(Path(source["path"]).suffix.lower() in TABLE_EXTENSIONS for source in run["sources"]),
+                include_sheets=any(Path(source["path"]).suffix.lower() == ".xlsx" for source in run["sources"]),
                 include_labels=label_queries_available, include_finish=finish_available, include_draft=review_mode,
                 receipt_completion=receipt_mode, include_base=run.get("base_artifact") is not None,
                 extra_tools=[tool.definition() for tool in mcp_tools.values()]
