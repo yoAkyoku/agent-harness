@@ -15,6 +15,7 @@ from .context import added_message, compact_tool_catalog, completed_tool_group, 
 from .contracts import Decision, PendingCorrection, RunCancelled, RunFailure, RunLimits, ToolCall, canonical_tool_arguments
 from .hooks import HookRunner
 from .mcp_hub import McpHub
+from . import subagent
 from .sandbox import SANDBOX_ERRORS, TOOL_NAME as PYTHON_TOOL, PythonSandbox
 from .web_fetch import TOOL_NAME as WEB_TOOL, WEB_ERRORS, WebFetcher
 from .instructions import instructions_message
@@ -75,8 +76,9 @@ def project_initial_public_plan(decision: Decision, protocol: str) -> Decision:
 class Runtime:
     def __init__(self, store: Store, model: DecisionModel, *, hold_first_tool: Literal["source_read", "artifact_write"] | None = None,
                  mcp: McpHub | None = None, skills: SkillLibrary | None = None, hooks: HookRunner | None = None,
-                 web: WebFetcher | None = None, python: PythonSandbox | None = None) -> None:
+                 web: WebFetcher | None = None, python: PythonSandbox | None = None, subagents: bool = False) -> None:
         self.store = store
+        self.subagents = subagents
         self.model = model
         self.mcp = mcp
         self.web = web
@@ -253,7 +255,10 @@ class Runtime:
         await self._record(identity, "answer.verified", {"cited": [
             {"evidence_id": key, "path": evidence[key].get("path"), "sha256": evidence[key].get("sha256"),
              # A cited image read by a vision model says so: its text is a model transcription, not the file's text.
-             **({"transcription": evidence[key]["transcription"]} if "transcription" in evidence[key] else {})}
+             **({"transcription": evidence[key]["transcription"]} if "transcription" in evidence[key] else {}),
+             # A cited subagent report is model-written; record the source versions it was verified against.
+             **({"subagent_sources": evidence[key]["sources"]}
+                if evidence[key].get("evidence_type") == "subagent_report" else {})}
             for key in cited]})
 
     async def _wait_approval(self, identity: str, approval_id: str) -> None:
@@ -309,16 +314,21 @@ class Runtime:
         python_access = bool(run.get("policy", {}).get("python_sandbox"))
         if python_access and self.python is None:
             raise RunFailure("python_sandbox_unavailable", "This Run asked for the Python sandbox, but the workbench has none.")
+        delegation = bool(run.get("policy", {}).get("subagents"))
+        if delegation and not self.subagents:
+            raise RunFailure("subagents_unavailable", "This Run asked for subagents, but the workbench does not allow them.")
         # MCP tools are read-only evidence producers, like the built-in read tools.
         read_tools = (READ_TOOLS | {name for name, tool in mcp_tools.items() if not tool.approval}
-                      | ({WEB_TOOL} if web_access else set()) | ({PYTHON_TOOL} if python_access else set()))
+                      | ({WEB_TOOL} if web_access else set()) | ({PYTHON_TOOL} if python_access else set())
+                      | ({subagent.TOOL_NAME} if delegation else set()))
         tools = Tools(self.store, identity, root, run["sources"], require_citations=require_citations,
                       receipt_completion=receipt_mode, answer_completion=answer_mode,
                       base_artifact=run.get("base_artifact"),
                       fault_once_source_read=bool(run.get("validation", {}).get("fault_once_source_read")),
                       mcp_tools=mcp_tools, mcp_hub=self.mcp, skills=selected_skills,
                       plan_approval=bool(run.get("policy", {}).get("require_plan_approval")),
-                      web=self.web if web_access else None, python=self.python if python_access else None)
+                      web=self.web if web_access else None, python=self.python if python_access else None,
+                      subagents=delegation)
         if checkpoint is not None:
             tools.restore_evidence(checkpoint["confirmed"])
         label_queries_available = model.settings.mode == "fixture" and any(
@@ -355,6 +365,9 @@ class Runtime:
         if answer_mode:
             messages[0]["content"] += ("此任務以回答結束，不發布檔案：讀取來源後用 task_finish 的 summary 直接回答，"
                                        "每個事實與數值緊接引用 [來源 EID]；缺資料就說明未提供。")
+        if delegation:
+            messages[0]["content"] += ("獨立且範圍明確的子問題可用 subagent_run 交給子代理：它只看得到你寫的 task 與指定的已選來源，"
+                                       "回傳模型撰寫的報告作為證據，引用格式 [subagent EID]；失敗時改用自己的工具。")
         project_instructions = run.get("policy", {}).get("project_instructions")
         if project_instructions:
             messages[0]["content"] += instructions_message(project_instructions)
@@ -400,6 +413,26 @@ class Runtime:
                 elif confirmed["tool"] == "artifact_write" and confirmed.get("arguments") == latest_draft:
                     latest_draft = None
         usage = {"model_calls": 0, "tool_calls": 0}
+        delegations = 0
+
+        async def run_subagent(call: ToolCall, arguments: Record) -> Record:
+            """One delegated sub-task, recorded in this Run's events and spent from this Run's budget."""
+            nonlocal delegations
+            delegations += 1
+
+            async def record(kind: str, data: Record) -> None:
+                await self._record(identity, kind, data, usage=usage)
+
+            return await subagent.run(
+                model=model, store=self.store, run_id=identity, root=root, call_id=call.identity, task=arguments["task"],
+                sources=[tools.sources[path] for path in arguments["sources"]], limits=limits,
+                capacity=min(run["model"]["context_capacity_tokens"],
+                             limits.context_window_tokens or run["model"]["context_capacity_tokens"]),
+                profile=run["model"].get("context_profile", "synthetic_fixture"), usage=usage, record=record,
+                hooks=self.hooks)
+
+        if delegation:
+            tools.subagent_runner = run_subagent
         seen_calls: set[str] = set()
         corrections = 0
         completion_recovery_pending = False
@@ -548,6 +581,7 @@ class Runtime:
                 extra_tools=[tool.definition() for tool in mcp_tools.values()]
                 + ([self.web.definition()] if web_access and self.web is not None else [])
                 + ([self.python.definition()] if python_access and self.python is not None else [])
+                + ([subagent.definition()] if delegation else [])
                 + ([loader_definition(selected_skills)] if selected_skills else []))
             pending_tools = {correction.call.name for correction in pending.values()}
             if pending_tools == {"number_calculate"}:
@@ -931,6 +965,9 @@ class Runtime:
                         completion_artifacts = current["artifacts"] + current["inherited_artifacts"] if current else []
                     prepared = tools.prepare(call, draft=latest_draft if review_mode else None,
                                              completion_artifacts=completion_artifacts)
+                    if call.name == subagent.TOOL_NAME and delegations >= subagent.MAX_PER_RUN:
+                        raise RunFailure("subagent_limit_exceeded", f"This Run already started {subagent.MAX_PER_RUN} "
+                                         "subagents; do the remaining work with your own tools.")
                     if call.name == "artifact_write" and review_mode:
                         if latest_draft is None or draft_step >= step or prepared.arguments != latest_draft:
                             raise RunFailure("unreviewed_artifact", "Publish the latest staged candidate in a later model decision.")
@@ -981,7 +1018,8 @@ class Runtime:
                         "evidence_section_mismatch", "missing_body_citation",
                         "missing_calculation_citation", "unsupported_completion_claim", "mixed_source_roles",
                         "column_mismatch", "missing_answer_citation", "tool_not_offered", "hook_denied",
-                    }, owed=error.code not in {"tool_not_offered", "hook_denied"})
+                        "subagent_limit_exceeded",
+                    }, owed=error.code not in {"tool_not_offered", "hook_denied", "subagent_limit_exceeded"})
                     continue
                 reused = next((confirmed for confirmed in checkpoint["confirmed"]
                                if confirmed["tool"] == call.name and isinstance(confirmed.get("arguments"), dict)
@@ -1035,8 +1073,8 @@ class Runtime:
                         await self._record(identity, "tool.failed", {"call_id": call.identity, "tool": call.name, "code": error.code})
                         await feedback(call, error, retryable=call.name in read_tools and error.code in {
                             "source_unavailable", "invalid_table", "invalid_calculation",
-                            "mcp_tool_error", "mcp_result_too_large", *WEB_ERRORS, *SANDBOX_ERRORS,
-                        })
+                            "mcp_tool_error", "mcp_result_too_large", *WEB_ERRORS, *SANDBOX_ERRORS, "subagent_failed",
+                        }, owed=call.name != subagent.TOOL_NAME)  # a failed sub-task may be done by the parent itself
                         continue
                     if (run["mode"] != "fixture" and call.name == "source_read"
                             and not any(later.name == "source_read" for later in decision.calls[call_index + 1:])):

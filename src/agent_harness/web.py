@@ -41,6 +41,7 @@ from .runtime import Runtime
 from .sources import MAX_SOURCES, admit_sources, catalog, configure_ocr, configure_vision, read_source, relevant_excerpts, workspace_root
 from .storage import Store
 from .sandbox import PythonSandbox, Runner
+from .subagent import status as subagent_status
 from .vision import VisionTranscriber
 from .web_fetch import Resolver, WebFetcher
 
@@ -91,6 +92,8 @@ class RunInput(BaseModel):
     web_access: bool = Field(default=False, strict=True)
     # Offer python_run (a locked-down Docker container); the workbench must be started with --python-sandbox.
     python_sandbox: bool = Field(default=False, strict=True)
+    # Offer subagent_run (delegated sub-tasks with a fresh context); the workbench must allow subagents.
+    subagents: bool = Field(default=False, strict=True)
 
 
 class ResumeInput(BaseModel):
@@ -155,6 +158,7 @@ def create_app(
     sandbox_runner: Runner | None = None,
     vision_model: str | None = None,
     vision_transport: httpx.BaseTransport | None = None,
+    allow_subagents: bool = False,
 ) -> FastAPI:
     """Build the workbench app.
 
@@ -181,6 +185,8 @@ def create_app(
 
     `vision_model` names a local Ollama model that advertises vision; image sources are then also
     transcribed by it, labelled as model output. `vision_transport` replaces Ollama in tests.
+
+    `allow_subagents` lets Runs that ask for it delegate sub-tasks with subagent_run.
     """
     if access_token is not None and len(access_token) < MIN_TOKEN_LENGTH:
         raise ValueError(f"The access token must have at least {MIN_TOKEN_LENGTH} characters.")
@@ -227,7 +233,7 @@ def create_app(
                     claude = AnthropicAdapter(settings, transport=anthropic_transport)
                     await claude.prepare()
                     model = claude
-                    runtime = Runtime(storage, model, hold_first_tool=hold_first_tool, mcp=mcp, skills=skills, hooks=hooks, web=web, python=python)
+                    runtime = Runtime(storage, model, hold_first_tool=hold_first_tool, mcp=mcp, skills=skills, hooks=hooks, web=web, python=python, subagents=allow_subagents)
                     try:
                         yield
                     finally:
@@ -239,7 +245,7 @@ def create_app(
                         adapter = ModelAdapter(client, settings, transport_fixture=transport is not None)
                         await adapter.prepare()
                         model = adapter
-                        runtime = Runtime(storage, model, hold_first_tool=hold_first_tool, mcp=mcp, skills=skills, hooks=hooks, web=web, python=python)
+                        runtime = Runtime(storage, model, hold_first_tool=hold_first_tool, mcp=mcp, skills=skills, hooks=hooks, web=web, python=python, subagents=allow_subagents)
                         try:
                             yield
                         finally:
@@ -282,7 +288,8 @@ def create_app(
                 "ocr": {"enabled": ocr_command is not None, **({"languages": ocr_languages} if ocr_command else {})},
                 "web": web.status() if web is not None else {"enabled": False},
                 "python": python.status() if python is not None else {"enabled": False},
-                "vision": vision.status() if vision is not None else {"enabled": False}}
+                "vision": vision.status() if vision is not None else {"enabled": False},
+                "subagents": subagent_status(allow_subagents)}
 
     @app.post("/api/workspaces", status_code=201)
     async def add_workspace(body: WorkspaceInput) -> dict[str, Any]:
@@ -432,7 +439,7 @@ def create_app(
         for optional in ("model", "effort"):
             if effective[optional] is None:
                 del effective[optional]
-        for flag in ("require_plan_approval", "project_instructions", "web_access", "python_sandbox"):
+        for flag in ("require_plan_approval", "project_instructions", "web_access", "python_sandbox", "subagents"):
             if not effective[flag]:
                 del effective[flag]
         if not body.skills:
@@ -485,6 +492,10 @@ def create_app(
                 if python is None:
                     raise RunFailure("python_sandbox_unavailable", "No Python sandbox; start the workbench with --python-sandbox IMAGE.")
                 policy["python_sandbox"] = True
+            if body.subagents:
+                if not allow_subagents or settings.mode == "fixture":
+                    raise RunFailure("subagents_unavailable", "Subagents are off; start the workbench with a model and --allow-subagents.")
+                policy["subagents"] = True
             run_model = dict(model.info)
             choices = model.info.get("choices", {})
             if body.model is not None and body.model != model.info["name"]:

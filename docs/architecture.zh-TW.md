@@ -81,6 +81,8 @@ Token 用量來自每次回覆：Chat Completions 供應商回報 `prompt_tokens
 
 `sandbox.py` 每次呼叫只組出一個 `docker run`（`PythonSandbox.command`），從不經過 shell。執行器可以替換：測試會記錄指令與暫存的檔案；在有 Docker 與映像的環境（CI 中為必跑）還有一個測試會啟動真實容器。暫存時只複製 Run 已准入的來源、逐一重新檢查雜湊，放進新的暫存資料夾，設為使用者 65534 可讀，呼叫後刪除。輸出會讀到結束，但只保留前 64 KiB，因此大量輸出不會塞滿記憶體；逾時時用戶端會以容器的唯一名稱執行 `docker kill`。結束碼 0 產生證據；125（Docker 無法啟動容器）為 `sandbox_unavailable`；其他結束碼為 `python_failed`，逾時為 `python_timeout`，兩者都可修正。和 `web_fetch` 一樣，只有應用程式有沙箱且 Run 的 policy 要求時才提供這個工具；續做的 Run 只接受程式碼、輸出文字與選定來源雜湊都相符的檢查點輸出。
 
+`subagent.py` 執行被委派的子任務。它不是第二個 Run：`subagent.run` 是在父 Run 的 `subagent_run` 工具呼叫內執行的小迴圈，所以共用父 Run 的取消、期限與用量計數，並把每一步以 `subagent.*` 事件寫進父 Run 的事件記錄（checkpoint 與歷史會忽略這些事件，它們只從父 Run 自己的 `tool.*` 事件重建對話）。子代理有自己的 `Tools` 實例，範圍是父 Run 已受理來源中被委派的子集，因此它的證據 ID 是區域性的；它只會被提供 `source_read`、表格工具、`number_calculate`，以及有證據之後的 `task_finish`。它的答案要對照這份區域證據通過 `verify_answer`。接著 `without_child_ids` 把 `[來源 EID]` 引用改寫成 `(來源)`，父 Run 的 `Tools` 再把報告登記為證據，附上底層的來源版本（`sources`）；續做時 `restore_evidence` 會重新對照已選來源的版本。子任務失敗是可重試的工具錯誤，但父 Run 不必重試它。
+
 ## 無頭用戶端
 
 `agent_harness.headless` 只是一般的觀察者：透過 HTTP API 建立工作區、Session 與 Run，再以 `flow=ack` 讀取持久事件串流，逐筆確認，串流中斷時從最後的 cursor 重新接上（已輸出的序號會略過）。它原樣輸出事件為 NDJSON，並把終止狀態對應成退出碼。觀察者從不擁有執行，所以用戶端結束時 Run 仍會繼續。重新連線的路徑目前還沒有測試。加上 `--unattended` 時，用戶端會在第一個 `approval.requested` 事件取消 Run 並以退出碼 5 結束，因此排程工作不會等待不在場的人。

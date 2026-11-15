@@ -99,6 +99,14 @@ docker run --rm -p 127.0.0.1:8787:8787 -e ANTHROPIC_API_KEY agent-harness --prov
 
 每次 `python_run` 都啟動全新容器：`--pull never`、無網路、唯讀根檔案系統、64 MiB 的 `/tmp`、移除所有 Linux capabilities、`no-new-privileges`、以使用者 65534 執行、記憶體 512 MiB（不含 swap）、1 顆 CPU、128 個行程、30 秒，逾時即強制終止容器。容器只看得到這個 Run 選定的來源：確認雜湊後複製，依工作區路徑以唯讀方式掛載在 `/data`。程式碼經由 stdin 傳入。結束碼為 0 的輸出成為證據（`[python_run EID]`），記錄程式碼、其 SHA-256 與可讀檔案的雜湊；輸出上限 64 KiB，截斷會標示。失敗或逾時會附上 stderr 結尾回饋給模型。隔離邊界是 Docker 容器，不是虛擬機。
 
+### 委派給子代理
+
+Run 可以把一個獨立的子問題交給子代理：同一個模型的另一個有上限的迴圈，從全新的上下文開始，只看得到被委派的任務。預設關閉：啟動工作台時加上 `--allow-subagents`，再在 Run 勾選「允許把子問題交給子代理」（API：`"subagents": true`，無頭模式：`--subagents`）。模型就會多一個 `subagent_run {task, sources}` 工具。
+
+子代理的權限在每一方面都比父 Run 小。它只能讀取 Run 已選、且這次呼叫指定的來源，只能用唯讀的內建工具（`source_read`、表格工具、`number_calculate`）；不能發布、不能擷取網頁、不能執行 Python、不能呼叫 MCP 工具，也不能再委派。它的模型與工具呼叫計入父 Run 的限額；一個 Run 最多啟動 4 個子代理，每個最多 8 次模型決策；hooks 也會看到它的工具呼叫；取消 Run 就會停止它。
+
+證據不會因為「信任」而跨越邊界。子代理必須以一個答案結束，而且這個答案要對照它自己的證據，通過和直接回答相同的引用檢查；沒通過的答案不會送到父 Run，父 Run 只會被告知子任務失敗，可以改用自己的工具完成。通過驗證的報告在父 Run 成為一筆證據（`[subagent EID]`）：內容是報告文字（子代理自己的證據 ID 會改寫成來源名稱，避免和父 Run 的 ID 混淆），加上驗證時對照的來源版本路徑與 SHA-256。證據附錄與 `answer.verified` 都會註明這是模型撰寫的報告，不是來源原文。子代理的每一步都以 `subagent.*` 事件記錄在父 Run 的事件中。
+
 ### 不產生檔案、直接回答
 
 如果要的是答案而不是交付檔案，請選「直接回答」（API：`"completion_workflow": "answer"`，無頭模式：`--answer`）。模型不會拿到 `artifact_write`，而是以答案本身結束；答案必須以 `[來源 EID]` 引用所用的證據。每個被引用的 ID 都必須存在，答案也要通過與成果檔案相同的驗證器，沒有引用或引用錯誤的答案會退回模型修正。通過驗證的答案就是 Run 的結果，`answer.verified` 事件會記錄所引用證據的路徑與 SHA-256。這個模式需要真實模型，也不能搭配草稿核對。
@@ -221,7 +229,7 @@ docker build -f Dockerfile.test --secret id=ca,src=host-ca.pem -t agent-harness-
 
 ## 目錄
 
-- `src/agent_harness/`：harness 本體。`runtime.py`（循環）、`context.py`（預算與裁切）、`tools.py`、`verifiers.py`、`storage.py`、`checkpoints.py`、`event_stream.py`、`model.py` 與 `anthropic_adapter.py`（供應商）、`mcp_hub.py`（MCP 工具）、`skills.py`（Skills）、`instructions.py`（AGENTS.md）、`uploads.py`、`hooks.py`、`remote.py`（端點與憑證規則）、`headless.py`（NDJSON 用戶端）、`web.py`（API）、`static/`（工作台）。
+- `src/agent_harness/`：harness 本體。`runtime.py`（循環）、`context.py`（預算與裁切）、`tools.py`、`verifiers.py`、`storage.py`、`checkpoints.py`、`event_stream.py`、`model.py` 與 `anthropic_adapter.py`（供應商）、`mcp_hub.py`（MCP 工具）、`skills.py`（Skills）、`instructions.py`（AGENTS.md）、`uploads.py`、`hooks.py`、`subagent.py`（委派的子任務）、`web_fetch.py`、`sandbox.py`、`vision.py`、`remote.py`（端點與憑證規則）、`headless.py`（NDJSON 用戶端）、`web.py`（API）、`static/`（工作台）。
 - `tests/`：公開介面測試與 fixtures，包含錄製的模型執行紀錄。
 - `evaluation/`：固定題組，真值在任何模型執行前寫定。
 - `scripts/`：對執行中的工作台跑題組，保存每個事件、成果與評分的記錄器。

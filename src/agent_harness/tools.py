@@ -20,6 +20,7 @@ from .sources import (MAX_SOURCE_BYTES, MAX_SOURCE_PATH, MAX_SOURCES, TABLE_EXTE
 from .storage import Record, Store
 from .tables import ratio_percent, table_result
 from .sandbox import PARAMETERS as PYTHON_PARAMETERS, TOOL_NAME as PYTHON_TOOL, PythonSandbox, is_run_evidence
+from .subagent import PARAMETERS as SUBAGENT_PARAMETERS, TOOL_NAME as SUBAGENT_TOOL, is_report_evidence, report_note
 from .vision import transcription_note
 from .web_fetch import PARAMETERS as WEB_PARAMETERS, TOOL_NAME as WEB_TOOL, WebFetcher, is_page_evidence
 
@@ -371,8 +372,11 @@ class Tools:
                  base_artifact: Record | None = None, mcp_tools: dict[str, McpTool] | None = None,
                  mcp_hub: McpHub | None = None, skills: dict[str, Skill] | None = None,
                  plan_approval: bool = False, web: WebFetcher | None = None,
-                 python: PythonSandbox | None = None) -> None:
+                 python: PythonSandbox | None = None, subagents: bool = False) -> None:
         self.store = store
+        # Set when the workbench allows subagents and this Run asked for them; the runtime supplies the runner.
+        self.subagents = subagents
+        self.subagent_runner: Callable[[ToolCall, Record], Awaitable[Record]] | None = None
         self.web = web  # set only when the workbench allows web access and this Run asked for it
         self.python = python  # likewise for the Docker sandbox
         # With plan approval, a plan the user has not approved needs a single-use approval;
@@ -419,6 +423,10 @@ class Tools:
                 if not is_run_evidence(result) or any(
                         self.sources.get(item.get("path"), {}).get("sha256") != item.get("sha256") for item in result["data_files"]):
                     raise RunFailure("checkpoint_evidence_invalid", "Restored sandbox evidence must match selected source versions.")
+            elif call["tool"] == SUBAGENT_TOOL:
+                if not is_report_evidence(result) or any(
+                        self.sources.get(item["path"], {}).get("sha256") != item["sha256"] for item in result["sources"]):
+                    raise RunFailure("checkpoint_evidence_invalid", "Restored subagent evidence must match selected source versions.")
             elif call["tool"] not in {"source_read", "table_inspect", "table_aggregate", "number_calculate", "base_artifact_read"}:
                 raise RunFailure("checkpoint_evidence_invalid", "The checkpoint contains an unsupported evidence producer.")
             elif call["tool"] == "base_artifact_read":
@@ -507,6 +515,15 @@ class Tools:
                 raise RunFailure("invalid_arguments", "python_run takes non-empty code of at most 20000 characters.",
                                  correctable_fields=("code",)) from error
             return
+        if call.name == SUBAGENT_TOOL and self.subagents:
+            try:
+                Draft202012Validator(SUBAGENT_PARAMETERS).validate(call.arguments)
+            except ValidationError as error:
+                raise RunFailure("invalid_arguments", "subagent_run takes a task and a list of selected source paths.",
+                                 correctable_fields=tuple(str(part) for part in list(error.absolute_path)[:1]) or ("task", "sources")) from error
+            if any(path not in self.sources for path in call.arguments["sources"]):
+                raise RunFailure("source_forbidden", "A subagent can only be given sources selected for this task.")
+            return
         if call.name not in DEFINITIONS or (call.name == "base_artifact_read" and self.base_artifact is None):
             raise RunFailure("unknown_tool", "The requested tool is not available to this Run.")
         try:
@@ -592,6 +609,7 @@ class Tools:
                        if call.name in self.mcp_tools else "read_only" if call.name == LOADER and self.skills
                        else "read_only" if call.name == WEB_TOOL and self.web is not None
                        else "read_only" if call.name == PYTHON_TOOL and self.python is not None
+                       else "read_only" if call.name == SUBAGENT_TOOL and self.subagents
                        else DEFINITIONS[call.name]["effect"]),
             "sources": deepcopy(list(self.sources.values()))}
         if call.name in self.mcp_tools:
@@ -637,6 +655,10 @@ class Tools:
             return self._evidence(await self.web.fetch(prepared.arguments["url"]))
         if call.name == PYTHON_TOOL and self.python is not None:
             return self._evidence(await self.python.run(prepared.arguments["code"], self.root, list(self.sources.values())))
+        if call.name == SUBAGENT_TOOL and self.subagents:
+            if self.subagent_runner is None:
+                raise RunFailure("subagent_failed", "No subagent runner is available.")
+            return self._evidence(await self.subagent_runner(call, prepared.arguments))
         return await self.actions[call.name](prepared.arguments)
 
     async def _list(self, arguments: Record) -> Record:
@@ -781,7 +803,7 @@ class Tools:
                 elif "path" in evidence:
                     notes.append(f"- [{identity}] {evidence['path']}:L{evidence['line_start']}-L{evidence['line_end']} SHA-256 {evidence['sha256']}"
                                  + (f"; {evidence['operation']}({evidence['column']}) = {evidence['value']}" if "value" in evidence else "")
-                                 + transcription_note(evidence))
+                                 + transcription_note(evidence) + report_note(evidence))
                 else:
                     references.extend(evidence["inputs"])
                     notes.append(f"- [{identity}] {evidence['operation']}({', '.join(evidence['inputs'])}) = {evidence['value']}")

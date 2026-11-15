@@ -27,7 +27,7 @@
 | 不可信內容 | 瀏覽器把頁面內容視為受污染、用隔離的審查模型、不讓密鑰進入模型上下文 | 來源文字、記憶與摘錄都標成不可信資料；API 金鑰只從環境變數讀取，不會進入請求內容 |
 | 上下文管理 | 接近上限時滾動摘要與壓縮（opencode、DSH、Claude Code） | 每個請求先量測；先做無損調整，再做標示過的有損省略，仍超出就停止——不會默默截斷或摘要 |
 | 指令與記憶 | `AGENTS.md`／`CLAUDE.md` 鏈 | 可選用工作區的 `AGENTS.md`，Run 開始時連同 SHA-256 固定；使用者保存、具版本的記憶，以樂觀並行控制更新 |
-| 擴充 | hooks、外掛、MCP、子代理 | 固定內建工具、使用者允許的本機或遠端 MCP 工具（唯讀或每次需核准）與 skills，都由每個 Run 選用；工具呼叫前（允許／拒絕，失敗即拒絕）與呼叫後的 HTTP webhook hooks；提供者都實作同一個 `DecisionModel` 協定。沒有外掛與子代理 |
+| 擴充 | hooks、外掛、MCP、子代理 | 固定內建工具、使用者允許的本機或遠端 MCP 工具（唯讀或每次需核准）與 skills，都由每個 Run 選用；工具呼叫前（允許／拒絕，失敗即拒絕）與呼叫後的 HTTP webhook hooks；提供者都實作同一個 `DecisionModel` 協定；需選擇開啟的子代理，權限比父 Run 小、報告需通過驗證。沒有外掛 |
 | 驗證 | 多半交給使用者或自動審查模型 | 只看成果與證據、從不看任務文字的驗證器 |
 
 ## 刻意不同之處
@@ -71,6 +71,7 @@
 | 27 | 加總、平均、比率以外的計算都需要新增內建工具。 | Claude、ChatGPT 與 Codex 沙箱的程式執行 | 需選擇開啟的 `python_run`（`--python-sandbox IMAGE` 加上每個 Run 的 `python_sandbox`）：每次呼叫一個全新 Docker 容器，無網路、選定來源唯讀、無 capabilities，並限制記憶體、CPU、行程數與時間；輸出是附程式碼雜湊的證據。 |
 | 28 | 排程工作可能卡在沒人會處理的核准上。 | Claude Code 與 Codex 的非互動模式 | `headless --unattended` 在第一個核准請求時取消 Run，以退出碼 5 結束並說明需要核准的內容；README 附 cron 與工作排程器設定。多使用者部署不在範圍內，並說明原因。 |
 | 29 | 圖片只能經 OCR 讀取，圖表、照片與手寫常讀不好。 | Claude、ChatGPT 與 Gemini 的圖片輸入 | 需選擇開啟的 `--vision-model`（本機支援 vision 的 Ollama 模型）：轉錄標示為模型輸出並記錄模型 digest，證據附錄與 `answer.verified` 都會註明；同時設定 Tesseract 時會與 OCR 交叉比對數字。 |
+| 30 | 所有工作都由一個模型迴圈在同一個上下文完成，沒有子代理。 | Claude Code 與 Codex 的子代理；opencode 的 `task` agent | 需選擇開啟的 `subagent_run`（`--allow-subagents` 加上每個 Run 的 `subagents`）：全新上下文、只能讀指定的已選來源與唯讀工具、不能發布或再委派、計入父 Run 的限額。報告要先對照子代理自己的證據通過 `verify_answer`，父 Run 才會收到它，並標示為模型撰寫、附上驗證時對照的來源版本。 |
 
 ## 已經具備
 

@@ -99,6 +99,14 @@ For calculations the table tools do not cover (a median, a regression, a reshape
 
 Each `python_run` call starts a fresh container with `--pull never`, no network, a read-only root file system, a 64 MiB `/tmp`, no Linux capabilities, `no-new-privileges`, user 65534, 512 MiB of memory (no swap), one CPU, 128 processes and 30 seconds; when time is up the container is killed. It sees only the Run's selected sources, copied after their hashes are checked and mounted read-only at `/data` under their workspace paths. The code goes in on stdin. Output from a run that exits 0 is evidence (`[python_run EID]`) that records the code, its SHA-256 and the hashes of the files it could read; output is capped at 64 KiB and a cut is labelled. A failure or timeout goes back to the model with the end of stderr. The container boundary is Docker's: it is not a virtual machine.
 
+### Delegating to subagents
+
+A Run can hand a self-contained sub-question to a subagent: a second, bounded loop of the same model that starts from a fresh context and sees only the delegated task. It is off by default: start the workbench with `--allow-subagents`, then tick “Allow delegating sub-questions to subagents” for a Run (API: `"subagents": true`, headless: `--subagents`). The model then gets `subagent_run {task, sources}`.
+
+A subagent is narrower than its parent in every way. It can read only sources the Run selected and the call named, with the read-only built-in tools (`source_read`, the table tools, `number_calculate`); it cannot publish, fetch pages, run Python, call MCP tools or delegate again. Its model and tool calls are spent from the parent Run's limits, a Run starts at most 4 subagents, each gets at most 8 model decisions, hooks see its tool calls too, and cancelling the Run stops it.
+
+Evidence does not cross the boundary by trust. The subagent must end with an answer that passes the same citation checks as a direct answer, against its own evidence; an answer that fails them never reaches the parent, which is told the sub-task failed and may do the work itself. A verified report becomes one evidence record in the parent (`[subagent EID]`): the report text, with the subagent's own evidence IDs rewritten to source names so they cannot be confused with the parent's, plus the paths and SHA-256 of the source versions it was verified against. The evidence appendix and `answer.verified` say that it is a model-written report, not source text. Every step of the subagent is recorded in the parent Run's events as `subagent.*`.
+
 ### Answering without a file
 
 For a question rather than a deliverable, choose “Answer directly” (API: `"completion_workflow": "answer"`, headless: `--answer`). The model is not offered `artifact_write`; it ends with the answer itself, which must cite the evidence it uses as `[source EID]`. Every cited ID must exist and the answer passes the same verifiers as an artifact, so an uncited or wrongly cited answer goes back to the model. The verified answer is the Run's result, and an `answer.verified` event records the paths and SHA-256 of what it cites. It needs a real model and cannot be combined with draft review.
@@ -221,7 +229,7 @@ Tests go through the public HTTP/WebSocket interface and replace only the model'
 
 ## Repository map
 
-- `src/agent_harness/` — the harness: `runtime.py` (loop), `context.py` (budget and pruning), `tools.py`, `verifiers.py`, `storage.py`, `checkpoints.py`, `event_stream.py`, `model.py` and `anthropic_adapter.py` (providers), `mcp_hub.py` (MCP tools), `skills.py` (skills), `instructions.py` (AGENTS.md), `uploads.py`, `hooks.py`, `remote.py` (endpoint and credential rules), `headless.py` (NDJSON client), `web.py` (API), `static/` (workbench).
+- `src/agent_harness/` — the harness: `runtime.py` (loop), `context.py` (budget and pruning), `tools.py`, `verifiers.py`, `storage.py`, `checkpoints.py`, `event_stream.py`, `model.py` and `anthropic_adapter.py` (providers), `mcp_hub.py` (MCP tools), `skills.py` (skills), `instructions.py` (AGENTS.md), `uploads.py`, `hooks.py`, `subagent.py` (delegated sub-tasks), `web_fetch.py`, `sandbox.py`, `vision.py`, `remote.py` (endpoint and credential rules), `headless.py` (NDJSON client), `web.py` (API), `static/` (workbench).
 - `tests/` — public-interface tests and fixtures, including recorded model runs.
 - `evaluation/` — fixed task suites with truth written before any model run.
 - `scripts/` — recorders that run a suite against a live workbench and save every event, artifact and score.
