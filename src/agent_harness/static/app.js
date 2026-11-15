@@ -1,6 +1,6 @@
 import {observeEvents} from "/assets/run-stream.js?v=7.2";
 import {memoryPanel} from "/assets/memory.js?v=6.2";
-import {lang, saveLang, t, translatePage} from "/assets/i18n.js?v=1.3";
+import {lang, saveLang, t, translatePage} from "/assets/i18n.js?v=1.4";
 const $ = (id) => document.getElementById(id);
 translatePage();
 const locale = lang === "en" ? "en-US" : "zh-TW";
@@ -30,7 +30,7 @@ function updateControls() {
   memories.setBusy(locked);
   $("start-task").disabled = state.initializing || state.busy || (!state.pendingSubmission && (!state.workspace || !state.selected.size));
   $("start-task").firstChild.textContent = (state.busy ? t("執行中") : state.pendingSubmission ? t("重試這次提交") : state.base ? t("建立修改版本") : t("開始任務")) + " ";
-  for (const id of ["new-task", "lang-select", "upload-files", "use-demo", "workspace-path", "task-input", "require-plan-approval", "require-publish-approval", "web-access", "python-sandbox", "subagents", "publication-workflow", "completion-workflow", "run-history", "base-artifact", "revise-artifact"]) $(id).disabled = locked;
+  for (const id of ["new-task", "lang-select", "upload-files", "use-demo", "workspace-path", "task-input", "require-plan-approval", "require-publish-approval", "web-access", "python-sandbox", "subagents", "context-compaction", "publication-workflow", "completion-workflow", "run-history", "base-artifact", "revise-artifact"]) $(id).disabled = locked;
   $("workspace-form").querySelector("button").disabled = locked;
   document.querySelectorAll(".session-button").forEach((button) => { button.disabled = locked; });
   document.querySelectorAll(".source-item input").forEach((input) => { input.disabled = locked || (state.selected.size >= 8 && !input.checked); });
@@ -61,7 +61,7 @@ function newTask() {
   $("completion-workflow").value = "model_summary";
   state.approvalPending = false; state.cancelPending = false;
   $("approval-card").hidden = true; $("require-publish-approval").checked = true; $("require-plan-approval").checked = false;
-  $("web-access").checked = false; $("python-sandbox").checked = false; $("subagents").checked = false;
+  $("web-access").checked = false; $("python-sandbox").checked = false; $("subagents").checked = false; $("context-compaction").checked = false;
   $("use-instructions").checked = Boolean(state.instructions?.instructions);
   $("execution").hidden = true; resetPlan(); $("timeline").replaceChildren(); resetPreview(); clearError();
   $("task-input").value = t("讀取已選來源，保存一份可檢查的來源快照。");
@@ -258,6 +258,7 @@ async function openHistoricalRun(identity) {
   $("web-access").checked = Boolean(state.run.policy?.web_access);
   $("python-sandbox").checked = Boolean(state.run.policy?.python_sandbox);
   $("subagents").checked = Boolean(state.run.policy?.subagents);
+  $("context-compaction").checked = Boolean(state.run.policy?.context_compaction);
   $("publication-workflow").value = state.run.policy?.publication_workflow || "direct";
   $("completion-workflow").value = state.run.policy?.completion_workflow || "model_summary";
   await refreshSessionRuns();
@@ -322,6 +323,7 @@ async function startTask(event) {
       if (state.config.web?.enabled && $("web-access").checked) body.web_access = true;
       if (state.config.python?.enabled && $("python-sandbox").checked) body.python_sandbox = true;
       if (state.config.subagents?.enabled && $("subagents").checked) body.subagents = true;
+      if (state.config.mode !== "fixture" && $("context-compaction").checked) body.context_compaction = true;
       const slash = body.task.trim().match(/^\/([a-z0-9]+(?:-[a-z0-9]+)*)(?:\s|$)/);
       if (slash && availableSkills().some((skill) => skill.name === slash[1])) { state.skillSelected.add(slash[1]); renderSkills(); }
       if (state.skillSelected.size) body.skills = [...state.skillSelected];
@@ -381,6 +383,7 @@ async function restorePendingSubmission() {
   $("web-access").checked = Boolean(pending.body.web_access);
   $("python-sandbox").checked = Boolean(pending.body.python_sandbox);
   $("subagents").checked = Boolean(pending.body.subagents);
+  $("context-compaction").checked = Boolean(pending.body.context_compaction);
   $("publication-workflow").value = pending.body.publication_workflow || "direct";
   $("completion-workflow").value = pending.body.completion_workflow || "model_summary";
   state.base = pending.body.base_artifact || null;
@@ -501,7 +504,8 @@ async function resumeRun() {
       ...(run.policy?.project_instructions ? {project_instructions: true} : {}),
       ...(run.policy?.web_access ? {web_access: true} : {}),
       ...(run.policy?.python_sandbox ? {python_sandbox: true} : {}),
-      ...(run.policy?.subagents ? {subagents: true} : {})}};
+      ...(run.policy?.subagents ? {subagents: true} : {}),
+      ...(run.policy?.context_compaction ? {context_compaction: true} : {})}};
   try {
     localStorage.setItem(pendingStorageKey, JSON.stringify(pending)); state.pendingSubmission = pending;
     await startTask({preventDefault() {}});
@@ -598,7 +602,7 @@ function appendEvent(event) {
   const number = document.createElement("span"); number.className = "event-number"; number.textContent = String(event.sequence).padStart(2, "0");
   Object.assign(titles, {"checkpoint.saved": t("中斷恢復紀錄已保存"), "checkpoint.loaded": t("已載入前次確認結果"), "recovery.detected": t("重啟後已檢查中斷狀態"), "tool.reconciled": t("成果對帳確認：{tool}", {tool}), "tool.reused": t("沿用已確認結果：{tool}", {tool}), "artifact.reconciled": t("保留成果已核對")});
   Object.assign(titles, {"completion.recovery_requested": t("完成回覆空白，僅允許補交完成摘要")});
-  Object.assign(titles, {"subagent.started": t("子代理開始：{task}", {task: String(event.data.task || "").slice(0, 80)}), "subagent.model_requested": t("子代理請求模型"), "subagent.model_responded": event.data.text || t("子代理提出 {count} 個工具操作", {count: event.data.tool_count}), "subagent.tool_completed": t("子代理完成：{tool}", {tool}), "subagent.tool_refused": t("子代理的操作被拒絕：{tool}", {tool}), "subagent.completed": t("子代理的報告已通過引用驗證"), "subagent.failed": t("子代理未產生可驗證的報告")});
+  Object.assign(titles, {"subagent.started": t("子代理開始：{task}", {task: String(event.data.task || "").slice(0, 80)}), "subagent.model_requested": t("子代理請求模型"), "subagent.model_responded": event.data.text || t("子代理提出 {count} 個工具操作", {count: event.data.tool_count}), "subagent.tool_completed": t("子代理完成：{tool}", {tool}), "subagent.tool_refused": t("子代理的操作被拒絕：{tool}", {tool}), "context.compacted": t("已用模型摘要取代證據 {id} 的文字（有損，已標示）", {id: event.data.evidence_id}), "context.compaction_failed": t("無法摘要證據 {id}", {id: event.data.evidence_id}), "subagent.completed": t("子代理的報告已通過引用驗證"), "subagent.failed": t("子代理未產生可驗證的報告")});
   const title = document.createElement("span"); title.className = "event-title"; title.textContent = titles[event.kind] || event.kind;
   const time = document.createElement("time"); time.className = "event-time"; time.dateTime = event.timestamp; time.textContent = new Date(event.timestamp).toLocaleTimeString(locale, {hour12: false});
   summary.append(number, title, time); const raw = document.createElement("pre"); raw.textContent = JSON.stringify(event.data, null, 2);
@@ -696,6 +700,7 @@ try {
   $("web-access-option").hidden = !state.config.web?.enabled;
   $("python-sandbox-option").hidden = !state.config.python?.enabled;
   $("subagents-option").hidden = !state.config.subagents?.enabled;
+  $("compaction-option").hidden = state.config.mode === "fixture";
   renderMcpTools(); selectSkills(); renderModelChoices();
   await refreshSessions(); await restorePendingSubmission(); updateControls();
 } catch (error) { showError(error); }

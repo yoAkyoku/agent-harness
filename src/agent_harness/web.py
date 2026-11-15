@@ -94,6 +94,8 @@ class RunInput(BaseModel):
     python_sandbox: bool = Field(default=False, strict=True)
     # Offer subagent_run (delegated sub-tasks with a fresh context); the workbench must allow subagents.
     subagents: bool = Field(default=False, strict=True)
+    # When a request cannot fit, replace evidence text in the model's view with a labelled model summary.
+    context_compaction: bool = Field(default=False, strict=True)
 
 
 class ResumeInput(BaseModel):
@@ -439,7 +441,7 @@ def create_app(
         for optional in ("model", "effort"):
             if effective[optional] is None:
                 del effective[optional]
-        for flag in ("require_plan_approval", "project_instructions", "web_access", "python_sandbox", "subagents"):
+        for flag in ("require_plan_approval", "project_instructions", "web_access", "python_sandbox", "subagents", "context_compaction"):
             if not effective[flag]:
                 del effective[flag]
         if not body.skills:
@@ -496,6 +498,10 @@ def create_app(
                 if not allow_subagents or settings.mode == "fixture":
                     raise RunFailure("subagents_unavailable", "Subagents are off; start the workbench with a model and --allow-subagents.")
                 policy["subagents"] = True
+            if body.context_compaction:
+                if settings.mode == "fixture":
+                    raise RunFailure("context_compaction_unavailable", "Context compaction needs a model; the fixture has none.")
+                policy["context_compaction"] = True
             run_model = dict(model.info)
             choices = model.info.get("choices", {})
             if body.model is not None and body.model != model.info["name"]:

@@ -69,6 +69,9 @@ def parser() -> argparse.ArgumentParser:
                      help="Let this Run use the Python sandbox (the workbench must run with --python-sandbox).")
     cli.add_argument("--subagents", action="store_true",
                      help="Let this Run delegate sub-tasks to subagents (the workbench must run with --allow-subagents).")
+    cli.add_argument("--compact", action="store_true",
+                     help="When a request cannot fit the context window, let the model read a labelled summary of the "
+                          "largest evidence text instead of stopping (citations and checks still use the full source).")
     cli.add_argument("--require-publish-approval", action="store_true",
                      help="Ask for an approval before the artifact is saved (with --unattended the Run then stops at that point).")
     cli.add_argument("--unattended", action="store_true",
@@ -165,6 +168,8 @@ async def run(arguments: argparse.Namespace, task: str, out: TextIO) -> int:
         body["python_sandbox"] = True
     if arguments.subagents:
         body["subagents"] = True
+    if arguments.compact:
+        body["context_compaction"] = True
     async with httpx.AsyncClient(base_url=base, headers=headers, trust_env=False, timeout=30) as client:
         workspace = await _post(client, "/api/workspaces", {"path": str(Path(arguments.workspace).resolve())})
         session = await _post(client, "/api/sessions", {"workspace_id": workspace["id"]})

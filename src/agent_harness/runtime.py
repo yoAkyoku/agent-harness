@@ -15,7 +15,7 @@ from .context import added_message, compact_tool_catalog, completed_tool_group, 
 from .contracts import Decision, PendingCorrection, RunCancelled, RunFailure, RunLimits, ToolCall, canonical_tool_arguments
 from .hooks import HookRunner
 from .mcp_hub import McpHub
-from . import subagent
+from . import compaction, subagent
 from .sandbox import SANDBOX_ERRORS, TOOL_NAME as PYTHON_TOOL, PythonSandbox
 from .web_fetch import TOOL_NAME as WEB_TOOL, WEB_ERRORS, WebFetcher
 from .instructions import instructions_message
@@ -414,6 +414,8 @@ class Runtime:
                     latest_draft = None
         usage = {"model_calls": 0, "tool_calls": 0}
         delegations = 0
+        compacting = bool(run.get("policy", {}).get("context_compaction"))
+        compactions = 0
 
         async def run_subagent(call: ToolCall, arguments: Record) -> Record:
             """One delegated sub-task, recorded in this Run's events and spent from this Run's budget."""
@@ -802,6 +804,41 @@ class Runtime:
                 body = model.request_body(messages, available_tools, limits.max_output_tokens)
                 budget = await self._perform(identity, lambda: model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
                 await self._record(identity, "context.pruned", {"step": step, "reason": "duplicate_plan_encoding", **budget})
+            # Opt-in and last: replace the largest evidence text in the model's view with a labelled summary.
+            # The server-side evidence (tools.evidence) that citations and verifiers use keeps the full text.
+            while budget["upper_bound_tokens"] > capacity and compacting and compactions < compaction.MAX_PER_RUN:
+                target = compaction.largest_target(messages, current_start, navigation_state.get("verified_evidence", {}))
+                if target is None:
+                    break
+                target_kind, where, original = target
+
+                async def summary_called(chunk: int, call_usage: Record | None,
+                                         evidence_id: str = original["evidence_id"]) -> None:
+                    usage["model_calls"] += 1
+                    await self._record(identity, "compaction.model_responded", {
+                        "step": step, "evidence_id": evidence_id, "chunk": chunk, "usage": call_usage}, usage=usage)
+
+                try:
+                    summary, chunks = await self._perform(identity, lambda: compaction.summarize(
+                        model, run["task"], original, capacity=capacity,
+                        profile=run["model"].get("context_profile", "synthetic_fixture"), on_call=summary_called))
+                except RunFailure as error:
+                    await self._record(identity, "context.compaction_failed", {
+                        "step": step, "evidence_id": original["evidence_id"], "reason": error.code, "message": error.message})
+                    break
+                view = compaction.compacted_view(original, summary, model.settings.name, chunks)
+                if target_kind == "message":
+                    assert isinstance(where, int)
+                    messages[where]["content"] = json.dumps(view, ensure_ascii=False)
+                else:
+                    navigation_state["verified_evidence"][where] = view
+                    if canonical_index is not None:
+                        messages[canonical_index] = executor_context_message()[0]
+                compactions += 1
+                body = model.request_body(messages, available_tools, limits.max_output_tokens)
+                budget = await self._perform(identity, lambda: model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
+                await self._record(identity, "context.compacted", {
+                    "step": step, **compaction.summary_record(original, summary, model.settings.name, chunks), **budget})
             summary_guidance_applied = False
             if budget["upper_bound_tokens"] <= capacity and published_this_run and not receipt_mode:
                 candidate_messages = deepcopy(messages)

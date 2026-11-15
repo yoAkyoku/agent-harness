@@ -526,7 +526,7 @@ class Store:
                 connection.execute("UPDATE runs SET model_calls=?, tool_calls=? WHERE id=?", (
                     usage["model_calls"], usage["tool_calls"], identity,
                 ))
-            if kind in {"model.responded", "subagent.model_responded"}:
+            if kind in {"model.responded", "subagent.model_responded", "compaction.model_responded"}:
                 # Totalled with the event, in one transaction, so the totals always match the saved replies.
                 saved = connection.execute("SELECT token_usage_json FROM runs WHERE id=?", (identity,)).fetchone()[0]
                 connection.execute("UPDATE runs SET token_usage_json=? WHERE id=?", (

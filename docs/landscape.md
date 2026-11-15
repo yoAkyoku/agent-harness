@@ -34,7 +34,7 @@ The point is not feature parity. Those products are coding agents or browsers wi
 
 - **Capabilities instead of permissions.** The products grant a general agent broad tools and then gate them. Here the tool set itself is the boundary: read selected sources, compute over them, publish a cited artifact. That makes the approval surface small enough to bind every approval to an exact parameter digest.
 - **Verification instead of trust.** An artifact must cite the evidence that produced each computed value, and the completion reply must agree with what was published. None of the compared products documents a check of its output against tool evidence.
-- **Honest stopping.** Over budget, the harness stops rather than summarising history the user cannot inspect.
+- **Honest stopping.** Over budget, the harness stops rather than summarising history the user cannot inspect. Compaction is opt-in per Run, and its summaries are labelled, kept in the event log and never used for verification.
 
 ## Gaps found in this pass
 
@@ -72,6 +72,7 @@ The products' mechanisms were used as a checklist against the code. Each item re
 | 28 | A scheduled job could hang on an approval no one would give. | Claude Code and Codex non-interactive modes | `headless --unattended` cancels the Run at the first approval request and exits 5 with what needed approval; README shows cron and Task Scheduler setups. Multi-user hosting is out of scope, with the reasons stated. |
 | 29 | Images could be read only through OCR, which misses charts, photos and handwriting. | Image input in Claude, ChatGPT and Gemini | Opt-in `--vision-model` (a local Ollama model with vision): the transcription is labelled as model output with the model's digest, disclosed in the evidence appendix and `answer.verified`, and its numbers are cross-checked against OCR when Tesseract is set too. |
 | 30 | One model loop did everything in one context; there were no subagents. | Subagents in Claude Code and Codex; `task` agents in opencode | Opt-in `subagent_run` (`--allow-subagents` plus per-Run `subagents`): a fresh context, only the named selected sources and read-only tools, no publishing or nesting, spent from the parent's limits. The report must pass `verify_answer` against the child's evidence before the parent receives it as labelled evidence with the source versions it was verified against. |
+| 31 | A source larger than the model's context window could not be used at all: the Run stopped. | Compaction and rolling summaries in Claude Code, opencode and DSH | Opt-in per Run (`context_compaction`): the largest evidence text in the model's view is replaced by a chunk-by-chunk model summary, labelled as lossy and recorded in `context.compacted`. Citations and verifiers still use the full text; a failed or non-shrinking summary leaves the Run stopped. |
 
 ## Already in place
 

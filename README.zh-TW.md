@@ -34,7 +34,7 @@ flowchart LR
 | 規劃與自我修正 | 可見計畫，模型→工具→結果→下一步。可修正錯誤帶著可改的欄位與剩餘預算回饋給模型；效果未知的操作不自動重送。 |
 | 狀態機與非同步 | Run 與工具嘗試的明確狀態，終態不會被晚到的結果重開；asyncio 有界並行、取消，以及程序中斷後的安全續做。Run 執行中可追加訊息，在模型的下一次決策送達。 |
 | 即時串流 | 事件先寫入 SQLite 再推送；WebSocket 以 cursor／ACK 補讀與去重；相同提交 key 回到原 Run。 |
-| Context 工程 | 每次請求先計量；超出預算時依序做無損搬移、標明的有損省略，仍超出就明確停止，不默默截斷。 |
+| Context 工程 | 每次請求先計量；超出預算時依序做無損搬移、標明的有損省略，仍超出就明確停止，不默默截斷。Run 可以選擇開啟壓縮：模型看到的證據文字換成標示過的模型摘要，驗證器仍使用全文。 |
 | 記憶與 Routing | 使用者明確保存的版本化記憶，依作用範圍與相關性選入；工具目錄只依來源類型提供。 |
 | 工具政策與驗證 | Schema 與來源版本驗證、單次操作批准（執行前核准計畫、發布成果、可能變更資料的工具）、派發前先保存意圖。發布前由**拿不到任務文字**的[驗證器](src/agent_harness/verifiers.py)檢查：計算值是否引用產生它的計算、同一欄位是否混放不同來源角色的值、引用表格的值是否放在它自己的欄位、完成回覆是否與已發布成果一致。 |
 | 不綁定供應商 | 同一個循環可跑本機 Ollama 模型、任何 OpenAI 相容端點，或透過官方 Anthropic SDK 的 Claude。 |
@@ -106,6 +106,12 @@ Run 可以把一個獨立的子問題交給子代理：同一個模型的另一�
 子代理的權限在每一方面都比父 Run 小。它只能讀取 Run 已選、且這次呼叫指定的來源，只能用唯讀的內建工具（`source_read`、表格工具、`number_calculate`）；不能發布、不能擷取網頁、不能執行 Python、不能呼叫 MCP 工具，也不能再委派。它的模型與工具呼叫計入父 Run 的限額；一個 Run 最多啟動 4 個子代理，每個最多 8 次模型決策；hooks 也會看到它的工具呼叫；取消 Run 就會停止它。
 
 證據不會因為「信任」而跨越邊界。子代理必須以一個答案結束，而且這個答案要對照它自己的證據，通過和直接回答相同的引用檢查；沒通過的答案不會送到父 Run，父 Run 只會被告知子任務失敗，可以改用自己的工具完成。通過驗證的報告在父 Run 成為一筆證據（`[subagent EID]`）：內容是報告文字（子代理自己的證據 ID 會改寫成來源名稱，避免和父 Run 的 ID 混淆），加上驗證時對照的來源版本路徑與 SHA-256。證據附錄與 `answer.verified` 都會註明這是模型撰寫的報告，不是來源原文。子代理的每一步都以 `subagent.*` 事件記錄在父 Run 的事件中。
+
+### 來源比模型上下文還大
+
+預設情況下 Run 不會做摘要：無損的調整都做完仍放不進去時，就以 `context_limit_exceeded` 停止。小型本機模型遇到長文件就會碰到這個上限。在 Run 勾選「來源放不進模型上下文時，改讓模型讀取摘要」（API：`"context_compaction": true`，無頭模式：`--compact`）可以多一個步驟：把模型視角中最大的一段證據文字，換成同一個模型逐段寫出的摘要；每個分段請求只包含任務和一段原文。
+
+摘要會標示為有損的模型輸出，註明每一段涵蓋的行號與原文大小；`context.compacted` 事件會保存摘要、摘要的雜湊與模型名稱，完整的 `tool.completed` 結果也仍在事件記錄中。壓縮只改變模型讀到的內容：引用與驗證器使用的證據仍保有全文與檔案的 SHA-256，所以主張仍然對照來源檢查，而不是對照摘要。一個 Run 最多壓縮 8 筆證據，每筆最多 12 次摘要呼叫，都計入用量；摘要失敗、或沒有縮到原文一半以下時，Run 仍像原本一樣停止（`context.compaction_failed`）。摘要漏掉的內容，模型就用不到：這是拿完整度換取能繼續執行，標示會說明這一點。
 
 ### 不產生檔案、直接回答
 
@@ -229,7 +235,7 @@ docker build -f Dockerfile.test --secret id=ca,src=host-ca.pem -t agent-harness-
 
 ## 目錄
 
-- `src/agent_harness/`：harness 本體。`runtime.py`（循環）、`context.py`（預算與裁切）、`tools.py`、`verifiers.py`、`storage.py`、`checkpoints.py`、`event_stream.py`、`model.py` 與 `anthropic_adapter.py`（供應商）、`mcp_hub.py`（MCP 工具）、`skills.py`（Skills）、`instructions.py`（AGENTS.md）、`uploads.py`、`hooks.py`、`subagent.py`（委派的子任務）、`web_fetch.py`、`sandbox.py`、`vision.py`、`remote.py`（端點與憑證規則）、`headless.py`（NDJSON 用戶端）、`web.py`（API）、`static/`（工作台）。
+- `src/agent_harness/`：harness 本體。`runtime.py`（循環）、`context.py`（預算與裁切）、`tools.py`、`verifiers.py`、`storage.py`、`checkpoints.py`、`event_stream.py`、`model.py` 與 `anthropic_adapter.py`（供應商）、`mcp_hub.py`（MCP 工具）、`skills.py`（Skills）、`instructions.py`（AGENTS.md）、`uploads.py`、`hooks.py`、`subagent.py`（委派的子任務）、`compaction.py`（選用的摘要）、`web_fetch.py`、`sandbox.py`、`vision.py`、`remote.py`（端點與憑證規則）、`headless.py`（NDJSON 用戶端）、`web.py`（API）、`static/`（工作台）。
 - `tests/`：公開介面測試與 fixtures，包含錄製的模型執行紀錄。
 - `evaluation/`：固定題組，真值在任何模型執行前寫定。
 - `scripts/`：對執行中的工作台跑題組，保存每個事件、成果與評分的記錄器。
