@@ -32,6 +32,9 @@ jobs:
       - name: Pull the image for the real Python sandbox test
         if: runner.os == 'Linux'
         run: docker pull python:3.12-slim
+      - name: Build the Tesseract image for the real container OCR test
+        if: runner.os == 'Linux'
+        run: docker build -f Dockerfile.ocr -t agent-harness-ocr .
       - name: Type-check
         run: uv run mypy
       - name: Check workbench JavaScript
@@ -45,6 +48,8 @@ jobs:
           REQUIRE_TESSERACT: ${{ runner.os == 'Linux' && '1' || '' }}
           # Likewise the real Docker sandbox test (Docker is preinstalled on the Ubuntu runner).
           REQUIRE_DOCKER_SANDBOX: ${{ runner.os == 'Linux' && '1' || '' }}
+          # And the real container OCR test, against the image built above.
+          REQUIRE_DOCKER_OCR: ${{ runner.os == 'Linux' && '1' || '' }}
 
   docker:
     name: Docker image

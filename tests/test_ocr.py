@@ -221,3 +221,28 @@ def test_local_and_container_tesseract_cannot_both_be_set(tmp_path: Path) -> Non
     done = subprocess.run([sys.executable, "-m", "agent_harness", "--store", str(tmp_path / "s"), "--tesseract", sys.executable,
                            "--tesseract-docker", "example/tesseract:5"], capture_output=True, text=True, timeout=60)
     assert done.returncode == 2 and "not both" in done.stderr
+
+
+OCR_IMAGE = os.environ.get("AGENT_HARNESS_OCR_IMAGE", "agent-harness-ocr")
+
+
+def _ocr_image_present() -> bool:
+    docker = shutil.which("docker")
+    if docker is None:
+        return False
+    try:
+        return subprocess.run([docker, "image", "inspect", OCR_IMAGE], capture_output=True, timeout=30).returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
+@pytest.mark.skipif(not os.environ.get("REQUIRE_DOCKER_OCR") and not _ocr_image_present(),
+                    reason="The agent-harness-ocr image is not built here (docker build -f Dockerfile.ocr -t agent-harness-ocr .); "
+                           "CI builds it on Ubuntu and requires this test.")
+def test_real_container_tesseract_reads_a_rendered_page() -> None:
+    """The real thing: a rendered page goes into a locked-down container on stdin and its text comes back."""
+    engine = extraction.DockerTesseract(OCR_IMAGE, "eng")
+    engine.check()
+    text, details = extraction.Extraction(ocr=engine).scanned_pdf_text(_pdf(["Revenue was 42 million in Q3."]), 1)
+    assert text.startswith("[page 1, OCR]\n") and "Revenue was 42 million" in text
+    assert details == {"converted_from": "pdf", "pages": 1, "ocr": "tesseract"}

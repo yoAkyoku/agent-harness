@@ -87,6 +87,8 @@ Token 用量來自每次回覆：Chat Completions 供應商回報 `prompt_tokens
 
 `compaction.py` 是上下文預算中需選擇開啟的最後一步。`largest_target` 從目前 Run 的工具訊息與已保存的證據快照中，挑出文字最多的一筆證據；`summarize` 依行切段（`chunk_lines`），段落大小由「空白摘要請求」的實測預算推得，再透過單一的 `context_summary` 工具請模型逐段摘要（因此原生 tool calling 與 JSON tools 協定都適用）。遇到分段放不進去、摘要是空的、需要超過 12 次呼叫，或結果大於原文一半時就拒絕。`compacted_view` 接著從模型看到的記錄中移除 `text` 與其衍生視圖，加上 `text_summary` 與 `compacted` 標示。`tools.evidence`（引用與驗證器讀取的內容）不會被更動。摘要呼叫受 Run 的取消控制，並計入用量與 token 總計（`compaction.model_responded`）。
 
+`trace.py` 把 Run 的事件轉成 OTLP/JSON，不會更動 Run：`run_trace` 依序走過事件一次，在 `model.requested`、`tool.requested` 或 `subagent.started` 開啟 span，在對應的結束事件關閉；trace 與 span 的 ID 由 Run ID 推導，所以同一個 Run 每次匯出的 trace 都相同。沒有回報結束的工作會在最後一個事件關閉並標示為 `unfinished`。屬性只帶名稱、代碼、大小與雜湊，不帶訊息、來源與結果的文字。
+
 ## 無頭用戶端
 
 `agent_harness.headless` 只是一般的觀察者：透過 HTTP API 建立工作區、Session 與 Run，再以 `flow=ack` 讀取持久事件串流，逐筆確認，串流中斷時從最後的 cursor 重新接上（已輸出的序號會略過）。它原樣輸出事件為 NDJSON，並把終止狀態對應成退出碼。觀察者從不擁有執行，所以用戶端結束時 Run 仍會繼續。重新連線的路徑目前還沒有測試。加上 `--unattended` 時，用戶端會在第一個 `approval.requested` 事件取消 Run 並以退出碼 5 結束，因此排程工作不會等待不在場的人。

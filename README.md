@@ -170,6 +170,17 @@ schtasks /Create /TN "Weekly report" /SC WEEKLY /D MON /ST 07:00 /TR "powershell
 
 The exit code tells the scheduler what happened; every event of the Run is in the NDJSON file and in the workbench.
 
+### Traces (OpenTelemetry)
+
+`GET /api/runs/{id}/trace` returns a Run as an OpenTelemetry trace in OTLP/JSON, which any collector accepts on `/v1/traces`:
+
+```bash
+curl -s -H "Authorization: Bearer $AGENT_HARNESS_TOKEN" http://127.0.0.1:8787/api/runs/RUN_ID/trace \
+  | curl -s -X POST -H "Content-Type: application/json" --data-binary @- http://127.0.0.1:4318/v1/traces
+```
+
+The trace is derived from the saved events, so it is available for any Run, finished or not, and producing it changes nothing. Spans follow the GenAI semantic conventions (which OpenTelemetry still marks as in development): the Run is an `invoke_agent` span, each model request a `chat` span with its token usage and context bound, each tool call an `execute_tool` span whose status carries the refusal or failure code, and a subagent a nested `invoke_agent` span under the tool call that started it. Context steps, compaction, corrections, approvals and hook decisions are span events. As the conventions recommend by default, the trace contains no prompt, source or result text: only names, codes, sizes and hashes. The workbench does not push traces anywhere by itself.
+
 ### MCP tools
 
 Connect local or remote [MCP](https://modelcontextprotocol.io) servers with a config file in the familiar `mcpServers` shape. Each tool falls under one rule: `allowedTools` (read-only, runs freely), `askTools` (may change data; every call waits for your single-use approval of the exact arguments) or, if unlisted, deny:
@@ -235,7 +246,7 @@ Tests go through the public HTTP/WebSocket interface and replace only the model'
 
 ## Repository map
 
-- `src/agent_harness/` — the harness: `runtime.py` (loop), `context_fit.py` (the ordered context steps), `context.py` (budget measurement and message moves), `extraction.py` (OCR and vision for scans and images), `tools.py`, `verifiers.py`, `storage.py`, `checkpoints.py`, `event_stream.py`, `model.py` and `anthropic_adapter.py` (providers), `mcp_hub.py` (MCP tools), `skills.py` (skills), `instructions.py` (AGENTS.md), `uploads.py`, `hooks.py`, `subagent.py` (delegated sub-tasks), `compaction.py` (opt-in summaries), `web_fetch.py`, `sandbox.py`, `vision.py`, `remote.py` (endpoint and credential rules), `headless.py` (NDJSON client), `web.py` (API), `static/` (workbench).
+- `src/agent_harness/` — the harness: `runtime.py` (loop), `context_fit.py` (the ordered context steps), `context.py` (budget measurement and message moves), `extraction.py` (OCR and vision for scans and images), `trace.py` (OpenTelemetry export), `tools.py`, `verifiers.py`, `storage.py`, `checkpoints.py`, `event_stream.py`, `model.py` and `anthropic_adapter.py` (providers), `mcp_hub.py` (MCP tools), `skills.py` (skills), `instructions.py` (AGENTS.md), `uploads.py`, `hooks.py`, `subagent.py` (delegated sub-tasks), `compaction.py` (opt-in summaries), `web_fetch.py`, `sandbox.py`, `vision.py`, `remote.py` (endpoint and credential rules), `headless.py` (NDJSON client), `web.py` (API), `static/` (workbench).
 - `tests/` — public-interface tests and fixtures, including recorded model runs.
 - `evaluation/` — fixed task suites with truth written before any model run.
 - `scripts/` — recorders that run a suite against a live workbench and save every event, artifact and score.

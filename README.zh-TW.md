@@ -170,6 +170,17 @@ schtasks /Create /TN "Weekly report" /SC WEEKLY /D MON /ST 07:00 /TR "powershell
 
 退出碼讓排程工具知道結果；Run 的每個事件都在 NDJSON 檔與工作台裡。
 
+### 追蹤（OpenTelemetry）
+
+`GET /api/runs/{id}/trace` 以 OTLP/JSON 回傳 Run 的 OpenTelemetry trace，任何 collector 的 `/v1/traces` 都能接收：
+
+```bash
+curl -s -H "Authorization: Bearer $AGENT_HARNESS_TOKEN" http://127.0.0.1:8787/api/runs/RUN_ID/trace \
+  | curl -s -X POST -H "Content-Type: application/json" --data-binary @- http://127.0.0.1:4318/v1/traces
+```
+
+trace 由已保存的事件推導而來，所以任何 Run（無論是否結束）都能取得，產生它也不會改變任何東西。span 依照 GenAI 語意慣例（OpenTelemetry 仍標示為開發中）：Run 是 `invoke_agent` span；每次模型請求是 `chat` span，帶有 token 用量與上下文上限；每次工具呼叫是 `execute_tool` span，狀態帶有拒絕或失敗的代碼；子代理是巢狀的 `invoke_agent` span，掛在啟動它的工具呼叫之下。上下文步驟、壓縮、修正、核准與 hook 決定是 span event。依慣例的預設，trace 不含任何提示、來源或結果的文字，只有名稱、代碼、大小與雜湊。工作台本身不會主動把 trace 送到任何地方。
+
 ### MCP 工具
 
 用 `mcpServers` 格式的設定檔連接本機或遠端的 [MCP](https://modelcontextprotocol.io) 伺服器。每個工具只屬於一條規則：`allowedTools`（唯讀，可直接執行）、`askTools`（可能變更資料，每次呼叫都要等你對確切參數做單次核准），或未列出即拒絕：
@@ -235,7 +246,7 @@ docker build -f Dockerfile.test --secret id=ca,src=host-ca.pem -t agent-harness-
 
 ## 目錄
 
-- `src/agent_harness/`：harness 本體。`runtime.py`（循環）、`context_fit.py`（依序執行的上下文步驟）、`context.py`（預算量測與訊息搬移）、`extraction.py`（掃描檔與圖片的 OCR 與視覺模型）、`tools.py`、`verifiers.py`、`storage.py`、`checkpoints.py`、`event_stream.py`、`model.py` 與 `anthropic_adapter.py`（供應商）、`mcp_hub.py`（MCP 工具）、`skills.py`（Skills）、`instructions.py`（AGENTS.md）、`uploads.py`、`hooks.py`、`subagent.py`（委派的子任務）、`compaction.py`（選用的摘要）、`web_fetch.py`、`sandbox.py`、`vision.py`、`remote.py`（端點與憑證規則）、`headless.py`（NDJSON 用戶端）、`web.py`（API）、`static/`（工作台）。
+- `src/agent_harness/`：harness 本體。`runtime.py`（循環）、`context_fit.py`（依序執行的上下文步驟）、`context.py`（預算量測與訊息搬移）、`extraction.py`（掃描檔與圖片的 OCR 與視覺模型）、`trace.py`（OpenTelemetry 匯出）、`tools.py`、`verifiers.py`、`storage.py`、`checkpoints.py`、`event_stream.py`、`model.py` 與 `anthropic_adapter.py`（供應商）、`mcp_hub.py`（MCP 工具）、`skills.py`（Skills）、`instructions.py`（AGENTS.md）、`uploads.py`、`hooks.py`、`subagent.py`（委派的子任務）、`compaction.py`（選用的摘要）、`web_fetch.py`、`sandbox.py`、`vision.py`、`remote.py`（端點與憑證規則）、`headless.py`（NDJSON 用戶端）、`web.py`（API）、`static/`（工作台）。
 - `tests/`：公開介面測試與 fixtures，包含錄製的模型執行紀錄。
 - `evaluation/`：固定題組，真值在任何模型執行前寫定。
 - `scripts/`：對執行中的工作台跑題組，保存每個事件、成果與評分的記錄器。

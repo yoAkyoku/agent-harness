@@ -1,0 +1,12 @@
+# Tesseract for --tesseract-docker: the workbench runs it once per page or image, with no network,
+# a read-only file system and the image on stdin.
+#
+#     docker build -f Dockerfile.ocr -t agent-harness-ocr .
+#     uv run python -m agent_harness --model MODEL --tesseract-docker agent-harness-ocr
+#
+# Add languages with more tesseract-ocr-<code> packages, such as tesseract-ocr-chi-tra.
+FROM debian:bookworm-slim
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng \
+ && rm -rf /var/lib/apt/lists/*
+USER 65534:65534

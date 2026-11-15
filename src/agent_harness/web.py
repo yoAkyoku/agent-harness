@@ -43,6 +43,7 @@ from .storage import Store
 from .sandbox import PythonSandbox, Runner
 from .extraction import DockerTesseract, Extraction, LocalTesseract, ProcessRunner
 from .subagent import status as subagent_status
+from .trace import run_trace
 from .vision import VisionTranscriber
 from .web_fetch import Resolver, WebFetcher
 
@@ -638,6 +639,11 @@ def create_app(
     async def get_events(run_id: str) -> dict[str, Any]:
         await get_run(run_id)
         return {"events": await storage.events(run_id)}
+
+    @app.get("/api/runs/{run_id}/trace")
+    async def get_trace(run_id: str) -> dict[str, Any]:
+        """The Run's events as an OpenTelemetry trace (OTLP/JSON); it carries no prompt, source or result text."""
+        return run_trace(await get_run(run_id), await storage.events(run_id))
 
     @app.post("/api/runs/{run_id}/approvals/{approval_id}")
     async def decide_approval(run_id: str, approval_id: str, body: ApprovalInput) -> dict[str, Any]:
