@@ -250,7 +250,7 @@ Tests go through the public HTTP/WebSocket interface and replace only the model'
 - `tests/` — public-interface tests and fixtures, including recorded model runs.
 - `evaluation/` — fixed task suites with truth written before any model run.
 - `scripts/` — recorders that run a suite against a live workbench and save every event, artifact and score.
-- `docs/` — [architecture](docs/architecture.md), [evaluation](docs/evaluation.md), and a [comparison with Codex, Claude Code, opencode, DSH and agentic browsers](docs/landscape.md).
+- `docs/` — [architecture](docs/architecture.md), [design decisions](docs/design-decisions.md) (what was chosen, what was turned down, and the cost), a [walkthrough](docs/walkthrough.md) of one Run, [evaluation](docs/evaluation.md), and a [comparison with Codex, Claude Code, opencode, DSH and agentic browsers](docs/landscape.md).
 
 ## Limits
 

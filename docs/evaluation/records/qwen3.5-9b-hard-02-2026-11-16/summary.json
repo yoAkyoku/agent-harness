@@ -1,0 +1,69 @@
+{
+  "model": "qwen3.5:9b-q4_K_M",
+  "runs": 27,
+  "passed": 21,
+  "cases": [
+    {
+      "id": "policy-unnamed-versions",
+      "runs": 3,
+      "passed": 0,
+      "problems": [
+        "answer contains '林怡君'",
+        "answer does not cite policy-a.md",
+        "answer lacks '14'",
+        "answer lacks '張雅婷'"
+      ],
+      "observed_reads": 3
+    },
+    {
+      "id": "deputy-approver",
+      "runs": 3,
+      "passed": 3,
+      "problems": []
+    },
+    {
+      "id": "refund-rate",
+      "runs": 3,
+      "passed": 3,
+      "problems": []
+    },
+    {
+      "id": "sheet-ratio",
+      "runs": 3,
+      "passed": 3,
+      "problems": []
+    },
+    {
+      "id": "missing-field",
+      "runs": 3,
+      "passed": 3,
+      "problems": []
+    },
+    {
+      "id": "long-log-single",
+      "runs": 3,
+      "passed": 3,
+      "problems": []
+    },
+    {
+      "id": "long-log-scattered",
+      "runs": 3,
+      "passed": 3,
+      "problems": []
+    },
+    {
+      "id": "delegated-vendors",
+      "runs": 3,
+      "passed": 3,
+      "problems": []
+    },
+    {
+      "id": "report-artifact",
+      "runs": 3,
+      "passed": 0,
+      "problems": [
+        "status failed: context_limit_exceeded"
+      ]
+    }
+  ]
+}
