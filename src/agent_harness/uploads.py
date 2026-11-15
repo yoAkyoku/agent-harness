@@ -14,6 +14,7 @@ from typing import Any
 from uuid import uuid4
 
 from .contracts import RunFailure
+from .extraction import Extraction
 from .sources import DOCUMENT_EXTENSIONS, EXTENSIONS, document_text, file_limit
 
 FOLDER = "uploads"
@@ -33,13 +34,13 @@ def upload_limit(name: str) -> int:
     return file_limit(suffix)
 
 
-def save_upload(root: Path, name: str, raw: bytes) -> dict[str, Any]:
+def save_upload(root: Path, name: str, raw: bytes, extraction: Extraction | None = None) -> dict[str, Any]:
     limit = upload_limit(name)
     if len(raw) > limit:
         raise RunFailure("source_too_large", "The file exceeds the size limit for its type.")
     suffix = Path(name).suffix.lower()
     if suffix in DOCUMENT_EXTENSIONS:
-        document_text(suffix, raw)
+        document_text(suffix, raw, extraction)
     else:
         try:
             raw.decode("utf-8")

@@ -161,7 +161,6 @@ def test_an_empty_transcription_is_refused(tmp_path: Path) -> None:
 
 
 def test_without_ocr_or_a_vision_model_an_image_is_refused_naming_both(tmp_path: Path) -> None:
-    sources.configure_vision(None)
     with pytest.raises(RunFailure) as raised:
         sources.document_text(".png", PNG)
     assert "--tesseract" in raised.value.message and "--vision-model" in raised.value.message
@@ -184,3 +183,70 @@ def test_cli_validates_the_vision_model(tmp_path: Path, name: str) -> None:
     done = subprocess.run([sys.executable, "-m", "agent_harness", "--store", str(tmp_path / "store"), "--vision-model", name],
                           capture_output=True, text=True, timeout=60)
     assert done.returncode == 2 and "--vision-model must name an installed local Ollama model" in done.stderr
+
+
+def _scan(tmp_path: Path, pages: int) -> Path:
+    from test_ocr import _blank_pages
+
+    root = tmp_path / "source"
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "scan.pdf").write_bytes(_blank_pages(pages))
+    return root
+
+
+def _preview_scan(client: TestClient, root: Path) -> httpx.Response:
+    workspace = client.post("/api/workspaces", json={"path": str(root)}).json()
+    return client.get(f"/api/workspaces/{workspace['id']}/source", params={"path": "scan.pdf"})
+
+
+def test_a_scanned_pdf_is_transcribed_page_by_page(tmp_path: Path) -> None:
+    ollama = FakeOllama("Revenue was 42.")
+    with _client(tmp_path, ollama) as client:
+        preview = _preview_scan(client, _scan(tmp_path, 2)).json()
+
+    label = "model transcription by vision-model:latest; not verbatim source text"
+    assert preview["text"] == f"[page 1, {label}]\nRevenue was 42.\n\n[page 2, {label}]\nRevenue was 42."
+    assert preview["converted_from"] == "pdf" and preview["pages"] == 2 and "ocr" not in preview
+    assert preview["transcription"] == {"kind": "model_transcription", "model": "vision-model:latest", "digest": DIGEST}
+    assert len(ollama.chats) == 2
+    for chat in ollama.chats:  # each page goes to the model as a PNG image
+        assert base64.b64decode(chat["messages"][-1]["images"][0]).startswith(b"\x89PNG\r\n\x1a\n")
+
+
+def test_a_scanned_pdf_with_ocr_too_lists_unconfirmed_numbers_per_page(tmp_path: Path) -> None:
+    ollama = FakeOllama("Scanned revenue was 42 and cost was 1,081.")
+    counter = tmp_path / "ocr-calls.txt"
+    with _client(tmp_path, ollama, ocr_command=[sys.executable, FAKE, "text", str(counter)]) as client:
+        preview = _preview_scan(client, _scan(tmp_path, 1)).json()
+
+    assert preview["text"] == (
+        "[page 1, OCR]\nScanned revenue was 42. (eng)\n\n"
+        "[page 1, model transcription by vision-model:latest; not verbatim source text; numbers not found by OCR: 1,081]\n"
+        "Scanned revenue was 42 and cost was 1,081.")
+    assert preview["ocr"] == "tesseract" and preview["transcription"]["unconfirmed_numbers"] == ["1,081"]
+
+
+def test_a_vision_model_reads_only_short_scanned_pdfs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from agent_harness import extraction
+
+    monkeypatch.setattr(extraction, "MAX_VISION_PAGES", 1)
+    ollama = FakeOllama("Revenue was 42.")
+    with _client(tmp_path, ollama) as client:
+        refused = _preview_scan(client, _scan(tmp_path, 2))
+    assert refused.status_code == 422 and refused.json()["detail"]["code"] == "source_too_large"
+    assert not ollama.chats
+
+
+def test_the_png_encoder_writes_a_valid_grayscale_image() -> None:
+    import struct
+    import zlib
+    from agent_harness.extraction import gray_png
+
+    png = gray_png(3, 2, [bytes([0, 128, 255]), bytes([255, 128, 0])])
+    assert png.startswith(b"\x89PNG\r\n\x1a\n")
+    width, height, depth, colour = struct.unpack(">IIBB", png[16:26])
+    assert (width, height, depth, colour) == (3, 2, 8, 0)
+    start = png.index(b"IDAT") + 4
+    length = struct.unpack(">I", png[start - 8:start - 4])[0]
+    assert zlib.decompress(png[start:start + length]) == b"\x00\x00\x80\xff\x00\xff\x80\x00"
+    assert png.endswith(b"IEND" + struct.pack(">I", zlib.crc32(b"IEND")))

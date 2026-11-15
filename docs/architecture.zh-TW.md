@@ -43,6 +43,8 @@ PDF 與 Word 檔在 `sources.py` 中也是來源：`read_source` 保留檔案本
 
 圖片也可以由本機視覺模型轉錄（`vision.py`，`--vision-model`）。`VisionTranscriber.check` 在啟動時執行，模型未安裝、沒有 digest 或沒有標示 vision 就拒絕啟動。轉錄文字在來源中標示為模型轉錄，記錄在 `transcription`（模型、digest，以及同時有 OCR 時的 `unconfirmed_numbers`：OCR 文字中找不到的轉錄數字），並帶進證據附錄（`transcription_note`）與 `answer.verified`。驗證器把它當成一般來源文字處理，所以讓讀者知道它可能有誤的是標示，而不是驗證器。
 
+`extraction.py` 負責掃描檔與圖片的讀取方式。`create_app` 建立一個 `Extraction`（OCR 引擎與視覺模型，兩者皆可省略，另有依檔案雜湊與引擎識別的快取），並傳給每一次來源讀取；OCR 設定因此不再是模組層級的狀態，同一個行程中的兩個 app 可以有不同設定。`LocalTesseract` 對暫存影像檔執行本機程式；`DockerTesseract` 執行 `docker run … IMAGE tesseract stdin stdout`，影像經由 stdin 傳入，使用與 Python 沙箱相同的鎖定參數、不掛載任何目錄，逾時就依名稱終止容器。掃描 PDF 的每一頁以 `pypdfium2` 轉成影像：OCR 用 300 dpi 的 PGM，視覺模型用 150 dpi、由 `gray_png`（只用 zlib）寫出的 PNG；兩者都讀過的頁面會逐頁列出 OCR 沒有讀到的數字。
+
 `uploads.py` 是唯一會寫入工作區的程式。它驗證檔名（不含資料夾、分隔符、控制字元或保留名稱，且為來源副檔名），只讀取不超過該類型上限的請求內容，並用讀取來源的同一套函式檢查能否讀取，全部在寫入之前完成。內容先寫入 `uploads/` 中的隱藏暫存檔，再以硬連結放到正式名稱；名稱已存在時，這個動作在 Windows 與 POSIX 上都會失敗，因此同時上傳不會取代既有檔案，寫到一半的檔案也不會被列出。`uploads` 若是連結、junction 或檔案則拒絕。
 
 ## 模型供應商
@@ -108,6 +110,7 @@ StoreLease在SQLite開啟前取得OS排他鎖；程序死亡會釋放kernel鎖�
 - model.py／streaming.py：外部HTTP協定、完整請求與串流正規化。
 - tools.py／sources.py：schema、准入來源、實際工具與EID。
 - verifiers.py：與任務無關的發布前驗證器，只看正文與工具證據。
+- context_fit.py：`RequestFitter`，單一模型請求的上下文步驟，依固定順序、每個步驟一個方法。
 - context.py：配對歷史、計量及完整已確認組的搬移；storage.py提供相關Memory／歷史版本。
 - storage.py／ownership.py／checkpoints.py：交易、不可變成果、OS所有權、unknown及續做依據。
 - event_stream.py／static/run-stream.js：持久序列、ACK、補讀及去重。

@@ -104,12 +104,21 @@ def test_store_has_one_live_writer_and_kernel_ownership_releases_on_process_deat
     with running_service(store, "--hold-first-tool", "source_read") as first:
         run = create_process_task(first.client, source)
         wait_event(first.client, run["id"], "validation.tool_held")
-        second, second_log, _ = launch(store)
+        second, second_log, second_port = launch(store)
         try:
-            try:
-                code = second.wait(timeout=3)
-            except subprocess.TimeoutExpired:
-                pytest.fail("A second service opened the Store while its writer was alive.")
+            # Starting Python and importing the app can take seconds on a busy machine, so a slow exit is
+            # not the failure. The failure is a second service that actually serves while the writer is alive.
+            deadline = time.monotonic() + 30
+            while (code := second.poll()) is None:
+                try:
+                    serving = httpx.get(f"http://127.0.0.1:{second_port}/api/config", timeout=0.5).status_code < 500
+                except httpx.TransportError:
+                    serving = False
+                if serving:
+                    pytest.fail("A second service opened the Store while its writer was alive.")
+                if time.monotonic() > deadline:
+                    pytest.fail("The second service neither exited nor served within 30 seconds.")
+                time.sleep(0.1)
             assert code != 0
             assert "ownership" in second_log.read_text(encoding="utf-8", errors="replace").lower()
             assert first.client.get(f"/api/runs/{run['id']}").json()["status"] == "running"

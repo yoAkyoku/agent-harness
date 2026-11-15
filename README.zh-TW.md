@@ -121,13 +121,13 @@ Run 可以把一個獨立的子問題交給子代理：同一個模型的另一�
 
 Excel（`.xlsx`）檔視為表格：`table_inspect` 與 `table_aggregate` 可加上 `sheet` 指定工作表（預設第一個），`source_read` 則把每個工作表以 CSV 呈現在 `[sheet 名稱]` 之下，數值為最後一次儲存的結果。PowerPoint（`.pptx`）檔逐張投影片讀取文字（`[slide N]`），包含表格的每一列。圖片（`.png`、`.jpg`）在設定 `--tesseract` 時經 OCR 讀取（`[image, OCR]`），設定 `--vision-model` 時由本機視覺模型轉錄，兩者也可同時使用；都沒有設定時會附上原因拒絕。
 
-視覺模型讀得懂圖表、照片、手寫與表格版面，這些 OCR 常讀不好；但它產生的是模型輸出，不是檔案原文，可能看錯數字，也可能寫出圖片裡沒有的字。因此 `--vision-model MODEL`（已下載、標示支援 vision 的 Ollama 模型，例如 `qwen3.5:9b-q4_K_M`；啟動時檢查，不符合就不啟動）預設關閉，轉錄文字會標上 `[image, model transcription by MODEL; not verbatim source text]`。來源會記錄模型名稱與 digest（`transcription`）；成果的證據附錄會註明引用內容包含模型轉錄，直接回答的 `answer.verified` 事件也會記錄。同時設定 `--tesseract` 時兩種結果都會提供，轉錄中 OCR 沒有讀到的數字會列在標籤上（`numbers not found by OCR: …`）與 `transcription.unconfirmed_numbers`，不一致會被呈現，而不是默默挑一個。轉錄結果依檔案雜湊與模型快取。掃描 PDF 仍只經 Tesseract。
+視覺模型讀得懂圖表、照片、手寫與表格版面，這些 OCR 常讀不好；但它產生的是模型輸出，不是檔案原文，可能看錯數字，也可能寫出圖片裡沒有的字。因此 `--vision-model MODEL`（已下載、標示支援 vision 的 Ollama 模型，例如 `qwen3.5:9b-q4_K_M`；啟動時檢查，不符合就不啟動）預設關閉，轉錄文字會標上 `[image, model transcription by MODEL; not verbatim source text]`。來源會記錄模型名稱與 digest（`transcription`）；成果的證據附錄會註明引用內容包含模型轉錄，直接回答的 `answer.verified` 事件也會記錄。同時設定 `--tesseract` 時兩種結果都會提供，轉錄中 OCR 沒有讀到的數字會列在標籤上（`numbers not found by OCR: …`）與 `transcription.unconfirmed_numbers`，不一致會被呈現，而不是默默挑一個。轉錄結果依檔案雜湊與模型快取。掃描 PDF 也以同樣方式逐頁讀取（`[page N, model transcription by MODEL; …]`），最多 10 頁，因為每一頁都是一次模型呼叫。
 
 表格可能遠大於模型適合讀取的量：20 MiB、200,000 列以內的 CSV 與 Excel，由表格工具在伺服器端完整計算。表格太大、無法整份讀取時，`source_read` 會回傳標示清楚的預覽（欄名、前 20 列與總列數，並帶有 `preview: true`），提醒模型改用表格工具計算；不會默默截斷。
 
 ### PDF 與 Word 來源
 
-工作區中的 PDF 與 Word（`.docx`）檔會和其他來源一起列出。模型讀到的是擷取出的文字：PDF 每頁標上 `[page N]`，Word 表格轉成 `儲存格 | 儲存格` 的列。引用與變更偵測使用檔案本身的雜湊。加密 PDF 或損壞的檔案會附上原因拒絕，不會當成空白讀取。沒有文字層的掃描 PDF 也會被拒絕，除非你用 `--tesseract` 指定本機的 [Tesseract](https://github.com/tesseract-ocr/tesseract)（其他語言加上 `--ocr-languages eng+chi_tra`）：這時每頁會轉成影像再經 OCR 讀取，並標上 `[page N, OCR]`，避免把辨識結果誤當成文字層。OCR 結果依檔案雜湊快取，上限 30 頁。限制：每個檔案 10 MiB、200 頁、`.docx` 解壓後 50 MiB、擷取文字 256 KiB。
+工作區中的 PDF 與 Word（`.docx`）檔會和其他來源一起列出。模型讀到的是擷取出的文字：PDF 每頁標上 `[page N]`，Word 表格轉成 `儲存格 | 儲存格` 的列。引用與變更偵測使用檔案本身的雜湊。加密 PDF 或損壞的檔案會附上原因拒絕，不會當成空白讀取。沒有文字層的掃描 PDF 也會被拒絕，除非你用 `--tesseract` 指定本機的 [Tesseract](https://github.com/tesseract-ocr/tesseract)，或用 `--tesseract-docker IMAGE` 指定內含 Tesseract 的 Docker 映像（其他語言加上 `--ocr-languages eng+chi_tra`），或用 `--vision-model` 指定視覺模型：這時每頁會轉成影像再經 OCR 讀取，並標上 `[page N, OCR]`，避免把辨識結果誤當成文字層。OCR 結果依檔案雜湊快取，上限 30 頁。使用 `--tesseract-docker` 時，每一頁或每張圖片各用一個容器執行 Tesseract：`--pull never`、無網路、唯讀檔案系統、移除所有 capabilities、以使用者 65534 執行、512 MiB、60 秒；影像經由 stdin 傳入，不掛載主機的任何目錄。工作台啟動時會確認映像存在。限制：每個檔案 10 MiB、200 頁、`.docx` 解壓後 50 MiB、擷取文字 256 KiB。
 
 來源清單下方的「上傳檔案」（或以原始位元組呼叫 `POST /api/workspaces/{id}/uploads?name=<檔名>`）會把檔案存進工作資料夾的 `uploads/`，成為來源並自動勾選。寫入前會先檢查：不含資料夾的檔名與來源類型、該類型的大小上限，以及能否讀取（UTF-8 文字，或有可擷取文字的 PDF／Word）。上傳不會覆寫：再次送出相同內容會回傳已保存的檔案，同名但內容不同則拒絕。
 
@@ -235,7 +235,7 @@ docker build -f Dockerfile.test --secret id=ca,src=host-ca.pem -t agent-harness-
 
 ## 目錄
 
-- `src/agent_harness/`：harness 本體。`runtime.py`（循環）、`context.py`（預算與裁切）、`tools.py`、`verifiers.py`、`storage.py`、`checkpoints.py`、`event_stream.py`、`model.py` 與 `anthropic_adapter.py`（供應商）、`mcp_hub.py`（MCP 工具）、`skills.py`（Skills）、`instructions.py`（AGENTS.md）、`uploads.py`、`hooks.py`、`subagent.py`（委派的子任務）、`compaction.py`（選用的摘要）、`web_fetch.py`、`sandbox.py`、`vision.py`、`remote.py`（端點與憑證規則）、`headless.py`（NDJSON 用戶端）、`web.py`（API）、`static/`（工作台）。
+- `src/agent_harness/`：harness 本體。`runtime.py`（循環）、`context_fit.py`（依序執行的上下文步驟）、`context.py`（預算量測與訊息搬移）、`extraction.py`（掃描檔與圖片的 OCR 與視覺模型）、`tools.py`、`verifiers.py`、`storage.py`、`checkpoints.py`、`event_stream.py`、`model.py` 與 `anthropic_adapter.py`（供應商）、`mcp_hub.py`（MCP 工具）、`skills.py`（Skills）、`instructions.py`（AGENTS.md）、`uploads.py`、`hooks.py`、`subagent.py`（委派的子任務）、`compaction.py`（選用的摘要）、`web_fetch.py`、`sandbox.py`、`vision.py`、`remote.py`（端點與憑證規則）、`headless.py`（NDJSON 用戶端）、`web.py`（API）、`static/`（工作台）。
 - `tests/`：公開介面測試與 fixtures，包含錄製的模型執行紀錄。
 - `evaluation/`：固定題組，真值在任何模型執行前寫定。
 - `scripts/`：對執行中的工作台跑題組，保存每個事件、成果與評分的記錄器。
@@ -243,7 +243,7 @@ docker build -f Dockerfile.test --secret id=ca,src=host-ca.pem -t agent-harness-
 
 ## 限制
 
-單一使用者、只綁定 localhost 並需每次啟動的權杖、受限工具：每個任務最多八份來源（UTF-8 文字每份 256 KiB；CSV 與 Excel 表格每份 20 MiB、200,000 列，模型讀到的是預覽；PDF、Word、PowerPoint 每份 10 MiB 且擷取文字不超過 256 KiB；圖片與掃描 PDF 需加上 `--tesseract`）；沒有 shell 或瀏覽器工具（Python 只能在需選擇開啟的 Docker 沙箱執行），網路存取只有需選擇開啟、僅限公開 https 網頁的 `web_fetch`，沒有多租戶或分散式 worker，也不宣稱正式環境的效能。引用能證明數值來源，不代表每句話都正確。已發布成果不等於整個 Run 完成。中斷時效果未知的操作不會自動重送或回滾，續做必須明確建立新 Run。
+單一使用者、只綁定 localhost 並需每次啟動的權杖、受限工具：每個任務最多八份來源（UTF-8 文字每份 256 KiB；CSV 與 Excel 表格每份 20 MiB、200,000 列，模型讀到的是預覽；PDF、Word、PowerPoint 每份 10 MiB 且擷取文字不超過 256 KiB；圖片與掃描 PDF 需加上 `--tesseract`、`--tesseract-docker` 或 `--vision-model`）；沒有 shell 或瀏覽器工具（Python 只能在需選擇開啟的 Docker 沙箱執行），網路存取只有需選擇開啟、僅限公開 https 網頁的 `web_fetch`，沒有多租戶或分散式 worker，也不宣稱正式環境的效能。引用能證明數值來源，不代表每句話都正確。已發布成果不等於整個 Run 完成。中斷時效果未知的操作不會自動重送或回滾，續做必須明確建立新 Run。
 
 為什麼不做多使用者或雲端部署：上述保證建立在「一個人、一台機器、一份本機儲存」之上。核准綁定在操作的那個人；來源是那個人本來就能讀的檔案；事件紀錄與成果都在一份有租約保護的 SQLite 儲存裡。共用服務需要帳號與角色、各租戶隔離的工作區／儲存／權杖／沙箱、跨 worker 的工作佇列、機密管理，以及「誰核准了什麼」的稽核。那是以這個核心為基礎的另一個產品，不是加個旗標就能完成，因此刻意不做，而不是做一半。
 

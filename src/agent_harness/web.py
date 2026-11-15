@@ -38,9 +38,10 @@ from .local import MIN_TOKEN_LENGTH, OAUTH_CALLBACK_PATH, AccessTokenMiddleware,
 from .model import DecisionModel, FixtureTransport, ModelAdapter, ModelSettings
 from .ownership import StoreLease
 from .runtime import Runtime
-from .sources import MAX_SOURCES, admit_sources, catalog, configure_ocr, configure_vision, read_source, relevant_excerpts, workspace_root
+from .sources import MAX_SOURCES, admit_sources, catalog, read_source, relevant_excerpts, workspace_root
 from .storage import Store
 from .sandbox import PythonSandbox, Runner
+from .extraction import DockerTesseract, Extraction, LocalTesseract, ProcessRunner
 from .subagent import status as subagent_status
 from .vision import VisionTranscriber
 from .web_fetch import Resolver, WebFetcher
@@ -150,6 +151,8 @@ def create_app(
     allow_command_hooks: bool = False,
     ocr_command: list[str] | None = None,
     ocr_languages: str = "eng",
+    ocr_docker_image: str | None = None,
+    ocr_runner: ProcessRunner | None = None,
     oauth_redirect_url: str | None = None,
     allow_web: bool = False,
     web_allow_domains: tuple[str, ...] = (),
@@ -189,6 +192,9 @@ def create_app(
     transcribed by it, labelled as model output. `vision_transport` replaces Ollama in tests.
 
     `allow_subagents` lets Runs that ask for it delegate sub-tasks with subagent_run.
+
+    `ocr_command` names a local Tesseract; `ocr_docker_image` runs Tesseract in a locked-down container
+    instead (`ocr_runner` replaces Docker in tests). At most one of the two may be set.
     """
     if access_token is not None and len(access_token) < MIN_TOKEN_LENGTH:
         raise ValueError(f"The access token must have at least {MIN_TOKEN_LENGTH} characters.")
@@ -202,9 +208,14 @@ def create_app(
     mcp = (McpHub.from_config(mcp_config, oauth_redirect_url=oauth_redirect_url, token_directory=store_directory / "oauth")
            if mcp_config is not None else None)
     skills = SkillLibrary.from_directory(skills_dir) if skills_dir is not None else None
-    configure_ocr(ocr_command, ocr_languages)  # PDFs without a text layer go through OCR only when this is set
+    if ocr_command is not None and ocr_docker_image is not None:
+        raise ValueError("Choose a local Tesseract or a Tesseract container, not both.")
+    container_ocr = (DockerTesseract(ocr_docker_image, ocr_languages, docker=docker_command, runner=ocr_runner)
+                     if ocr_docker_image is not None else None)
     vision = VisionTranscriber(vision_model, transport=vision_transport) if vision_model is not None else None
-    configure_vision(vision)  # images are transcribed by a vision model only when this is set
+    # Scanned PDFs and images are read only through what this app was given; nothing is module state.
+    extraction = Extraction(ocr=container_ocr or (LocalTesseract(ocr_command, ocr_languages) if ocr_command else None),
+                            vision=vision)
     hooks = (HookRunner.from_config(hooks_config, hooks_transport, allow_commands=allow_command_hooks)
              if hooks_config is not None else None)
     web = (WebFetcher(allowed_domains=web_allow_domains, transport=web_transport, resolver=web_resolver)
@@ -229,13 +240,16 @@ def create_app(
                     await python.check()
                 if vision is not None:
                     await asyncio.to_thread(vision.check)
+                if container_ocr is not None:
+                    await asyncio.to_thread(container_ocr.check)
                 if settings.mode == "anthropic":
                     from .anthropic_adapter import AnthropicAdapter
 
                     claude = AnthropicAdapter(settings, transport=anthropic_transport)
                     await claude.prepare()
                     model = claude
-                    runtime = Runtime(storage, model, hold_first_tool=hold_first_tool, mcp=mcp, skills=skills, hooks=hooks, web=web, python=python, subagents=allow_subagents)
+                    runtime = Runtime(storage, model, hold_first_tool=hold_first_tool, mcp=mcp, skills=skills, hooks=hooks, web=web, python=python, subagents=allow_subagents,
+                                      extraction=extraction)
                     try:
                         yield
                     finally:
@@ -247,7 +261,8 @@ def create_app(
                         adapter = ModelAdapter(client, settings, transport_fixture=transport is not None)
                         await adapter.prepare()
                         model = adapter
-                        runtime = Runtime(storage, model, hold_first_tool=hold_first_tool, mcp=mcp, skills=skills, hooks=hooks, web=web, python=python, subagents=allow_subagents)
+                        runtime = Runtime(storage, model, hold_first_tool=hold_first_tool, mcp=mcp, skills=skills, hooks=hooks, web=web, python=python, subagents=allow_subagents,
+                                      extraction=extraction)
                         try:
                             yield
                         finally:
@@ -287,7 +302,7 @@ def create_app(
                 "mcp": mcp.status() if mcp is not None else {"servers": {}},
                 "skills": skills.status() if skills is not None else {"available": [], "excluded": []},
                 "prices": prices or {}, "hooks": hooks.status() if hooks is not None else [],
-                "ocr": {"enabled": ocr_command is not None, **({"languages": ocr_languages} if ocr_command else {})},
+                "ocr": extraction.status(),
                 "web": web.status() if web is not None else {"enabled": False},
                 "python": python.status() if python is not None else {"enabled": False},
                 "vision": vision.status() if vision is not None else {"enabled": False},
@@ -355,7 +370,7 @@ def create_app(
                 body += chunk
                 if len(body) > limit:
                     raise RunFailure("source_too_large", "The file exceeds the size limit for its type.")
-            saved = await asyncio.to_thread(save_upload, Path(workspace["path"]), name, bytes(body))
+            saved = await asyncio.to_thread(save_upload, Path(workspace["path"]), name, bytes(body), extraction)
         except RunFailure as error:
             raise HTTPException(statuses.get(error.code, 422), {"code": error.code, "message": error.message}) from None
         return JSONResponse(saved, status_code=201 if saved["created"] else 200)
@@ -367,8 +382,8 @@ def create_app(
             raise HTTPException(404, "Workspace not found.")
         root = Path(workspace["path"])
         try:
-            await asyncio.to_thread(admit_sources, root, [path])
-            return await asyncio.to_thread(read_source, root, path)
+            await asyncio.to_thread(admit_sources, root, [path], extraction)
+            return await asyncio.to_thread(read_source, root, path, extraction)
         except RunFailure as error:
             raise HTTPException(422, {"code": error.code, "message": error.message}) from None
 
@@ -459,8 +474,9 @@ def create_app(
                 prior = await storage.submission(session_id, body.submission_key, digest)
                 if prior is not None:
                     return prior
-            sources = await asyncio.to_thread(admit_sources, root, body.sources)
-            excerpts = await asyncio.to_thread(relevant_excerpts, root, sources, body.task, body.limits.max_excerpt_bytes)
+            sources = await asyncio.to_thread(admit_sources, root, body.sources, extraction)
+            excerpts = await asyncio.to_thread(relevant_excerpts, root, sources, body.task, body.limits.max_excerpt_bytes,
+                                               extraction)
             policy: dict[str, Any] = {"require_publish_approval": body.require_publish_approval}
             if body.require_plan_approval:
                 policy["require_plan_approval"] = True
@@ -590,7 +606,8 @@ def create_app(
             workspace = await storage.workspace(session["workspace_id"])
             assert workspace is not None
             root = Path(workspace["path"])
-            sources = await asyncio.to_thread(admit_sources, root, [source["path"] for source in checkpoint["sources"]])
+            sources = await asyncio.to_thread(admit_sources, root, [source["path"] for source in checkpoint["sources"]],
+                                              extraction)
             if sources != checkpoint["sources"]:
                 raise RunFailure("checkpoint_sources_changed", "Selected sources no longer match the checkpoint versions.")
             base = parent["base_artifact"]

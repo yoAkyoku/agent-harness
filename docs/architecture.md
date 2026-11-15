@@ -51,6 +51,8 @@ PDF and Word files are sources in `sources.py`: `read_source` keeps the SHA-256 
 
 Images can also be transcribed by a local vision model (`vision.py`, `--vision-model`). `VisionTranscriber.check` runs at startup and refuses a model that is not installed with a digest or does not advertise vision. Its text is labelled as a model transcription in the source text, recorded as `transcription` (model, digest and, with OCR too, `unconfirmed_numbers`: the transcription's numbers missing from the OCR text), and carried into the evidence appendix (`transcription_note`) and `answer.verified`. The verifiers treat it like any source text, so the label, not the verifier, is what tells a reader it may be wrong.
 
+`extraction.py` holds how scans and images are read. One `Extraction` (an OCR engine and a vision model, either optional, plus a cache keyed by file hash and engine identity) is built by `create_app` and passed to every source read, so nothing about OCR is module state and two apps in one process can differ. `LocalTesseract` runs a local program on a temporary image file; `DockerTesseract` runs `docker run … IMAGE tesseract stdin stdout` with the image on stdin, the same lock-down flags as the Python sandbox and no mounts, and kills the container by name on a timeout. For a scanned PDF each page is rendered with `pypdfium2`, as PGM at 300 dpi for OCR and as a PNG written by `gray_png` (zlib only) at 150 dpi for the vision model; pages read by both get the per-page list of numbers OCR did not find.
+
 `uploads.py` is the only code that writes into a workspace. It validates the file name (no folders, separators, control or reserved names; a source extension), reads the request body only up to the type's limit, and checks readability with the same functions that read sources, all before writing. The bytes go to a hidden temporary file in `uploads/` and are hard-linked into place, which fails if the name exists on Windows and POSIX alike, so a concurrent upload cannot replace a file and a half-written one is never listed. An `uploads` path that is a link, junction or file is refused.
 
 ## Verifiers
@@ -149,7 +151,8 @@ Resume takes only a digest and key. The server loads the checkpoint, validates t
 - `model.py`, `anthropic_adapter.py`, `streaming.py` — provider protocols, complete requests, stream normalisation.
 - `tools.py`, `sources.py` — schemas, admitted sources, tools and evidence IDs.
 - `verifiers.py` — task-independent checks before publication and completion.
-- `context.py` — paired history, budgeting and lossless moves of confirmed groups.
+- `context_fit.py` — `RequestFitter`: the ordered context steps for one model request, one method per step.
+- `context.py` — paired history, budget measurement and lossless moves of confirmed groups.
 - `storage.py`, `ownership.py`, `checkpoints.py` — transactions, immutable artifacts, OS ownership, `unknown` effects and resume.
 - `event_stream.py`, `static/run-stream.js` — persisted sequence, ACK, catch-up and de-duplication.
 

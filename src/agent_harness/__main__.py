@@ -56,6 +56,9 @@ def parser() -> argparse.ArgumentParser:
                              "command hooks need --allow-command-hooks.")
     parser.add_argument("--tesseract", type=Path,
                         help="A local Tesseract program; PDFs without a text layer are then read through OCR.")
+    parser.add_argument("--tesseract-docker", metavar="IMAGE",
+                        help="Run Tesseract in this Docker image instead of a local program (pull or build it first): "
+                             "one container per page, no network, read-only, the image passed on stdin.")
     parser.add_argument("--ocr-languages", help="Tesseract language codes joined by +, such as eng+chi_tra (default eng).")
     parser.add_argument("--vision-model", metavar="MODEL",
                         help="A local Ollama model with vision (such as qwen3.5:9b-q4_K_M); images are then also "
@@ -81,8 +84,8 @@ def parser() -> argparse.ArgumentParser:
 def build_ocr(arguments: argparse.Namespace) -> list[str] | None:
     """The OCR command from --tesseract; raises ValueError with a user-facing reason."""
     if arguments.tesseract is None:
-        if arguments.ocr_languages is not None:
-            raise ValueError("--ocr-languages needs --tesseract.")
+        if arguments.ocr_languages is not None and arguments.tesseract_docker is None:
+            raise ValueError("--ocr-languages needs --tesseract or --tesseract-docker.")
         return None
     program = arguments.tesseract if arguments.tesseract.is_file() else shutil.which(str(arguments.tesseract))
     if program is None:
@@ -188,6 +191,14 @@ def main() -> None:
         ocr_command = build_ocr(arguments)
         web_domains = build_web_domains(arguments)
         python_image = build_python_image(arguments)
+        if arguments.tesseract_docker is not None:
+            if arguments.tesseract is not None:
+                raise ValueError("Use --tesseract or --tesseract-docker, not both.")
+            if not re.fullmatch(r"[a-z0-9][a-z0-9._/:@-]{0,254}", arguments.tesseract_docker):
+                raise ValueError("--tesseract-docker takes a Docker image name.")
+            if arguments.ocr_languages is not None and not re.fullmatch(
+                    r"[A-Za-z_]{2,20}(\+[A-Za-z_]{2,20}){0,7}", arguments.ocr_languages):
+                raise ValueError("--ocr-languages takes Tesseract language codes joined by +, such as eng+chi_tra.")
         if arguments.vision_model is not None and not valid_model_name(arguments.vision_model):
             raise ValueError("--vision-model must name an installed local Ollama model (no cloud models).")
     except ValueError as error:
@@ -202,6 +213,7 @@ def main() -> None:
                          skills_dir=arguments.skills_dir, prices=prices, hooks_config=arguments.hooks_config,
                          allow_command_hooks=arguments.allow_command_hooks,
                          ocr_command=ocr_command, ocr_languages=arguments.ocr_languages or "eng",
+                         ocr_docker_image=arguments.tesseract_docker,
                          oauth_redirect_url=f"http://127.0.0.1:{arguments.port}{OAUTH_CALLBACK_PATH}",
                          allow_web=arguments.allow_web, web_allow_domains=web_domains,
                          python_image=python_image, docker_command=arguments.docker,

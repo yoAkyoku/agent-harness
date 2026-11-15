@@ -11,11 +11,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal, TypeVar
 
-from .context import added_message, compact_tool_catalog, completed_tool_group, encode_draft_receipts, encode_duplicate_plan, executor_state_message, omit_inspection_hints, omit_runtime_guidance, prune_resolved_tool_failures, publication_finalization_prefix, published_draft_group
+from .context import added_message, executor_state_message, publication_finalization_prefix
+from .context_fit import RequestFitter, Window
 from .contracts import Decision, PendingCorrection, RunCancelled, RunFailure, RunLimits, ToolCall, canonical_tool_arguments
+from .extraction import Extraction
 from .hooks import HookRunner
 from .mcp_hub import McpHub
-from . import compaction, subagent
+from . import subagent
 from .sandbox import SANDBOX_ERRORS, TOOL_NAME as PYTHON_TOOL, PythonSandbox
 from .web_fetch import TOOL_NAME as WEB_TOOL, WEB_ERRORS, WebFetcher
 from .instructions import instructions_message
@@ -76,8 +78,10 @@ def project_initial_public_plan(decision: Decision, protocol: str) -> Decision:
 class Runtime:
     def __init__(self, store: Store, model: DecisionModel, *, hold_first_tool: Literal["source_read", "artifact_write"] | None = None,
                  mcp: McpHub | None = None, skills: SkillLibrary | None = None, hooks: HookRunner | None = None,
-                 web: WebFetcher | None = None, python: PythonSandbox | None = None, subagents: bool = False) -> None:
+                 web: WebFetcher | None = None, python: PythonSandbox | None = None, subagents: bool = False,
+                 extraction: Extraction | None = None) -> None:
         self.store = store
+        self.extraction = extraction
         self.subagents = subagents
         self.model = model
         self.mcp = mcp
@@ -328,7 +332,7 @@ class Runtime:
                       mcp_tools=mcp_tools, mcp_hub=self.mcp, skills=selected_skills,
                       plan_approval=bool(run.get("policy", {}).get("require_plan_approval")),
                       web=self.web if web_access else None, python=self.python if python_access else None,
-                      subagents=delegation)
+                      subagents=delegation, extraction=self.extraction)
         if checkpoint is not None:
             tools.restore_evidence(checkpoint["confirmed"])
         label_queries_available = model.settings.mode == "fixture" and any(
@@ -431,7 +435,7 @@ class Runtime:
                 capacity=min(run["model"]["context_capacity_tokens"],
                              limits.context_window_tokens or run["model"]["context_capacity_tokens"]),
                 profile=run["model"].get("context_profile", "synthetic_fixture"), usage=usage, record=record,
-                hooks=self.hooks)
+                hooks=self.hooks, extraction=self.extraction)
 
         if delegation:
             tools.subagent_runner = run_subagent
@@ -447,19 +451,6 @@ class Runtime:
         publication_finalization_name: str | None = None
         pending: dict[str, PendingCorrection] = {}
         resolved_errors: set[str] = set()
-
-        def executor_context_message(*, include_inspection_hints: bool = True) -> tuple[Record, list[str]]:
-            model_state = deepcopy(navigation_state)
-            omitted_pinned_text: list[str] = []
-            artifact_write_correction = bool(pending) and all(
-                correction.call.name == "artifact_write" for correction in pending.values()
-            )
-            if artifact_write_correction:
-                for evidence_id, evidence in model_state.get("verified_evidence", {}).items():
-                    if evidence.get("evidence_type") == "pinned_artifact" and isinstance(evidence.get("text"), str):
-                        del evidence["text"]
-                        omitted_pinned_text.append(evidence_id)
-            return executor_state_message(model_state, include_inspection_hints=include_inspection_hints), omitted_pinned_text
 
         if checkpoint is not None:
             for attempt in checkpoint["pending"]:
@@ -615,245 +606,18 @@ class Runtime:
                     "目前僅開放規劃；提交 plan_update 後會提供來源與發布工具，不能據此判斷沒有來源。"
                     "本次只交代簡短後續動作，不先解完整任務；等工具回傳證據再計算與下結論。"
                 )
-            capacity = min(run["model"]["context_capacity_tokens"], limits.context_window_tokens or run["model"]["context_capacity_tokens"])
-            body = model.request_body(messages, available_tools, limits.max_output_tokens)
-            budget = await self._perform(identity, lambda: model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
-            while budget["upper_bound_tokens"] > capacity and history_turns:
-                removed = history_turns.pop(0)
-                del messages[1:1 + len(removed["messages"])]
-                current_start -= len(removed["messages"])
-                acknowledged_until = max(0, acknowledged_until - len(removed["messages"]))
-                if canonical_index is not None:
-                    canonical_index -= len(removed["messages"])
-                body = model.request_body(messages, available_tools, limits.max_output_tokens)
-                budget = await self._perform(identity, lambda: model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
-                await self._record(identity, "context.pruned", {"step": step, "history_run_id": removed["run_id"],
-                                    "reason": "request_budget", **budget})
-            excerpt_index = next((index for index, message in enumerate(messages)
-                                  if message is excerpt_message), None)
-            if budget["upper_bound_tokens"] > capacity and excerpt_index is not None:
-                del messages[excerpt_index]
-                current_start -= 1
-                if acknowledged_until > excerpt_index:
-                    acknowledged_until -= 1
-                if canonical_index is not None and canonical_index > excerpt_index:
-                    canonical_index -= 1
-                body = model.request_body(messages, available_tools, limits.max_output_tokens)
-                budget = await self._perform(identity, lambda: model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
-                await self._record(identity, "context.pruned", {"step": step, "reason": "source_excerpt_budget", **budget})
-            while budget["upper_bound_tokens"] > capacity:
-                narration = completed_tool_group(messages, current_start, len(messages),
-                    {tool["function"]["name"] for tool in available_tools}, with_narration=True)
-                if narration is not None:
-                    first, _, call_ids = narration
-                    text_bytes = len(messages[first]["content"].encode("utf-8"))
-                    messages[first]["content"] = None
-                    body = model.request_body(messages, available_tools, limits.max_output_tokens)
-                    budget = await self._perform(identity, lambda: model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
-                    await self._record(identity, "context.pruned", {"step": step, "call_ids": call_ids,
-                        "reason": "tool_narration", "text_utf8_bytes": text_bytes, **budget})
-                    continue
-                navigation = completed_tool_group(messages, current_start, acknowledged_until, {"plan_update", "workspace_list"})
-                reason = "completed_navigation"
-                if navigation is None:
-                    # Keep the newest failed call in a correction chain, but
-                    # discard older full arguments once a newer retry has
-                    # already superseded them. Their IDs stay in `pending` so
-                    # correction auditing remains complete.
-                    superseded_errors = {
-                        call_id
-                        for correction in pending.values()
-                        for call_id, _, tool_name, error_code in correction.failure_records_with_codes[:-1]
-                        if tool_name == "artifact_write"
-                    }
-                    compactable_errors = resolved_errors | superseded_errors
-                    messages, pruned_call_ids = prune_resolved_tool_failures(
-                        messages, current_start, acknowledged_until, compactable_errors,
-                    )
-                    if pruned_call_ids:
-                        acknowledged_until = max(current_start, acknowledged_until - len(pruned_call_ids))
-                        body = model.request_body(messages, available_tools, limits.max_output_tokens)
-                        budget = await self._perform(identity, lambda: model.context_budget(
-                            body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture"),
-                        ))
-                        reason = ("superseded_correction"
-                                  if any(call_id in superseded_errors for call_id in pruned_call_ids)
-                                  else "resolved_correction")
-                        await self._record(identity, "context.pruned", {
-                            "step": step, "call_ids": pruned_call_ids, "reason": reason, **budget,
-                        })
-                        continue
-                    navigation = completed_tool_group(messages, current_start, acknowledged_until,
-                        {tool["function"]["name"] for tool in available_tools}, resolved_error_ids=compactable_errors)
-                    if navigation is not None:
-                        reason = "superseded_correction" if any(call_id in superseded_errors for call_id in navigation[2]) else "resolved_correction"
-                if navigation is None:
-                    navigation = completed_tool_group(messages, current_start, acknowledged_until, read_tools)
-                    reason = "acknowledged_evidence"
-                if navigation is None and review_mode:
-                    navigation = published_draft_group(messages, current_start, acknowledged_until, read_tools)
-                    reason = "published_draft"
-                if navigation is None:
-                    break
-                first, after, call_ids = navigation
-                if reason in {"acknowledged_evidence", "published_draft"}:
-                    ledger = navigation_state.setdefault("verified_evidence", {})
-                    for call, message in zip(messages[first]["tool_calls"], messages[first + 1:after], strict=True):
-                        if call["function"]["name"] not in read_tools:
-                            continue
-                        result = json.loads(message["content"])
-                        ledger[result["evidence_id"]] = result
-                del messages[first:after]
-                acknowledged_until -= after - first
-                canonical, omitted_pinned_text = executor_context_message()
-                if canonical_index is None:
-                    canonical_index = current_start - 1
-                    messages.insert(canonical_index, canonical)
-                    current_start += 1
-                    acknowledged_until += 1
-                else:
-                    messages[canonical_index] = canonical
-                body = model.request_body(messages, available_tools, limits.max_output_tokens)
-                budget = await self._perform(identity, lambda: model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
-                context_prune = {"step": step, "call_ids": call_ids,
-                                 "reason": "artifact_correction_pinned_text" if omitted_pinned_text else reason,
-                                 "retained_executor_state": deepcopy(navigation_state), **budget}
-                if omitted_pinned_text:
-                    context_prune["navigation_reason"] = reason
-                    context_prune["omitted_pinned_artifact_text_ids"] = omitted_pinned_text
-                await self._record(identity, "context.pruned", context_prune)
-            if budget["upper_bound_tokens"] > capacity:
-                available_tools = [{"type": tool["type"], "function": {
-                    key: value for key, value in tool["function"].items() if key != "description"
-                }} for tool in available_tools]
-                body = model.request_body(messages, available_tools, limits.max_output_tokens)
-                budget = await self._perform(identity, lambda: model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
-                await self._record(identity, "context.pruned", {"step": step, "reason": "tool_descriptions", **budget})
-            if budget["upper_bound_tokens"] > capacity and review_mode:
-                encoded_calls = encode_draft_receipts(messages)
-                if encoded_calls:
-                    body = model.request_body(messages, available_tools, limits.max_output_tokens)
-                    budget = await self._perform(identity, lambda: model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
-                    await self._record(identity, "context.pruned", {"step": step, "reason": "draft_receipt_encoding",
-                        "call_ids": encoded_calls, **budget})
-            if budget["upper_bound_tokens"] > capacity and (review_mode or receipt_mode or published_this_run or pending):
-                available_tools = compact_tool_catalog(available_tools)
-                body = model.request_body(messages, available_tools, limits.max_output_tokens)
-                budget = await self._perform(identity, lambda: model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
-                await self._record(identity, "context.pruned", {"step": step, "reason": "tool_schema_bounds", **budget})
-            if budget["upper_bound_tokens"] > capacity:
-                omitted = omit_runtime_guidance(messages, navigation_state)
-                if omitted:
-                    if canonical_index is not None:
-                        messages[canonical_index] = executor_context_message()[0]
-                    body = model.request_body(messages, available_tools, limits.max_output_tokens)
-                    budget = await self._perform(identity, lambda: model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
-                    await self._record(identity, "context.pruned", {"step": step, "reason": "runtime_guidance_budget",
-                        "omitted_result_views": omitted, **budget})
-            if budget["upper_bound_tokens"] > capacity:
-                omitted = omit_inspection_hints(messages)
-                if canonical_index is not None:
-                    omitted += sum("aggregatable_columns" in result
-                                   for result in navigation_state.get("verified_evidence", {}).values())
-                    if omitted:
-                        messages[canonical_index] = executor_context_message(include_inspection_hints=False)[0]
-                if omitted:
-                    body = model.request_body(messages, available_tools, limits.max_output_tokens)
-                    budget = await self._perform(identity, lambda: model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
-                    await self._record(identity, "context.pruned", {"step": step, "reason": "inspection_capability_hints",
-                        "omitted_result_views": omitted, **budget})
-            if budget["upper_bound_tokens"] > capacity:
-                compacted = deepcopy(available_tools)
-                omitted_names = 0
-                for tool in compacted:
-                    if tool["function"]["name"] in {"artifact_write", "artifact_draft"}:
-                        name_schema = tool["function"]["parameters"]["properties"]["name"]
-                        if name_schema.pop("description", None) is not None:
-                            omitted_names += 1
-                if omitted_names:
-                    available_tools = compacted
-                    body = model.request_body(messages, available_tools, limits.max_output_tokens)
-                    budget = await self._perform(identity, lambda: model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
-                    await self._record(identity, "context.pruned", {"step": step, "reason": "artifact_name_descriptions",
-                        "omitted_descriptions": omitted_names, **budget})
-            if budget["upper_bound_tokens"] > capacity and published_this_run and canonical_index is not None:
-                projected_state = deepcopy(navigation_state)
-                evidence = projected_state.get("verified_evidence", {})
-                labelled = [key for key, value in evidence.items() if "labelled_lines" in value and "text" in value]
-                for key in labelled:
-                    del evidence[key]["labelled_lines"]
-                if labelled:
-                    messages[canonical_index] = executor_state_message(projected_state)
-                    body = model.request_body(messages, available_tools, limits.max_output_tokens)
-                    budget = await self._perform(identity, lambda: model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
-                    await self._record(identity, "context.pruned", {"step": step, "reason": "labelled_lines_projection", "evidence_ids": labelled, **budget})
-            if budget["upper_bound_tokens"] > capacity and published_this_run:
-                compacted_results = 0
-                for message in messages:
-                    if message.get("role") == "tool":
-                        original = message["content"]
-                        compact = json.dumps(json.loads(original), ensure_ascii=False, separators=(",", ":"))
-                        if len(compact.encode("utf-8")) < len(original.encode("utf-8")):
-                            message["content"] = compact
-                            compacted_results += 1
-                if compacted_results:
-                    body = model.request_body(messages, available_tools, limits.max_output_tokens)
-                    budget = await self._perform(identity, lambda: model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
-                    await self._record(identity, "context.pruned", {"step": step, "reason": "tool_result_json_whitespace", "compacted_results": compacted_results, **budget})
-            if budget["upper_bound_tokens"] > capacity and receipt_mode and encode_duplicate_plan(messages):
-                body = model.request_body(messages, available_tools, limits.max_output_tokens)
-                budget = await self._perform(identity, lambda: model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
-                await self._record(identity, "context.pruned", {"step": step, "reason": "duplicate_plan_encoding", **budget})
-            # Opt-in and last: replace the largest evidence text in the model's view with a labelled summary.
-            # The server-side evidence (tools.evidence) that citations and verifiers use keeps the full text.
-            while budget["upper_bound_tokens"] > capacity and compacting and compactions < compaction.MAX_PER_RUN:
-                target = compaction.largest_target(messages, current_start, navigation_state.get("verified_evidence", {}))
-                if target is None:
-                    break
-                target_kind, where, original = target
-
-                async def summary_called(chunk: int, call_usage: Record | None,
-                                         evidence_id: str = original["evidence_id"]) -> None:
-                    usage["model_calls"] += 1
-                    await self._record(identity, "compaction.model_responded", {
-                        "step": step, "evidence_id": evidence_id, "chunk": chunk, "usage": call_usage}, usage=usage)
-
-                try:
-                    summary, chunks = await self._perform(identity, lambda: compaction.summarize(
-                        model, run["task"], original, capacity=capacity,
-                        profile=run["model"].get("context_profile", "synthetic_fixture"), on_call=summary_called))
-                except RunFailure as error:
-                    await self._record(identity, "context.compaction_failed", {
-                        "step": step, "evidence_id": original["evidence_id"], "reason": error.code, "message": error.message})
-                    break
-                view = compaction.compacted_view(original, summary, model.settings.name, chunks)
-                if target_kind == "message":
-                    assert isinstance(where, int)
-                    messages[where]["content"] = json.dumps(view, ensure_ascii=False)
-                else:
-                    navigation_state["verified_evidence"][where] = view
-                    if canonical_index is not None:
-                        messages[canonical_index] = executor_context_message()[0]
-                compactions += 1
-                body = model.request_body(messages, available_tools, limits.max_output_tokens)
-                budget = await self._perform(identity, lambda: model.context_budget(body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
-                await self._record(identity, "context.compacted", {
-                    "step": step, **compaction.summary_record(original, summary, model.settings.name, chunks), **budget})
-            summary_guidance_applied = False
-            if budget["upper_bound_tokens"] <= capacity and published_this_run and not receipt_mode:
-                candidate_messages = deepcopy(messages)
-                candidate_messages[0]["content"] += (
-                    " 完成摘要只敘述已保存成果明確包含的內容；沒有標示缺項時，不宣稱已標示缺項。"
-                )
-                candidate_body = model.request_body(candidate_messages, available_tools, limits.max_output_tokens)
-                candidate_budget = await self._perform(identity, lambda: model.context_budget(candidate_body, capacity, limits.max_output_tokens, run["model"].get("context_profile", "synthetic_fixture")))
-                if candidate_budget["upper_bound_tokens"] <= capacity:
-                    messages[0]["content"] = candidate_messages[0]["content"]
-                    budget = candidate_budget
-                    summary_guidance_applied = True
-            if budget["upper_bound_tokens"] > capacity:
-                await self._record(identity, "context.limited", {"step": step, **budget})
-                raise RunFailure("context_limit_exceeded", "The complete request exceeds the configured conservative context envelope.")
+            window = Window(messages, available_tools, current_start, acknowledged_until, canonical_index,
+                            history_turns, excerpt_message, compactions)
+            await RequestFitter(
+                model=model, run=run, limits=limits, step=step,
+                perform=lambda work: self._perform(identity, work),
+                record=lambda kind, data, **updates: self._record(identity, kind, data, **updates),
+                read_tools=read_tools, review_mode=review_mode, receipt_mode=receipt_mode,
+                published_this_run=published_this_run, pending=pending, resolved_errors=resolved_errors,
+                navigation_state=navigation_state, compacting=compacting, usage=usage).fit(window)
+            messages, available_tools, budget = window.messages, window.tools, window.budget
+            current_start, acknowledged_until, canonical_index = window.current_start, window.acknowledged_until, window.canonical_index
+            compactions, summary_guidance_applied = window.compactions, window.summary_guidance_applied
             usage["model_calls"] += 1
             # Calls are checked against exactly the catalogue this request offered.
             offered_tools = {tool["function"]["name"] for tool in available_tools}
@@ -986,7 +750,7 @@ class Runtime:
                              or any(correction.call.name in {"artifact_write", "artifact_draft"}
                                     for correction in pending.values()))):
                     # Preserve the last public plan when a model tries to clear it after work is complete.
-                    result = {"saved": True, "steps": list(navigation_state["plan_steps"]), "no_op": True}
+                    result: Record = {"saved": True, "steps": list(navigation_state["plan_steps"]), "no_op": True}
                     await self._record(identity, "tool.completed", {
                         "call_id": call.identity, "tool": call.name, "result": result,
                     }, usage=usage)

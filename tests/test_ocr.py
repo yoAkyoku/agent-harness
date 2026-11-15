@@ -16,7 +16,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from agent_harness import sources
+from agent_harness import extraction
 from agent_harness.model import ModelSettings
 from agent_harness.web import create_app
 from test_completion import CompletionPeer
@@ -110,7 +110,7 @@ def test_failed_or_empty_ocr_is_refused_with_a_reason(tmp_path: Path, mode: str,
 
 
 def test_ocr_is_limited_in_pages(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(sources, "MAX_OCR_PAGES", 1)
+    monkeypatch.setattr(extraction, "MAX_OCR_PAGES", 1)
     root = _workspace(tmp_path, {"long.pdf": _blank_pages(2)})
     app, counter = _app(tmp_path, "text")
     with app as client:
@@ -147,10 +147,77 @@ TESSERACT = shutil.which("tesseract")
 def test_real_tesseract_reads_a_rendered_page() -> None:
     """The real engine, end to end from a PDF page: render at 300 dpi, write PGM, run Tesseract, read stdout."""
     assert TESSERACT, "REQUIRE_TESSERACT is set, but tesseract is not on PATH"
-    sources.configure_ocr([TESSERACT], "eng")
-    try:
-        text = sources._ocr_text(_pdf(["Revenue was 42 million in Q3."]), 1)
-    finally:
-        sources.configure_ocr(None)
+    reader = extraction.Extraction(ocr=extraction.LocalTesseract([TESSERACT], "eng"))
+    text, details = reader.scanned_pdf_text(_pdf(["Revenue was 42 million in Q3."]), 1)
+    assert details["ocr"] == "tesseract"
     assert text.startswith("[page 1, OCR]\n")
     assert "Revenue was 42 million" in text
+
+
+class FakeDocker:
+    """Stands in for the docker command: answers `image inspect`, and "reads" any image as fixed text."""
+
+    def __init__(self, *, image_present: bool = True, exit_status: int | None = 0) -> None:
+        self.calls: list[tuple[list[str], bytes]] = []
+        self.image_present, self.exit_status = image_present, exit_status
+
+    def __call__(self, argv: list[str], stdin: bytes, timeout: float) -> tuple[int | None, bytes, bytes]:
+        self.calls.append((argv, stdin))
+        if argv[1:3] == ["image", "inspect"]:
+            return (0, b"sha256:abc\n", b"") if self.image_present else (1, b"", b"No such image")
+        if argv[1] == "kill":
+            return 0, b"", b""
+        return self.exit_status, b"Scanned revenue was 42.\n", b""
+
+
+def _container_app(tmp_path: Path, docker: FakeDocker, **options: object) -> TestClient:
+    settings = ModelSettings.local("contract-model", stream=False, thinking=True)
+    return TestClient(create_app(tmp_path / "store", model_settings=settings,
+                                 model_transport=httpx.MockTransport(CompletionPeer([])),
+                                 ocr_docker_image="example/tesseract:5", ocr_runner=docker, **options))  # type: ignore[arg-type]
+
+
+def test_tesseract_can_run_in_a_locked_down_container(tmp_path: Path) -> None:
+    root = _workspace(tmp_path, {"scan.pdf": _blank_pdf(), "photo.png": b"\x89PNG\r\n\x1a\n" + b"\1" * 32})
+    docker = FakeDocker()
+    with _container_app(tmp_path, docker, ocr_languages="eng+chi_tra") as client:
+        config = client.get("/api/config").json()
+        scan = _preview(client, root, "scan.pdf").json()
+        photo = _preview(client, root, "photo.png").json()
+
+    assert config["ocr"] == {"enabled": True, "languages": "eng+chi_tra", "docker_image": "example/tesseract:5"}
+    assert scan["text"] == "[page 1, OCR]\nScanned revenue was 42." and scan["ocr"] == "tesseract"
+    assert photo["text"] == "[image, OCR]\nScanned revenue was 42."
+    assert docker.calls[0][0][:3] == ["docker", "image", "inspect"]  # checked at startup
+    argv, stdin = docker.calls[1]
+    assert argv[:2] == ["docker", "run"] and argv[-6:] == ["example/tesseract:5", "tesseract", "stdin", "stdout", "-l", "eng+chi_tra"]
+    for flag in (["--rm"], ["--pull", "never"], ["--network", "none"], ["--read-only"], ["--cap-drop", "ALL"],
+                 ["--security-opt", "no-new-privileges"], ["--user", "65534:65534"], ["--memory", "512m"], ["--interactive"]):
+        assert any(argv[index:index + len(flag)] == flag for index in range(len(argv))), flag
+    assert not any(part.startswith(("-v", "--mount", "--volume")) for part in argv)  # nothing of the host is mounted
+    assert stdin.startswith(b"P5 ")  # the rendered page goes in on stdin
+    assert docker.calls[2][1].startswith(b"\x89PNG")
+
+
+def test_a_missing_ocr_image_stops_the_workbench_from_starting(tmp_path: Path) -> None:
+    with pytest.raises(RuntimeError, match="--tesseract-docker"):
+        with _container_app(tmp_path, FakeDocker(image_present=False)):
+            pass
+
+
+def test_a_container_that_times_out_is_killed_and_the_read_refused(tmp_path: Path) -> None:
+    root = _workspace(tmp_path, {"scan.pdf": _blank_pdf()})
+    docker = FakeDocker(exit_status=None)
+    with _container_app(tmp_path, docker) as client:
+        response = _preview(client, root, "scan.pdf")
+    assert response.status_code == 422 and "did not finish" in response.json()["detail"]["message"]
+    name = docker.calls[1][0][docker.calls[1][0].index("--name") + 1]
+    assert docker.calls[2][0] == ["docker", "kill", name]
+
+
+def test_local_and_container_tesseract_cannot_both_be_set(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="not both"):
+        create_app(tmp_path / "store", ocr_command=[sys.executable], ocr_docker_image="example/tesseract:5")
+    done = subprocess.run([sys.executable, "-m", "agent_harness", "--store", str(tmp_path / "s"), "--tesseract", sys.executable,
+                           "--tesseract-docker", "example/tesseract:5"], capture_output=True, text=True, timeout=60)
+    assert done.returncode == 2 and "not both" in done.stderr

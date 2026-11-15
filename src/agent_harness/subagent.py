@@ -24,6 +24,7 @@ from .contracts import RunFailure, RunLimits, ToolCall
 from .sources import MAX_SOURCE_PATH, MAX_SOURCES, TABLE_EXTENSIONS
 
 if TYPE_CHECKING:
+    from .extraction import Extraction
     from .hooks import HookRunner
     from .model import DecisionModel
     from .storage import Store
@@ -102,14 +103,15 @@ def report_note(evidence: Record) -> str:
 
 async def run(*, model: "DecisionModel", store: "Store", run_id: str, root: Path, call_id: str, task: str,
               sources: list[Record], limits: RunLimits, capacity: int, profile: str, usage: dict[str, int],
-              record: Callable[[str, Record], Awaitable[None]], hooks: "HookRunner | None" = None) -> Record:
+              record: Callable[[str, Record], Awaitable[None]], hooks: "HookRunner | None" = None,
+              extraction: "Extraction | None" = None) -> Record:
     """Run one sub-task to a verified report, or raise `subagent_failed` with the reason recorded."""
     # Imported here: tools.py imports this module for the tool's schema and evidence checks.
     from .runtime import request_digest
     from .tools import Tools, body_evidence_ids, model_tools
     from .verifiers import verify_answer
 
-    tools = Tools(store, run_id, root, sources, require_citations=True, answer_completion=True)
+    tools = Tools(store, run_id, root, sources, require_citations=True, answer_completion=True, extraction=extraction)
     tables = any(Path(source["path"]).suffix.lower() in TABLE_EXTENSIONS for source in sources)
     sheets = any(Path(source["path"]).suffix.lower() == ".xlsx" for source in sources)
     messages: list[Record] = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": task}]

@@ -13,6 +13,7 @@ from jsonschema import Draft202012Validator, ValidationError
 
 from .arithmetic_evidence import require_csv_arithmetic_evidence
 from .contracts import PreparedCall, RunFailure, ToolCall, canonical_tool_arguments
+from .extraction import Extraction
 from .mcp_hub import McpHub, McpTool, mcp_evidence
 from .skills import LOADER, Skill, loader_definition
 from .sources import (MAX_SOURCE_BYTES, MAX_SOURCE_PATH, MAX_SOURCES, TABLE_EXTENSIONS, labelled_source_lines,
@@ -372,8 +373,10 @@ class Tools:
                  base_artifact: Record | None = None, mcp_tools: dict[str, McpTool] | None = None,
                  mcp_hub: McpHub | None = None, skills: dict[str, Skill] | None = None,
                  plan_approval: bool = False, web: WebFetcher | None = None,
-                 python: PythonSandbox | None = None, subagents: bool = False) -> None:
+                 python: PythonSandbox | None = None, subagents: bool = False,
+                 extraction: Extraction | None = None) -> None:
         self.store = store
+        self.extraction = extraction  # the workbench's OCR and vision configuration for scanned PDFs and images
         # Set when the workbench allows subagents and this Run asked for them; the runtime supplies the runner.
         self.subagents = subagents
         self.subagent_runner: Callable[[ToolCall, Record], Awaitable[Record]] | None = None
@@ -690,7 +693,7 @@ class Tools:
         return self._evidence(self._base_result())
 
     async def _source(self, path: str) -> Record:
-        source = await asyncio.to_thread(read_source, self.root, path)
+        source = await asyncio.to_thread(read_source, self.root, path, self.extraction)
         if source["sha256"] != self.sources[path]["sha256"]:
             raise RunFailure("source_changed", "The source changed after task admission. Start a new task with its current version.")
         return source
