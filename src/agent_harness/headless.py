@@ -78,6 +78,8 @@ def parser() -> argparse.ArgumentParser:
                      help="For scheduled runs: if the Run asks for an approval, cancel it and exit 5 instead of waiting.")
     cli.add_argument("--max-steps", type=int, help="Model decision limit for this Run.")
     cli.add_argument("--max-tool-calls", type=int, help="Tool call limit for this Run.")
+    cli.add_argument("--timeout-seconds", type=float,
+                     help="Time limit for this Run (the workbench default is 180 seconds, its maximum 600).")
     cli.add_argument("--submission-key", help="Re-sending the same key returns the original Run instead of starting another.")
     return cli
 
@@ -147,7 +149,8 @@ async def run(arguments: argparse.Namespace, task: str, out: TextIO) -> int:
     base = _base_url(arguments.url)
     headers = {"Authorization": f"Bearer {token}"}
     limits = {name: value for name, value in (("max_steps", arguments.max_steps),
-                                              ("max_tool_calls", arguments.max_tool_calls)) if value is not None}
+                                              ("max_tool_calls", arguments.max_tool_calls),
+                                              ("timeout_seconds", arguments.timeout_seconds)) if value is not None}
     body: dict[str, Any] = {"task": task, "sources": arguments.sources,
                             "submission_key": arguments.submission_key or f"headless-{uuid4().hex}"}
     if limits:

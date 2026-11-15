@@ -50,7 +50,7 @@ SYSTEM = (
     "CSV 先 table_inspect；加總／平均用 table_aggregate，比率用 number_calculate，不心算。\n"
     "讀取來源後用 task_finish 的 summary 直接回答，每個事實與數值緊接引用 [來源 EID]；缺資料就說明未提供。\n"
 )
-_CHILD_CITATION = re.compile(r"\s*\[([^\[\]\n]*?)\s*\bE[1-9][0-9]*\]")
+_CHILD_CITATION = re.compile(r"\s*\[([^\[\]\n]*?)\s*\b(E[1-9][0-9]*)\]")
 
 
 def definition() -> Record:
@@ -66,9 +66,17 @@ def status(enabled: bool) -> Record:
     return {"enabled": True, "max_per_run": MAX_PER_RUN} if enabled else {"enabled": False}
 
 
-def without_child_ids(report: str) -> str:
-    """The report with the child's citations reduced to their source label: its IDs mean nothing to the parent."""
-    return _CHILD_CITATION.sub(lambda match: f" ({match[1].strip()})" if match[1].strip() else "", report)
+def without_child_ids(report: str, sources: dict[str, list[str]] | None = None) -> str:
+    """The report with the child's citations reduced to a source name: its IDs mean nothing to the parent.
+
+    `sources` maps each child evidence ID to the source paths behind it; that name is used instead of
+    whatever label the child wrote, which a model may have copied from the prompt's example.
+    """
+    def name(match: re.Match[str]) -> str:
+        label = ", ".join((sources or {}).get(match[2], [])) or match[1].strip()
+        return f" ({label})" if label else ""
+
+    return _CHILD_CITATION.sub(name, report)
 
 
 def is_report_evidence(result: Any) -> bool:
@@ -203,7 +211,8 @@ async def run(*, model: "DecisionModel", store: "Store", run_id: str, root: Path
         cited = body_evidence_ids(answer) & set(tools.evidence)
         verified = sorted({(path, sha256) for identity in cited
                            for kind, path, sha256 in tools._evidence_sources(identity) if kind == "source"})
-        text = without_child_ids(answer)
+        text = without_child_ids(answer, {identity: sorted({path for kind, path, _ in tools._evidence_sources(identity)
+                                                            if kind == "source"}) for identity in tools.evidence})
         report = {"evidence_type": "subagent_report", "path": "subagent", "task": task, "model": model.settings.name,
                   "text": text, "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
                   "line_start": 1, "line_end": max(1, len(text.splitlines())),

@@ -265,6 +265,15 @@ def test_child_evidence_ids_are_rewritten_out_of_the_report(report: str, expecte
     assert subagent.without_child_ids(report) == expected
 
 
+def test_a_rewritten_citation_names_the_real_source_not_the_label_the_child_wrote() -> None:
+    """A small model may copy the prompt's placeholder label; the evidence record knows the real path."""
+    sources = {"E1": ["vendor-a.md"], "E2": ["orders.csv"], "E3": ["orders.csv", "rates.csv"]}
+    assert subagent.without_child_ids("單價 1850 元 [來源 E1]，交期 21 天 [來源 E1]。", sources) == \
+        "單價 1850 元 (vendor-a.md)，交期 21 天 (vendor-a.md)。"
+    assert subagent.without_child_ids("Total 9 [E2]; rate 3% [calc E3]; other [x E9].", sources) == \
+        "Total 9 (orders.csv); rate 3% (orders.csv, rates.csv); other (x)."
+
+
 def test_hooks_see_the_childs_tool_calls_too(tmp_path: Path) -> None:
     """A user's allow/deny policy cannot be bypassed by delegating: a deny refuses the child's call."""
     seen: list[dict] = []

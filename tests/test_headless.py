@@ -77,3 +77,18 @@ def test_unattended_run_stops_at_an_approval_instead_of_waiting(tmp_path: Path) 
     assert summary["run"]["needs_approval"]["tool"] == "artifact_write"
     assert len(summary["run"]["needs_approval"]["parameters_sha256"]) == 64
     assert "--unattended cancels it" in result.stderr
+
+
+def test_the_run_time_limit_can_be_set(tmp_path: Path) -> None:
+    source = _source(tmp_path)
+    with running_service(tmp_path / "store") as service:
+        result = _headless(str(service.client.base_url), "--workspace", str(source), "--source", "facts.md",
+                           "--task", "Save a source snapshot.", "--timeout-seconds", "300")
+        refused = _headless(str(service.client.base_url), "--workspace", str(source), "--source", "facts.md",
+                            "--task", "Save a source snapshot.", "--timeout-seconds", "9000")
+        run_id = json.loads(result.stdout.splitlines()[-1])["run"]["id"]
+        limits = service.client.get(f"/api/runs/{run_id}").json()["limits"]
+
+    assert result.returncode == 0, result.stderr
+    assert limits["timeout_seconds"] == 300
+    assert refused.returncode == 2  # the workbench's own bound (600 seconds) still applies

@@ -1,0 +1,170 @@
+{
+  "version": 1,
+  "model": "qwen3.5:9b-q4_K_M",
+  "protocol": "json_tools, thinking off",
+  "workbench_args": [
+    "--allow-subagents"
+  ],
+  "purpose": "Harder tasks than scenarios-01, one run each: versioned policies, similar roles, look-alike columns, two sheets, a missing field, a log larger than the context window (compaction) and a delegated comparison (subagents). Truth fixed before any run.",
+  "limits": {
+    "max_steps": 14,
+    "max_tool_calls": 24,
+    "max_corrections": 2,
+    "timeout_seconds": 420
+  },
+  "cases": [
+    {
+      "id": "policy-in-force",
+      "flags": [
+        "--answer"
+      ],
+      "sources": [
+        "refund-policy-2025.md",
+        "refund-policy-2026.md"
+      ],
+      "task": "在 2026 年 9 月 1 日，生效中的退款期限是幾天？由誰核准？請直接回答並附來源。",
+      "truth": {
+        "must_contain": [
+          "14",
+          "張雅婷"
+        ],
+        "must_not_contain": [
+          "林怡君"
+        ],
+        "cites": "refund-policy-2026.md"
+      }
+    },
+    {
+      "id": "deputy-approver",
+      "flags": [
+        "--answer"
+      ],
+      "sources": [
+        "escalation.md"
+      ],
+      "task": "升級核准人休假時，由誰代理核准？請直接回答並附來源。",
+      "truth": {
+        "must_contain": [
+          "黃詩涵"
+        ],
+        "must_not_contain": [
+          "陳柏宇",
+          "吳建宏"
+        ],
+        "cites": "escalation.md"
+      }
+    },
+    {
+      "id": "refund-rate",
+      "flags": [
+        "--answer"
+      ],
+      "sources": [
+        "orders.csv"
+      ],
+      "task": "orders.csv 中，refunded_amount 欄的總和占 amount 欄總和的百分之幾？請用工具計算，直接回答並附來源。",
+      "truth": {
+        "must_contain_number": "13.82",
+        "note": "refunded 44278 / amount 320479"
+      }
+    },
+    {
+      "id": "sheet-ratio",
+      "flags": [
+        "--answer"
+      ],
+      "sources": [
+        "tickets.xlsx"
+      ],
+      "task": "tickets.xlsx 中，H2 工作表 tickets 欄的總和是 H1 工作表 tickets 欄總和的百分之幾？請用工具計算，直接回答並附來源。",
+      "truth": {
+        "must_contain_number": "85.88",
+        "note": "H2 1861 / H1 2167"
+      }
+    },
+    {
+      "id": "missing-field",
+      "flags": [
+        "--answer"
+      ],
+      "sources": [
+        "product.md"
+      ],
+      "task": "TX-200 的保固期限是多久？建議售價是多少？請直接回答並附來源。",
+      "truth": {
+        "must_contain": [
+          "2490"
+        ],
+        "must_contain_any": [
+          "未提供",
+          "沒有提供",
+          "未提及",
+          "沒有提及",
+          "未載明",
+          "沒有說明",
+          "未說明",
+          "無法"
+        ],
+        "must_not_match": "保固[^。\\n]{0,12}\\d+\\s*(年|個月|月|天)"
+      }
+    },
+    {
+      "id": "long-log-compaction",
+      "flags": [
+        "--answer",
+        "--compact"
+      ],
+      "sources": [
+        "ops-log.md"
+      ],
+      "task": "維運日誌中，結帳中斷了幾分鐘？負責處理的是誰？請直接回答並附來源。",
+      "truth": {
+        "must_contain": [
+          "47",
+          "蔡宗翰"
+        ],
+        "cites": "ops-log.md",
+        "note": "ops-log.md is 15901 bytes, larger than the 8,192-token context bound"
+      }
+    },
+    {
+      "id": "delegated-vendors",
+      "flags": [
+        "--answer",
+        "--subagents"
+      ],
+      "sources": [
+        "vendor-a.md",
+        "vendor-b.md"
+      ],
+      "task": "請把兩份報價各交給一個子代理查詢單價與交期，再比較：哪一家單價較低？哪一家交期較短？請直接回答並附來源。",
+      "truth": {
+        "must_contain": [
+          "1790",
+          "1850",
+          "21",
+          "35"
+        ],
+        "expects_tool": "subagent_run",
+        "note": "B is cheaper (1790 < 1850); A delivers sooner (21 < 35 days)"
+      }
+    },
+    {
+      "id": "report-artifact",
+      "flags": [],
+      "sources": [
+        "orders.csv",
+        "refund-policy-2026.md"
+      ],
+      "task": "請寫一份 refund-summary.md：列出 orders.csv 的 amount 總和、refunded_amount 總和，以及 2026 年版政策的退款期限，每項附來源。",
+      "truth": {
+        "artifact_must_contain": [
+          "320479",
+          "44278",
+          "14"
+        ],
+        "artifacts": 1
+      }
+    }
+  ]
+}
