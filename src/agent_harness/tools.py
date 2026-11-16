@@ -454,6 +454,15 @@ class Tools:
                 raise RunFailure("checkpoint_evidence_invalid", "The checkpoint contains conflicting evidence identities.")
             self.evidence[identity] = deepcopy(result)
 
+    def citation_forms(self, limit: int = 12) -> list[str]:
+        """The exact body citations the newest evidence allows, such as `[facts.md E1]`."""
+        forms = []
+        for identity in list(self.evidence)[-limit:]:
+            sources = sorted(path for kind, path, _ in self._evidence_sources(identity) if kind == "source")
+            label = self.evidence[identity].get("name") or (sources[0] if sources else "")
+            forms.append(f"[{label} {identity}]" if label else f"[{identity}]")
+        return forms
+
     def _citation_hint(self) -> str:
         current = {}
         for identity, evidence in self.evidence.items():

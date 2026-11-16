@@ -67,6 +67,8 @@ uv run python -m agent_harness --provider openai --model <model> --base-url http
 uv run python -m agent_harness --model qwen3.5:9b-q4_K_M --decision-protocol json_tools --store .private/local
 ```
 
+本機模型以溫度 0 執行，所以同一個任務會重現同一個 Run。`--temperature`（0 到 1.5）可以改變這一點，用來量測結果的變異；每個 Run 都會記錄它使用的值。
+
 本機路徑需要 Ollama 0.40.10 搭配 Qwen3.5 模型，因為 Context 上限只針對該 renderer 驗證過；其他本機模型會以 `context_profile_unsupported` 直接拒絕，而不是猜測。
 
 或使用 Docker（預設是固定腳本，只發布到 loopback）：
@@ -123,7 +125,7 @@ Run 可以把一個獨立的子問題交給子代理：同一個模型的另一�
 
 ### 不產生檔案、直接回答
 
-如果要的是答案而不是交付檔案，請選「直接回答」（API：`"completion_workflow": "answer"`，無頭模式：`--answer`）。模型不會拿到 `artifact_write`，而是以答案本身結束；答案必須以 `[來源 EID]` 引用所用的證據。每個被引用的 ID 都必須存在，答案也要通過與成果檔案相同的驗證器，沒有引用或引用錯誤的答案會退回模型修正。通過驗證的答案就是 Run 的結果，`answer.verified` 事件會記錄所引用證據的路徑與 SHA-256。這個模式需要真實模型，也不能搭配草稿核對。
+如果要的是答案而不是交付檔案，請選「直接回答」（API：`"completion_workflow": "answer"`，無頭模式：`--answer`）。模型不會拿到 `artifact_write`，而是以答案本身結束；答案必須以 `[來源 EID]` 引用所用的證據。每個被引用的 ID 都必須存在，答案也要通過與成果檔案相同的驗證器，沒有引用或引用錯誤的答案會退回模型修正。有了證據之後，每個請求都會列出目前可用的確切引用格式（`Cite as: [notes.md E1] …`），讓小模型少浪費一次修正。通過驗證的答案就是 Run 的結果，`answer.verified` 事件會記錄所引用證據的路徑與 SHA-256。這個模式需要真實模型，也不能搭配草稿核對。
 
 ### 試算表、投影片、圖片與大型表格
 

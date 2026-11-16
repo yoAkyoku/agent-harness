@@ -40,6 +40,9 @@ def parser() -> argparse.ArgumentParser:
     parser.add_argument("--context-window", type=int, help="Context budget in tokens for remote providers.")
     parser.add_argument("--effort", choices=("low", "medium", "high", "xhigh", "max"), default="low",
                         help="Claude effort level (thinking depth and token spend).")
+    parser.add_argument("--temperature", type=float, default=0,
+                        help="Sampling temperature for a local Ollama model, 0 to 1.5 (default 0: a repeated task reproduces "
+                             "the same Run). Raise it only to measure how much results vary.")
     parser.add_argument("--thinking", action="store_true", help="Opt in to the verified local boolean-thinking profile; defaults off.")
     parser.add_argument("--model-authored-initial-plan", action="store_true",
                         help="Allow a free-form model-written initial plan; by default real models use harness-owned action stages.")
@@ -143,7 +146,10 @@ def build_prices(arguments: argparse.Namespace, settings: ModelSettings) -> dict
 def build_settings(arguments: argparse.Namespace) -> ModelSettings:
     """Turn parsed flags into model settings; raises ValueError with a user-facing reason."""
     plan = not arguments.model_authored_initial_plan
+    if not 0 <= arguments.temperature <= 1.5:
+        raise ValueError("--temperature must be between 0 and 1.5.")
     local_only = {"--thinking": arguments.thinking, "--decision-protocol json_tools": arguments.decision_protocol != "native",
+                  "--temperature": bool(arguments.temperature),
                   "--exact-tokenizer-*": bool(arguments.exact_tokenizer_library or arguments.exact_tokenizer_model)}
     if arguments.provider != "ollama":
         used = [flag for flag, value in local_only.items() if value]
@@ -177,7 +183,7 @@ def build_settings(arguments: argparse.Namespace) -> ModelSettings:
     return ModelSettings.local(arguments.model, thinking=arguments.thinking, decision_protocol=arguments.decision_protocol,
                                server_controlled_initial_plan=plan,
                                exact_tokenizer_library=arguments.exact_tokenizer_library,
-                               exact_tokenizer_model=arguments.exact_tokenizer_model)
+                               exact_tokenizer_model=arguments.exact_tokenizer_model, temperature=arguments.temperature)
 
 
 def main() -> None:

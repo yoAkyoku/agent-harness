@@ -1,0 +1,85 @@
+{
+  "model": "qwen3.5:9b-q4_K_M",
+  "runs": 27,
+  "passed": 19,
+  "rejected_calls": 4,
+  "cases": [
+    {
+      "id": "policy-unnamed-versions",
+      "runs": 3,
+      "passed": 1,
+      "distinct_answers": 3,
+      "problems": [
+        "answer contains '林怡君'",
+        "answer does not cite policy-a.md",
+        "answer lacks '14'",
+        "answer lacks '張雅婷'"
+      ],
+      "observed_reads": 3
+    },
+    {
+      "id": "deputy-approver",
+      "runs": 3,
+      "passed": 3,
+      "distinct_answers": 3,
+      "problems": []
+    },
+    {
+      "id": "refund-rate",
+      "runs": 3,
+      "passed": 3,
+      "distinct_answers": 3,
+      "problems": []
+    },
+    {
+      "id": "sheet-ratio",
+      "runs": 3,
+      "passed": 2,
+      "distinct_answers": 3,
+      "problems": [
+        "no number within 0.05 of 102.13"
+      ]
+    },
+    {
+      "id": "missing-field",
+      "runs": 3,
+      "passed": 3,
+      "distinct_answers": 3,
+      "problems": []
+    },
+    {
+      "id": "long-log-single",
+      "runs": 3,
+      "passed": 3,
+      "distinct_answers": 3,
+      "problems": []
+    },
+    {
+      "id": "long-log-scattered",
+      "runs": 3,
+      "passed": 3,
+      "distinct_answers": 3,
+      "problems": []
+    },
+    {
+      "id": "delegated-vendors",
+      "runs": 3,
+      "passed": 1,
+      "distinct_answers": 3,
+      "problems": [
+        "answer lacks '1790'",
+        "answer lacks '1850'",
+        "subagent_run was not used"
+      ]
+    },
+    {
+      "id": "report-artifact",
+      "runs": 3,
+      "passed": 0,
+      "distinct_answers": 1,
+      "problems": [
+        "status failed: context_limit_exceeded"
+      ]
+    }
+  ]
+}

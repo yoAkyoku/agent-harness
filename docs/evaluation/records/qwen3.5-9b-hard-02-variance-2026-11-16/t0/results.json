@@ -1,0 +1,364 @@
+[
+  {
+    "id": "policy-unnamed-versions",
+    "attempt": 1,
+    "run_id": "8173add8bc844a8190af7fa05c72d90b",
+    "exit_code": 0,
+    "seconds": 12,
+    "status": "completed",
+    "result": "在 2026 年 9 月 1 日，生效中的退款期限是收到商品後 30 天內，由財務主管林怡君核准 [policy-b.md E2]。",
+    "error": null,
+    "usage": {
+      "model_calls": 4,
+      "tool_calls": 5
+    },
+    "token_usage": {
+      "input_tokens": 4691,
+      "output_tokens": 278,
+      "reported_responses": 4,
+      "unreported_responses": 0
+    },
+    "artifacts": [],
+    "artifact_text": null,
+    "tools": [
+      "plan_update",
+      "workspace_list",
+      "source_read",
+      "source_read",
+      "task_finish"
+    ],
+    "reads": [
+      "policy-a.md",
+      "policy-b.md"
+    ],
+    "rejected": [],
+    "subagents": 0,
+    "compacted": [],
+    "stderr": "Run 8173add8bc844a8190af7fa05c72d90b accepted; events follow on stdout.\n",
+    "problems": [
+      "answer lacks '14'",
+      "answer lacks '張雅婷'",
+      "answer contains '林怡君'",
+      "answer does not cite policy-a.md"
+    ],
+    "passed": false
+  },
+  {
+    "id": "deputy-approver",
+    "attempt": 1,
+    "run_id": "d27865dbb0464fa19b5d952b57708b0c",
+    "exit_code": 0,
+    "seconds": 8,
+    "status": "completed",
+    "result": "升級核准人（值班經理 王志明）休假時，由資深工程師 黃詩涵代理核准 [escalation.md E1]。",
+    "error": null,
+    "usage": {
+      "model_calls": 4,
+      "tool_calls": 4
+    },
+    "token_usage": {
+      "input_tokens": 3341,
+      "output_tokens": 186,
+      "reported_responses": 4,
+      "unreported_responses": 0
+    },
+    "artifacts": [],
+    "artifact_text": null,
+    "tools": [
+      "plan_update",
+      "workspace_list",
+      "source_read",
+      "task_finish"
+    ],
+    "reads": [
+      "escalation.md"
+    ],
+    "rejected": [],
+    "subagents": 0,
+    "compacted": [],
+    "stderr": "Run d27865dbb0464fa19b5d952b57708b0c accepted; events follow on stdout.\n",
+    "problems": [],
+    "passed": true
+  },
+  {
+    "id": "refund-rate",
+    "attempt": 1,
+    "run_id": "17bd4dd1c2a241c4821eda62bca90b52",
+    "exit_code": 0,
+    "seconds": 16,
+    "status": "completed",
+    "result": "在 orders.csv 中，refunded_amount 欄的總和為 45,381 [orders.csv E3]，amount 欄的總和為 328,517 [orders.csv E2]。refunded_amount 佔 amount 的百分比為 13.81% [orders.csv E4]。",
+    "error": null,
+    "usage": {
+      "model_calls": 5,
+      "tool_calls": 6
+    },
+    "token_usage": {
+      "input_tokens": 7015,
+      "output_tokens": 339,
+      "reported_responses": 5,
+      "unreported_responses": 0
+    },
+    "artifacts": [],
+    "artifact_text": null,
+    "tools": [
+      "plan_update",
+      "table_inspect",
+      "table_aggregate",
+      "table_aggregate",
+      "number_calculate",
+      "task_finish"
+    ],
+    "reads": [],
+    "rejected": [],
+    "subagents": 0,
+    "compacted": [],
+    "stderr": "Run 17bd4dd1c2a241c4821eda62bca90b52 accepted; events follow on stdout.\n",
+    "problems": [],
+    "passed": true
+  },
+  {
+    "id": "sheet-ratio",
+    "attempt": 1,
+    "run_id": "789c0ca8ed5b48c1a2eb72a4316937eb",
+    "exit_code": 0,
+    "seconds": 17,
+    "status": "completed",
+    "result": "tickets.xlsx 中，H2 工作表 tickets 欄的總和是 H1 工作表 tickets 欄總和的 97.92% [tickets.xlsx E5]。",
+    "error": null,
+    "usage": {
+      "model_calls": 5,
+      "tool_calls": 7
+    },
+    "token_usage": {
+      "input_tokens": 7774,
+      "output_tokens": 324,
+      "reported_responses": 5,
+      "unreported_responses": 0
+    },
+    "artifacts": [],
+    "artifact_text": null,
+    "tools": [
+      "plan_update",
+      "table_inspect",
+      "table_inspect",
+      "table_aggregate",
+      "table_aggregate",
+      "number_calculate",
+      "task_finish"
+    ],
+    "reads": [],
+    "rejected": [],
+    "subagents": 0,
+    "compacted": [],
+    "stderr": "Run 789c0ca8ed5b48c1a2eb72a4316937eb accepted; events follow on stdout.\n",
+    "problems": [
+      "no number within 0.05 of 102.13"
+    ],
+    "passed": false
+  },
+  {
+    "id": "missing-field",
+    "attempt": 1,
+    "run_id": "1379b170a8064e12a1b18c252d6f0459",
+    "exit_code": 0,
+    "seconds": 9,
+    "status": "completed",
+    "result": "TX-200 路由器的保固期限在提供的來源中未提供 [product.md E1]；建議售價為 2490 元 [product.md E1]。",
+    "error": null,
+    "usage": {
+      "model_calls": 4,
+      "tool_calls": 4
+    },
+    "token_usage": {
+      "input_tokens": 3885,
+      "output_tokens": 203,
+      "reported_responses": 4,
+      "unreported_responses": 0
+    },
+    "artifacts": [],
+    "artifact_text": null,
+    "tools": [
+      "plan_update",
+      "workspace_list",
+      "source_read",
+      "task_finish"
+    ],
+    "reads": [
+      "product.md"
+    ],
+    "rejected": [],
+    "subagents": 0,
+    "compacted": [],
+    "stderr": "Run 1379b170a8064e12a1b18c252d6f0459 accepted; events follow on stdout.\n",
+    "problems": [],
+    "passed": true
+  },
+  {
+    "id": "long-log-single",
+    "attempt": 1,
+    "run_id": "9e4f7b056fca473d87468ef53ed5455c",
+    "exit_code": 0,
+    "seconds": 24,
+    "status": "completed",
+    "result": "根據維運日誌，結帳中斷了 47 分鐘，負責處理的是平台組蔡宗翰。[ops-log.md E1]",
+    "error": null,
+    "usage": {
+      "model_calls": 8,
+      "tool_calls": 4
+    },
+    "token_usage": {
+      "input_tokens": 8737,
+      "output_tokens": 512,
+      "reported_responses": 8,
+      "unreported_responses": 0
+    },
+    "artifacts": [],
+    "artifact_text": null,
+    "tools": [
+      "plan_update",
+      "workspace_list",
+      "source_read",
+      "task_finish"
+    ],
+    "reads": [
+      "ops-log.md"
+    ],
+    "rejected": [],
+    "subagents": 0,
+    "compacted": [
+      {
+        "evidence_id": "E1",
+        "original_text_bytes": 15901,
+        "summary_bytes": 859,
+        "chunks": 4
+      }
+    ],
+    "stderr": "Run 9e4f7b056fca473d87468ef53ed5455c accepted; events follow on stdout.\n",
+    "problems": [],
+    "passed": true
+  },
+  {
+    "id": "long-log-scattered",
+    "attempt": 1,
+    "run_id": "6a7d3ea4c49a47669d1a4bff01da9160",
+    "exit_code": 0,
+    "seconds": 34,
+    "status": "completed",
+    "result": "根據維運日誌，共有三次服務中斷：\n1. 第 12 週：訂單寫入中斷 31 分鐘，負責處理的是資料組許雅雯 [ops-log-incidents.md E1]。\n2. 第 67 週：結帳中斷 47 分鐘，負責處理的是平台組蔡宗翰 [ops-log-incidents.md E1]。\n3. 第 109 週：搜尋中斷 58 分鐘，負責處理的是搜尋組鄭凱文 [ops-log-incidents.md E1]。",
+    "error": null,
+    "usage": {
+      "model_calls": 8,
+      "tool_calls": 4
+    },
+    "token_usage": {
+      "input_tokens": 9021,
+      "output_tokens": 795,
+      "reported_responses": 8,
+      "unreported_responses": 0
+    },
+    "artifacts": [],
+    "artifact_text": null,
+    "tools": [
+      "plan_update",
+      "workspace_list",
+      "source_read",
+      "task_finish"
+    ],
+    "reads": [
+      "ops-log-incidents.md"
+    ],
+    "rejected": [],
+    "subagents": 0,
+    "compacted": [
+      {
+        "evidence_id": "E1",
+        "original_text_bytes": 16111,
+        "summary_bytes": 1311,
+        "chunks": 4
+      }
+    ],
+    "stderr": "Run 6a7d3ea4c49a47669d1a4bff01da9160 accepted; events follow on stdout.\n",
+    "problems": [],
+    "passed": true
+  },
+  {
+    "id": "delegated-vendors",
+    "attempt": 1,
+    "run_id": "116e4092bbcb479ca41ab566802c9295",
+    "exit_code": 0,
+    "seconds": 28,
+    "status": "completed",
+    "result": "根據查詢結果：\n\n1. **供應商 A**：單價為每台 1850 元 [subagent E1]，交期為下單後 21 天 [subagent E1]。\n2. **供應商 B**：單價為每台 1790 元 [subagent E2]，交期為下單後 35 天 [subagent E2]。\n\n比較結果：\n- **單價較低者**：供應商 B（1790 元 < 1850 元）[subagent E2]。\n- **交期較短者**：供應商 A（21 天 < 35 天）[subagent E1]。",
+    "error": null,
+    "usage": {
+      "model_calls": 9,
+      "tool_calls": 9
+    },
+    "token_usage": {
+      "input_tokens": 7775,
+      "output_tokens": 616,
+      "reported_responses": 9,
+      "unreported_responses": 0
+    },
+    "artifacts": [],
+    "artifact_text": null,
+    "tools": [
+      "plan_update",
+      "workspace_list",
+      "subagent_run",
+      "subagent_run",
+      "task_finish"
+    ],
+    "reads": [],
+    "rejected": [],
+    "subagents": 2,
+    "compacted": [],
+    "stderr": "Run 116e4092bbcb479ca41ab566802c9295 accepted; events follow on stdout.\n",
+    "problems": [],
+    "passed": true
+  },
+  {
+    "id": "report-artifact",
+    "attempt": 1,
+    "run_id": "8cbf8dbc36f7407f8a9f3c030a727ea0",
+    "exit_code": 1,
+    "seconds": 11,
+    "status": "failed",
+    "result": "",
+    "error": {
+      "code": "context_limit_exceeded",
+      "message": "The complete request exceeds the configured conservative context envelope."
+    },
+    "usage": {
+      "model_calls": 4,
+      "tool_calls": 5
+    },
+    "token_usage": {
+      "input_tokens": 5381,
+      "output_tokens": 223,
+      "reported_responses": 4,
+      "unreported_responses": 0
+    },
+    "artifacts": [],
+    "artifact_text": null,
+    "tools": [
+      "plan_update",
+      "table_inspect",
+      "table_aggregate",
+      "table_aggregate",
+      "source_read"
+    ],
+    "reads": [
+      "orders.csv"
+    ],
+    "rejected": [],
+    "subagents": 0,
+    "compacted": [],
+    "stderr": "Run 8cbf8dbc36f7407f8a9f3c030a727ea0 accepted; events follow on stdout.\n",
+    "problems": [
+      "status failed: context_limit_exceeded"
+    ],
+    "passed": false
+  }
+]

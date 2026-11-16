@@ -77,8 +77,15 @@ class ModelSettings:
     effort: Literal["low", "medium", "high", "xhigh", "max"] = "low"
     # Other models of the same remote provider that a Run may choose instead of `name`.
     alternatives: tuple[str, ...] = ()
+    # Sampling temperature for a local model. 0 (the default) makes a repeated case reproduce the same Run;
+    # an evaluation raises it to measure how much results vary.
+    temperature: float = 0
 
     def __post_init__(self) -> None:
+        if type(self.temperature) not in {int, float} or not 0 <= self.temperature <= 1.5:
+            raise ValueError("Choose a temperature between 0 and 1.5.")
+        if self.temperature and self.mode != "local":
+            raise ValueError("A sampling temperature applies only to local models.")
         if self.mode in REMOTE_MODES:
             self._validate_remote()
             return
@@ -158,10 +165,12 @@ class ModelSettings:
     def local(cls, name: str, *, stream: bool = True, thinking: bool = False,
               decision_protocol: Literal["native", "json_tools"] = "native",
               server_controlled_initial_plan: bool = False,
-              exact_tokenizer_library: Path | None = None, exact_tokenizer_model: Path | None = None) -> "ModelSettings":
+              exact_tokenizer_library: Path | None = None, exact_tokenizer_model: Path | None = None,
+              temperature: float = 0) -> "ModelSettings":
         return cls(mode="local", name=name, stream=stream, thinking=thinking, decision_protocol=decision_protocol,
                    server_controlled_initial_plan=server_controlled_initial_plan,
-                   exact_tokenizer_library=exact_tokenizer_library, exact_tokenizer_model=exact_tokenizer_model)
+                   exact_tokenizer_library=exact_tokenizer_library, exact_tokenizer_model=exact_tokenizer_model,
+                   temperature=temperature)
 
     @property
     def endpoint(self) -> str:
@@ -217,6 +226,8 @@ class ModelAdapter:
             self.info["choices"] = model_choices(settings)
         if settings.server_controlled_initial_plan:
             self.info["server_controlled_initial_plan"] = True
+        if settings.temperature:
+            self.info["temperature"] = settings.temperature  # recorded with every Run it was used for
 
     def with_settings(self, settings: ModelSettings) -> "ModelAdapter":
         """A variant sharing this adapter's client, for a model a Run chose among the configured ones."""
@@ -302,7 +313,9 @@ class ModelAdapter:
             projected, schema = project_request(messages, tools)
             body.update(messages=projected, tools=[], response_format={"type": "json_schema", "json_schema": {"schema": schema}})
         if self.settings.mode == "local":
-            body.update({"temperature": 0, "reasoning_effort": "low" if self.settings.thinking else "none"})
+            # `or 0` keeps the default request byte-identical (an integer 0, not 0.0).
+            body.update({"temperature": self.settings.temperature or 0,
+                         "reasoning_effort": "low" if self.settings.thinking else "none"})
         if self.settings.stream:
             body["stream_options"] = {"include_usage": True}
         return body

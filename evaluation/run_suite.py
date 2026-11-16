@@ -69,11 +69,14 @@ def summarise(suite: dict[str, Any], results: list[dict[str, Any]]) -> dict[str,
     for case in suite["cases"]:
         runs = [result for result in results if result["id"] == case["id"]]
         entry: dict[str, Any] = {"id": case["id"], "runs": len(runs), "passed": sum(result["passed"] for result in runs),
+                                 "distinct_answers": len({result.get("result") for result in runs}),
                                  "problems": sorted({problem for result in runs for problem in result["problems"]})}
         for name, expected in (case.get("observe") or {}).items():  # recorded, never graded
             entry[f"observed_{name}"] = sum(set(expected) <= set(result.get(name, [])) for result in runs)
         cases.append(entry)
-    return {"model": suite["model"], "runs": len(results), "passed": sum(result["passed"] for result in results), "cases": cases}
+    corrections = sum(len(result.get("rejected", [])) for result in results)
+    return {"model": suite["model"], "runs": len(results), "passed": sum(result["passed"] for result in results),
+            "rejected_calls": corrections, "cases": cases}
 
 
 def regrade(suite: dict[str, Any], out: Path) -> None:
@@ -91,6 +94,8 @@ def main() -> int:
     cli.add_argument("suite", type=Path, help="Folder with cases.json and workspace/.")
     cli.add_argument("output", type=Path)
     cli.add_argument("--repeat", type=int, default=1, help="Runs per case (default 1); every run is kept and counted.")
+    cli.add_argument("--temperature", type=float, default=0,
+                     help="Sampling temperature for the workbench's model (default 0, where repeats reproduce the same run).")
     cli.add_argument("--grade", action="store_true", help="Only re-apply the grader to the saved results in OUTPUT.")
     arguments = cli.parse_args()
     here, out = arguments.suite.resolve(), arguments.output.resolve()
@@ -104,7 +109,8 @@ def main() -> int:
     log = (out / "workbench.log").open("w", encoding="utf-8")
     server = subprocess.Popen(
         [sys.executable, "-m", "agent_harness", "--model", suite["model"], "--decision-protocol", "json_tools",
-         "--store", str(out / "store"), "--port", str(PORT), *suite.get("workbench_args", [])],
+         "--store", str(out / "store"), "--port", str(PORT), *suite.get("workbench_args", []),
+         *(["--temperature", str(arguments.temperature)] if arguments.temperature else [])],
         env=env, stdout=log, stderr=subprocess.STDOUT)
     results: list[dict[str, Any]] = []
     try:

@@ -566,7 +566,8 @@ class Runtime:
                 )
             else:
                 messages[0]["content"] = system_content + (
-                    ("When you can answer, reply via task_finish citing [source EID]; else work." if answer_mode
+                    ("When you can answer, reply via task_finish citing [source EID]; else work. Cite as: "
+                     + " ".join(tools.citation_forms()) + "." if answer_mode
                      else "Published. If task met, reply via task_finish; else work.") if finish_available else ""
                 ) + (
                     "上一則文字答案尚未發布，不能以純文字結束。請以 artifact_write 將完整交付內容保存為使用者要求的檔案，正文引用已讀來源，格式 [原檔名 EID]，citations 只填證據 ID。此次只允許 artifact_write。"

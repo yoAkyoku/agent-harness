@@ -1,4 +1,4 @@
-# Qwen3.5 9B 來源內搜尋 search-01（2026-11-16，五批）
+# Qwen3.5 9B 來源內搜尋 search-01（2026-11-16，六批）
 
 ## 目的
 
@@ -17,8 +17,9 @@
 | C | 搜尋結果以剩餘空間為上限、匹配的行優先於相鄰行；相同的搜尋回傳同一筆證據 | 通過 | 通過 | 失敗：`step_limit_exceeded` | 2/3 |
 | D | 相同的搜尋改為回傳「已經做過」的說明 | 通過 | 通過 | 失敗：`context_limit_exceeded` | 2/3 |
 | E | 相同的搜尋改為被拒絕（`repeated_search`），並計入修正額度 | 通過 | 通過 | 失敗：`correction_limit_exceeded` | 2/3 |
+| F | 直接回答時在提示中列出可用的引用格式（稍後加入，見下） | 通過 | 通過 | 失敗：`correction_limit_exceeded` | 2/3 |
 
-每批的完整事件在 `run-a` … `run-e`，各含三個 `.ndjson`、`results.json` 與 `summary.json`。
+每批的完整事件在 `run-a` … `run-f`，各含三個 `.ndjson`、`results.json` 與 `summary.json`。
 
 ## 每一批發生了什麼
 
@@ -36,6 +37,8 @@
 
 **E。** 重複的搜尋改為被拒絕並計入修正額度。這次模型的行為改變了：兩次被拒絕之後，它換了一個新查詢，然後寫出誠實的答案（「文件中未出現『資料外洩』、『外洩』或『洩漏』等關鍵字…無法確認」），但沒有附引用。答案被 `missing_answer_citation` 退回時，兩次修正額度已經被前面兩次重複搜尋用完，Run 以 `correction_limit_exceeded` 結束。9 次模型呼叫、23 秒，而不是繞到步數或上下文的上限。
 
+**F。** 這一批是在 harness 加上「列出可用引用格式」的提示之後補跑的。`search-scattered` 這次第一個答案就附了引用（前三批都被退回一次）；`search-single` 仍被退回一次。`search-absent` 沒有改變：一次讀取被拒絕加上兩次重複搜尋被拒絕，就用完了修正額度，模型還沒走到回答那一步。
+
 ## 觀察
 
 1. **找得到的東西，搜尋是無損而且便宜的做法**。`search-single` 五批都通過，每次 5 次模型呼叫；`search-scattered` 在 C 到 E 都通過，6 次模型呼叫。同樣的兩份日誌用壓縮（hard-02）要 8 到 9 次模型呼叫，而且模型讀到的是摘要；這裡模型讀到的是原文。
@@ -48,7 +51,7 @@
 
 ## 版本與設定
 
-- Git 提交：`7b831e2` 之後的工作目錄。五批各對應上表所列的 harness 狀態，全部在同一個提交中加入，因此無法用單一提交重現 A 到 D 的行為；能重現的是 E。
+- Git 提交：A 到 E 是 `7b831e2` 之後的工作目錄，各對應上表所列的 harness 狀態，全部在提交 `8130508` 中加入，因此無法用單一提交重現 A 到 D 的行為；`8130508` 重現的是 E。F 是 `e6c1c31` 加上引用提示。
 - 模型：`qwen3.5:9b-q4_K_M`，Ollama 0.40.10，JSON tools 協定，thinking 關閉，上下文上限 8,192 token
 - 各 case 的旗標：`--answer --search`（沒有 `--compact`）
 - 限額：每個 Run `max_steps` 14、`max_tool_calls` 24、`max_corrections` 2、`timeout_seconds` 420

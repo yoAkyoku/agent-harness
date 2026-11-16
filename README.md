@@ -67,6 +67,8 @@ uv run python -m agent_harness --provider openai --model <model> --base-url http
 uv run python -m agent_harness --model qwen3.5:9b-q4_K_M --decision-protocol json_tools --store .private/local
 ```
 
+A local model runs at temperature 0, so the same task reproduces the same Run. `--temperature` (0 to 1.5) changes that, for measuring how much results vary; each Run records the value it used.
+
 The local path needs Ollama 0.40.10 with a Qwen3.5 model, because its context bound is verified against that renderer; any other local model fails closed with `context_profile_unsupported` instead of guessing.
 
 Or with Docker (fixture by default; publish only to loopback):
@@ -123,7 +125,7 @@ The summary is labelled as lossy model output, with the lines each part covers a
 
 ### Answering without a file
 
-For a question rather than a deliverable, choose “Answer directly” (API: `"completion_workflow": "answer"`, headless: `--answer`). The model is not offered `artifact_write`; it ends with the answer itself, which must cite the evidence it uses as `[source EID]`. Every cited ID must exist and the answer passes the same verifiers as an artifact, so an uncited or wrongly cited answer goes back to the model. The verified answer is the Run's result, and an `answer.verified` event records the paths and SHA-256 of what it cites. It needs a real model and cannot be combined with draft review.
+For a question rather than a deliverable, choose “Answer directly” (API: `"completion_workflow": "answer"`, headless: `--answer`). The model is not offered `artifact_write`; it ends with the answer itself, which must cite the evidence it uses as `[source EID]`. Every cited ID must exist and the answer passes the same verifiers as an artifact, so an uncited or wrongly cited answer goes back to the model. Once there is evidence, each request names the exact citation forms it allows (`Cite as: [notes.md E1] …`), which spares small models a correction. The verified answer is the Run's result, and an `answer.verified` event records the paths and SHA-256 of what it cites. It needs a real model and cannot be combined with draft review.
 
 ### Spreadsheets, slides, images and large tables
 
