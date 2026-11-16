@@ -362,6 +362,15 @@ class Store:
                         (session_id, limit))]
         return await self._run(get)
 
+    async def waiting_approvals(self) -> list[Record]:
+        """Every Run paused at a pending approval, oldest first, with the Session it belongs to."""
+        def get(connection: sqlite3.Connection) -> list[Record]:
+            return [dict(row) for row in connection.execute(
+                "SELECT a.run_id, r.session_id, s.title AS session_title, s.workspace_id, a.tool, a.expires_at "
+                "FROM approvals a JOIN runs r ON r.id=a.run_id JOIN sessions s ON s.id=r.session_id "
+                "WHERE a.status='pending' AND r.status='waiting_approval' ORDER BY a.rowid")]
+        return await self._run(get)
+
     async def runs_since(self, session_id: str, since: str) -> int:
         return await self._run(lambda connection: connection.execute(
             "SELECT COUNT(*) FROM runs WHERE session_id=? AND created_at>=?", (session_id, since)).fetchone()[0])

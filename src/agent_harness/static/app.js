@@ -1,7 +1,7 @@
 import {observeEvents} from "/assets/run-stream.js?v=7.3";
 import {memoryPanel} from "/assets/memory.js?v=6.3";
 import {lang, saveLang, t, translatePage} from "/assets/i18n.js?v=1.7";
-import {initExtras, noteEvent, refreshRoutines, renderRunActions} from "/assets/extras.js?v=1.0";
+import {initExtras, noteEvent, refreshAttention, refreshRoutines, renderRunActions} from "/assets/extras.js?v=1.2";
 const $ = (id) => document.getElementById(id);
 translatePage();
 const locale = lang === "en" ? "en-US" : "zh-TW";
@@ -714,7 +714,7 @@ try {
   $("search-option").hidden = state.config.mode === "fixture";
   renderMcpTools(); selectSkills(); renderModelChoices();
   initExtras({api, statusNames, getWorkspace: () => state.workspace, openSession, showError});
-  await refreshRoutines();
+  await refreshRoutines(); await refreshAttention();
   await refreshSessions(); await restorePendingSubmission(); updateControls();
 } catch (error) { showError(error); }
 finally { state.initializing = false; updateControls(); }

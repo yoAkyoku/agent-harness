@@ -27,7 +27,7 @@ flowchart LR
 
 *Screenshots: a scripted Claude reply sequence over a mock SDK transport (no API calls), with plan and publish approval on and a workspace `AGENTS.md` applied.*
 
-The Run view shows one row per tool call, with its state and evidence ID, and the decisions that needed you; “Show every event” brings back the full saved log. When a Run has finished, “After this run” offers to save it as a routine, draft a skill from it, or download its trace.
+The Run view shows one row per tool call, with its state and evidence ID, and the decisions that needed you; “Show every event” brings back the full saved log. When a Run has finished, “After this run” offers to save it as a routine, draft a skill from it, or download its trace. A “Waiting for your decision” notice in the sidebar lists every Run paused at an approval, whichever Session or routine it belongs to (`GET /api/attention`).
 
 ## What it demonstrates
 

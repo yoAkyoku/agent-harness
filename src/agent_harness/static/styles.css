@@ -50,3 +50,9 @@
 .routine{padding:8px 0;border-top:1px solid #33415f}
 .routine strong{display:block;font-size:12px}
 .routine-actions{display:grid;grid-template-columns:1fr 1fr;gap:0 6px}
+.attention{margin:16px 0;padding:10px 12px;border:1px solid #c9a23a;border-radius:8px;background:rgba(201,162,58,.12)}
+.attention h2{font-size:12px;margin:0 0 6px;color:#f1d98a}
+.attention .routine{border-top:none;padding:4px 0}
+.attention .sidebar-note,.routine .sidebar-note{display:block;margin:2px 0 4px}
+.attention .subtle-button{display:block;width:100%;margin-top:4px}
+.attention .subtle-button{color:#f6e3a1;border-color:#c9a23a;background:transparent}

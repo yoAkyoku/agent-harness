@@ -112,3 +112,26 @@ def test_a_routine_is_checked_when_it_is_saved(tmp_path: Path) -> None:
         (tmp_path / "source" / "facts.md").unlink()
         gone = client.post(f"/api/routines/{routine['id']}/trigger")
         assert gone.status_code == 422 and client.get(f"/api/routines/{routine['id']}").json()["runs"] == []
+
+
+def test_runs_waiting_for_a_decision_are_listed_across_sessions(tmp_path: Path) -> None:
+    """One place to see what needs the user: every Run paused at an approval, whichever Session or routine it is in."""
+    with TestClient(create_app(tmp_path / "store")) as client:
+        workspace = _workspace(client, tmp_path)
+        assert client.get("/api/attention").json() == []
+        routine = _routine(client, workspace, require_publish_approval=True).json()
+        run = client.post(f"/api/routines/{routine['id']}/trigger").json()
+        with client.websocket_connect(f"/api/runs/{run['id']}/stream") as stream:
+            while stream.receive_json()["kind"] != "approval.requested":
+                pass
+        waiting = client.get("/api/attention").json()
+        assert len(waiting) == 1
+        item = waiting[0]
+        assert item["run_id"] == run["id"] and item["session_id"] == routine["session_id"]
+        assert item["session_title"] == "Routine: Daily snapshot" and item["workspace_id"] == workspace["id"]
+        assert item["tool"] == "artifact_write" and item["expires_at"]
+        approval = client.get(f"/api/runs/{run['id']}").json()["approvals"][0]
+        client.post(f"/api/runs/{run['id']}/approvals/{approval['id']}",
+                    json={"decision": "approve", "parameters_sha256": approval["parameters_sha256"]})
+        finish(client, run)
+        assert client.get("/api/attention").json() == []

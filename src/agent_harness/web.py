@@ -597,6 +597,11 @@ def create_app(
             raise HTTPException(404, "Routine not found.")
         return routine
 
+    @app.get("/api/attention")
+    async def attention() -> list[dict[str, Any]]:
+        """What is waiting for the user: Runs paused at an approval, in any Session or routine."""
+        return await storage.waiting_approvals()
+
     @app.post("/api/routines", status_code=201)
     async def add_routine(body: RoutineInput) -> dict[str, Any]:
         """Save a Run request as a routine. It is checked now, and again (against current sources) on every trigger."""

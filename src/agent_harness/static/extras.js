@@ -98,6 +98,8 @@ function requestFromRun(run) {
 
 let actionRun = null;
 let host = null;
+let shownAttention = null;
+let shownRoutines = null;
 
 export function renderRunActions(run) {
   const finished = Boolean(run) && FINAL.has(run.status);
@@ -162,6 +164,9 @@ export async function refreshRoutines() {
   try { routines = await host.api("/api/routines"); } catch (error) { host.showError(error); return; }
   const workspace = host.getWorkspace();
   const shown = workspace ? routines.filter((routine) => routine.workspace_id === workspace.id) : routines;
+  const snapshot = JSON.stringify(shown.map((routine) => [routine.id, routine.name, routine.paused, routine.last_run?.id, routine.last_run?.status]));
+  if (snapshot === shownRoutines) return;
+  shownRoutines = snapshot;
   $("routine-count").textContent = String(shown.length);
   $("routine-empty").hidden = shown.length > 0;
   $("routine-list").replaceChildren(...shown.map((routine) => {
@@ -198,9 +203,38 @@ export async function refreshRoutines() {
   }));
 }
 
+// Runs paused at an approval, in any Session or routine: the one list of what is waiting for the user.
+export async function refreshAttention() {
+  if (!host) return;
+  let waiting = [];
+  try { waiting = await host.api("/api/attention"); } catch { return; }  // a background refresh never raises an error banner
+  const snapshot = JSON.stringify(waiting);
+  if (snapshot === shownAttention) return;  // unchanged: keep the buttons (and keyboard focus) where they are
+  shownAttention = snapshot;
+  $("attention").hidden = waiting.length === 0;
+  $("attention-count").textContent = String(waiting.length);
+  $("attention-list").replaceChildren(...waiting.map((entry) => {
+    const item = element("li", "routine");
+    const what = entry.tool === "plan_update" ? t("核准計畫") : entry.tool === "artifact_write" ? t("確認保存成果") : t("確認外部操作");
+    item.append(element("strong", "", entry.session_title), element("span", "sidebar-note",
+      `${what} · ${t("有效至 {time}", {time: new Date(entry.expires_at).toLocaleTimeString(undefined, {hour12: false})})}`));
+    const open = element("button", "subtle-button", t("前往處理"));
+    open.type = "button";
+    open.addEventListener("click", () => host.openSession({id: entry.session_id, title: entry.session_title, workspace_id: entry.workspace_id}).catch(host.showError));
+    item.append(open);
+    return item;
+  }));
+}
+
 export function initExtras(dependencies) {
   host = dependencies;
   initActivity();
+  // Keep the two sidebar lists current without a reload; skipped while the tab is hidden.
+  setInterval(() => {
+    if (document.hidden) return;
+    refreshAttention();
+    if ($("routines-panel").open) refreshRoutines();
+  }, 5000);
   $("save-routine").addEventListener("click", saveRoutine);
   $("draft-skill").addEventListener("click", draftSkill);
   $("routines-panel").addEventListener("toggle", () => { if ($("routines-panel").open) refreshRoutines(); });
