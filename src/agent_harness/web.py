@@ -13,6 +13,8 @@ from typing import TYPE_CHECKING, Any
 from typing import Annotated, Literal
 from urllib.parse import quote
 
+from datetime import datetime, timedelta, timezone
+
 from fastapi import FastAPI, HTTPException, Query, Request, WebSocket
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -33,7 +35,7 @@ from .instructions import read_instructions
 from .token_usage import session_usage
 from .uploads import save_upload, upload_limit
 from .mcp_hub import MODEL_NAME, McpHub
-from .skills import SKILL_NAME, SkillLibrary
+from .skills import SKILL_NAME, SkillLibrary, skill_draft
 from .local import MIN_TOKEN_LENGTH, OAUTH_CALLBACK_PATH, AccessTokenMiddleware, LocalOriginMiddleware, SecurityHeadersMiddleware
 from .model import DecisionModel, FixtureTransport, ModelAdapter, ModelSettings
 from .ownership import StoreLease
@@ -54,6 +56,9 @@ TRUSTED_HOSTS: tuple[str, ...] = ("127.0.0.1", "localhost")
 class WorkspaceInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     path: str = Field(min_length=1, max_length=4096)
+
+
+ROUTINE_RUNS_PER_HOUR = 60  # triggers accepted per routine in any hour
 
 
 class SessionInput(BaseModel):
@@ -100,6 +105,14 @@ class RunInput(BaseModel):
     context_compaction: bool = Field(default=False, strict=True)
     # Offer source_search: the best-matching lines of a selected source, word for word, instead of reading it whole.
     source_search: bool = Field(default=False, strict=True)
+
+
+class RoutineInput(BaseModel):
+    """A saved Run request for a workspace; a trigger starts a Run from it."""
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    workspace_id: str
+    name: str = Field(min_length=1, max_length=100)
+    run: RunInput
 
 
 class ResumeInput(BaseModel):
@@ -557,6 +570,71 @@ def create_app(
             runtime.start(run["id"], root)
         return run
 
+    async def routine_view(routine: dict[str, Any]) -> dict[str, Any]:
+        runs = await storage.routine_runs(routine["session_id"])
+        return {**routine, "runs": runs, "last_run": runs[0] if runs else None}
+
+    async def saved_routine(routine_id: str) -> dict[str, Any]:
+        routine = await storage.routine(routine_id)
+        if routine is None:
+            raise HTTPException(404, "Routine not found.")
+        return routine
+
+    @app.post("/api/routines", status_code=201)
+    async def add_routine(body: RoutineInput) -> dict[str, Any]:
+        """Save a Run request as a routine. It is checked now, and again (against current sources) on every trigger."""
+        workspace = await storage.workspace(body.workspace_id)
+        if not workspace:
+            raise HTTPException(404, "Workspace not found.")
+        if body.run.base_artifact is not None or body.run.submission_key is not None:
+            raise HTTPException(422, {"code": "invalid_routine", "message":
+                                      "A routine starts fresh Runs: it cannot name a base artifact or a submission key."})
+        try:
+            await asyncio.to_thread(admit_sources, Path(workspace["path"]), body.run.sources, extraction)
+        except RunFailure as error:
+            raise HTTPException(422, {"code": error.code, "message": error.message}) from None
+        request = body.run.model_dump(exclude={"submission_key", "base_artifact"})
+        return await routine_view(await storage.add_routine(body.workspace_id, body.name, request))
+
+    @app.get("/api/routines")
+    async def list_routines() -> list[dict[str, Any]]:
+        return [await routine_view(routine) for routine in await storage.routines()]
+
+    @app.get("/api/routines/{routine_id}")
+    async def get_routine(routine_id: str) -> dict[str, Any]:
+        return await routine_view(await saved_routine(routine_id))
+
+    @app.post("/api/routines/{routine_id}/pause")
+    async def pause_routine(routine_id: str) -> dict[str, Any]:
+        await storage.pause_routine((await saved_routine(routine_id))["id"], True)
+        return await get_routine(routine_id)
+
+    @app.post("/api/routines/{routine_id}/resume")
+    async def resume_routine(routine_id: str) -> dict[str, Any]:
+        await storage.pause_routine((await saved_routine(routine_id))["id"], False)
+        return await get_routine(routine_id)
+
+    @app.delete("/api/routines/{routine_id}", status_code=204)
+    async def delete_routine(routine_id: str) -> Response:
+        await storage.delete_routine((await saved_routine(routine_id))["id"])
+        return Response(status_code=204)
+
+    @app.post("/api/routines/{routine_id}/trigger", status_code=202)
+    async def trigger_routine(routine_id: str) -> dict[str, Any]:
+        """Start a Run from the routine. 202 means the Run was accepted, not that it finished.
+
+        The Run is an ordinary one: current source versions are admitted, and its limits, approvals and
+        verifiers apply. An approval nobody answers expires after the Run's approval timeout.
+        """
+        routine = await saved_routine(routine_id)
+        if routine["paused"]:
+            raise HTTPException(409, {"code": "routine_paused", "message": "This routine is paused; resume it to run it."})
+        hour_ago = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+        if await storage.runs_since(routine["session_id"], hour_ago) >= ROUTINE_RUNS_PER_HOUR:
+            raise HTTPException(429, {"code": "routine_rate_limited", "message":
+                                      f"This routine already ran {ROUTINE_RUNS_PER_HOUR} times in the last hour."})
+        return await start_run(routine["session_id"], RunInput.model_validate(routine["request"]))
+
     @app.get("/api/sessions/{session_id}/runs")
     async def list_runs(session_id: str) -> list[dict[str, Any]]:
         if not await storage.session(session_id):
@@ -645,6 +723,14 @@ def create_app(
     async def get_events(run_id: str) -> dict[str, Any]:
         await get_run(run_id)
         return {"events": await storage.events(run_id)}
+
+    @app.get("/api/runs/{run_id}/skill-draft")
+    async def get_skill_draft(run_id: str, name: str = Query(max_length=64, pattern=SKILL_NAME.pattern)) -> dict[str, Any]:
+        """A SKILL.md drafted from a completed Run's events. Nothing is written: saving it as a skill is the user's step."""
+        run = await get_run(run_id)
+        if run["status"] != "completed":
+            raise HTTPException(409, "Only a completed Run can be drafted as a skill.")
+        return {"name": name, "file": f"{name}/SKILL.md", "content": skill_draft(run, await storage.events(run_id), name)}
 
     @app.get("/api/runs/{run_id}/trace")
     async def get_trace(run_id: str) -> dict[str, Any]:

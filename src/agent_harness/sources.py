@@ -1,6 +1,7 @@
 """A bounded catalog of text sources inside an explicit workspace.
 
-Text files are read as UTF-8. PDF, Word, Excel and PowerPoint files are sources too, and so are
+Text files (Markdown, plain text, CSV, JSON, YAML, logs) are read as UTF-8. HTML pages, e-mails and
+notebooks are reduced to their readable text. PDF, Word, Excel and PowerPoint files are sources too, and so are
 images when the workbench's `Extraction` has OCR or a vision model: the model sees their extracted
 text (a vision model's labelled as a model transcription), while the source's SHA-256
 and size stay those of the file's bytes, so a changed document is detected like any changed source.
@@ -25,10 +26,11 @@ from typing import Any
 from .contracts import RunFailure
 from .extraction import Extraction
 
-TEXT_EXTENSIONS = {".md", ".txt", ".csv", ".json"}
+TEXT_EXTENSIONS = {".md", ".txt", ".csv", ".json", ".yaml", ".yml", ".log"}
 TABLE_EXTENSIONS = {".csv", ".xlsx"}
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg"}
-DOCUMENT_EXTENSIONS = {".pdf", ".docx", ".xlsx", ".pptx", *IMAGE_EXTENSIONS}
+MARKUP_EXTENSIONS = {".html", ".htm", ".eml", ".ipynb"}  # text formats whose useful content has to be extracted
+DOCUMENT_EXTENSIONS = {".pdf", ".docx", ".xlsx", ".pptx", *MARKUP_EXTENSIONS, *IMAGE_EXTENSIONS}
 EXTENSIONS = TEXT_EXTENSIONS | DOCUMENT_EXTENSIONS
 MAX_SOURCE_BYTES = 262_144  # a text file, the text extracted from a document, or what the model reads of a table
 MAX_TABLE_BYTES = 20 * 1024 * 1024  # a CSV file or .xlsx workbook, computed on the server
@@ -248,11 +250,69 @@ def document_text(suffix: str, raw: bytes, extraction: Extraction | None = None)
             return _pptx_text(raw)
         if suffix in IMAGE_EXTENSIONS:
             return extraction.image_text(suffix, raw)
+        if suffix in {".html", ".htm"}:
+            return _html_text(raw)
+        if suffix == ".eml":
+            return _eml_text(raw)
+        if suffix == ".ipynb":
+            return _ipynb_text(raw)
         return _docx_text(raw)
     except RunFailure:
         raise
     except Exception as error:  # parser libraries raise many types for damaged files
         raise RunFailure("source_unavailable", f"The {kind.upper()} file cannot be read; it may be damaged.") from error
+
+
+def _html_text(raw: bytes) -> tuple[str, dict[str, Any]]:
+    """An HTML file's visible text (no scripts or styles), under a [title] line when it has a title."""
+    from .web_fetch import html_text
+
+    title, text = html_text(raw.decode("utf-8"))
+    if not text.strip():
+        raise RunFailure("source_unavailable", "The HTML file has no readable text.")
+    return _bounded_text([f"[title] {title}\n{text}" if title else text], ""), {"converted_from": "html", "title": title}
+
+
+def _eml_text(raw: bytes) -> tuple[str, dict[str, Any]]:
+    """An e-mail's headers and body; attachments are named, never read."""
+    import email
+    import email.policy
+    from .web_fetch import html_text
+
+    message = email.message_from_bytes(raw, policy=email.policy.default)
+    headers = [f"[{name.lower()}] {message[name]}" for name in ("From", "To", "Cc", "Date", "Subject") if message[name]]
+    body = message.get_body(preferencelist=("plain", "html"))
+    content = body.get_content() if body is not None else ""
+    if body is not None and body.get_content_subtype() == "html":
+        content = html_text(content)[1]
+    attachments = [part.get_filename() or "(unnamed)" for part in message.iter_attachments()]
+    if not headers and not content.strip():
+        raise RunFailure("source_unavailable", "The e-mail file has no readable headers or text.")
+    parts = ["\n".join(headers), content.strip("\n") if content.strip() else "(no text body)"]
+    if attachments:
+        parts.append("[attachments, not read] " + ", ".join(attachments))
+    return _bounded_text(parts, "\n\n"), {"converted_from": "eml", "attachments": attachments}
+
+
+def _ipynb_text(raw: bytes) -> tuple[str, dict[str, Any]]:
+    """A Jupyter notebook's cells and their text outputs; images and other rich outputs are left out."""
+    def joined(value: Any) -> str:
+        return "".join(value) if isinstance(value, list) else str(value or "")
+
+    cells = json.loads(raw.decode("utf-8")).get("cells")
+    if not isinstance(cells, list) or not cells:
+        raise RunFailure("source_unavailable", "The notebook has no cells.")
+    parts: list[str] = []
+    for number, cell in enumerate(cells, 1):
+        lines = [f"[cell {number}, {cell.get('cell_type', 'unknown')}]", joined(cell.get("source")).rstrip("\n")]
+        outputs = [joined(output.get("text")) or joined((output.get("data") or {}).get("text/plain"))
+                   for output in cell.get("outputs") or []]
+        outputs = [output.rstrip("\n") for output in outputs if output.strip()]
+        if outputs:
+            lines += ["[output]", *outputs]
+        parts.append("\n".join(lines))
+        _bounded_text(parts, "\n\n")
+    return _bounded_text(parts, "\n\n"), {"converted_from": "ipynb", "cells": len(cells)}
 
 
 def _pdf_text(raw: bytes, extraction: Extraction) -> tuple[str, dict[str, Any]]:

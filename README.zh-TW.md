@@ -178,6 +178,22 @@ schtasks /Create /TN "Weekly report" /SC WEEKLY /D MON /ST 07:00 /TR "powershell
 
 退出碼讓排程工具知道結果；Run 的每個事件都在 NDJSON 檔與工作台裡。
 
+### Routines
+
+Routine 是一份儲存起來的 Run 請求，任何能送出帶權杖的 POST 的東西都可以啟動它：系統排程器、CI 工作、其他服務。用 Run 的任務、來源與選項儲存一個 routine：
+
+```bash
+curl -s -X POST -H "Authorization: Bearer $AGENT_HARNESS_TOKEN" -H "Content-Type: application/json" http://127.0.0.1:8787/api/routines -d '{"workspace_id": "WORKSPACE_ID", "name": "Daily summary", "run": {"task": "把 notes.md 整理成 summary.md 並附來源。", "sources": ["notes.md"]}}'
+```
+
+```bash
+curl -s -X POST -H "Authorization: Bearer $AGENT_HARNESS_TOKEN" http://127.0.0.1:8787/api/routines/ROUTINE_ID/trigger
+```
+
+觸發端點在 Run 被接受後立刻回覆 `202` 與新的 Run；這表示它已經開始，不是已經完成。`GET /api/routines/{id}` 顯示 routine 與它最近 20 次的 Run（狀態、錯誤、結果開頭），`/pause` 與 `/resume` 可以暫停與恢復，`DELETE` 會移除 routine，但過去的 Run 仍可檢視。每個 routine 有自己的 Session，所以同一個 routine 的兩次 Run 不會重疊（執行中再觸發會得到 `409`）；每個 routine 每小時最多接受 60 次觸發（之後回 `429`）。
+
+Routine 只是啟動 Run 的方式，不是繞過 Run 的方式。每次觸發都會重新受理來源目前的版本（來源不見了，觸發就失敗，不會建立 Run），Run 的限額、驗證器與核准照常適用。沒有人在場回應核准，所以核准會在 Run 的核准逾時後過期，Run 失敗、不會產生該效果；建議讓 routine 只做準備工作，把發布留給人確認。工作台本身沒有時鐘：請像上面一樣使用 cron 或工作排程器，把無頭模式的指令換成 `curl` 觸發。工作台目前沒有 routine 的頁面，routine 透過 API 管理。
+
 ### 追蹤（OpenTelemetry）
 
 `GET /api/runs/{id}/trace` 以 OTLP/JSON 回傳 Run 的 OpenTelemetry trace，任何 collector 的 `/v1/traces` 都能接收：
@@ -226,6 +242,8 @@ uv run python -m agent_harness --mcp-config mcp.json --store .private/demo
 
 用 `--skills-dir` 指向 Agent Skills 格式的 skills 資料夾：每個 skill 是一個含 `SKILL.md` 的資料夾，frontmatter 寫明 `name`（須與資料夾同名）與 `description`。Run 只會看到所選 skills 的名稱與說明（工作台預設全選；API 用 `"skills": [...]`；無頭模式用 `--skill`），需要時才以 `skill_load` 載入完整指示。任務以 `/skill名稱` 開頭也會選用該 skill。無效的 skill 會連同原因列在 `/api/config`。skill 資料夾裡的腳本永遠不會執行。
 
+完成的 Run 可以變成 skill 的初稿。`GET /api/runs/{id}/skill-draft?name=weekly-report` 會回傳一份由這個 Run 自己的事件產生的 `SKILL.md`：何時使用（任務）、用到的來源種類與選項、成功的工具呼叫順序、被退回並修正的項目、核准過的項目，以及回傳了什麼。它不是模型寫的，也不含來源或答案的文字。它是草稿：一次 Run 只說明做了什麼，不說明背後的規則，所以檔案最後留了一個空的「判斷規則與失敗處理」段落。不會寫入任何檔案；把它存到 `--skills-dir` 底下是你的步驟。
+
 ## 測試
 
 ```bash
@@ -262,7 +280,7 @@ docker build -f Dockerfile.test --secret id=ca,src=host-ca.pem -t agent-harness-
 
 ## 限制
 
-單一使用者、只綁定 localhost 並需每次啟動的權杖、受限工具：每個任務最多八份來源（UTF-8 文字每份 256 KiB；CSV 與 Excel 表格每份 20 MiB、200,000 列，模型讀到的是預覽；PDF、Word、PowerPoint 每份 10 MiB 且擷取文字不超過 256 KiB；圖片與掃描 PDF 需加上 `--tesseract`、`--tesseract-docker` 或 `--vision-model`）；沒有 shell 或瀏覽器工具（Python 只能在需選擇開啟的 Docker 沙箱執行），網路存取只有需選擇開啟、僅限公開 https 網頁的 `web_fetch`，沒有多租戶或分散式 worker，也不宣稱正式環境的效能。引用能證明數值來源，不代表每句話都正確。已發布成果不等於整個 Run 完成。中斷時效果未知的操作不會自動重送或回滾，續做必須明確建立新 Run。
+單一使用者、只綁定 localhost 並需每次啟動的權杖、受限工具：每個任務最多八份來源（UTF-8 文字，含 YAML 與 log，每份 256 KiB；HTML、email 與 notebook 每份 10 MiB 且擷取文字不超過 256 KiB；CSV 與 Excel 表格每份 20 MiB、200,000 列，模型讀到的是預覽；PDF、Word、PowerPoint 每份 10 MiB 且擷取文字不超過 256 KiB；圖片與掃描 PDF 需加上 `--tesseract`、`--tesseract-docker` 或 `--vision-model`）；沒有 shell 或瀏覽器工具（Python 只能在需選擇開啟的 Docker 沙箱執行），網路存取只有需選擇開啟、僅限公開 https 網頁的 `web_fetch`，沒有多租戶或分散式 worker，也不宣稱正式環境的效能。引用能證明數值來源，不代表每句話都正確。已發布成果不等於整個 Run 完成。中斷時效果未知的操作不會自動重送或回滾，續做必須明確建立新 Run。
 
 為什麼不做多使用者或雲端部署：上述保證建立在「一個人、一台機器、一份本機儲存」之上。核准綁定在操作的那個人；來源是那個人本來就能讀的檔案；事件紀錄與成果都在一份有租約保護的 SQLite 儲存裡。共用服務需要帳號與角色、各租戶隔離的工作區／儲存／權杖／沙箱、跨 worker 的工作佇列、機密管理，以及「誰核准了什麼」的稽核。那是以這個核心為基礎的另一個產品，不是加個旗標就能完成，因此刻意不做，而不是做一半。
 

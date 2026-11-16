@@ -88,6 +88,8 @@ flowchart LR
 
 **Why.** The person who starts the service and the task that runs in it are different decisions. A startup flag alone would give every task the capability; a per-Run flag alone would let a task turn it on.
 
+**The same rule for starting work.** A routine is a saved Run request with a trigger endpoint. It can start a Run when nobody is watching, and that is all: the Run admits current sources and keeps its limits, verifiers and approvals, and an approval nobody answers expires. A trigger is never a grant.
+
 ## 9. Model output is always labelled as model output
 
 **Choice.** Three things the model writes can become evidence: a vision model's transcription of an image, a subagent's report, and a compaction summary. Each is labelled in the text the model reads, in the evidence record, and in the artifact's appendix or the `answer.verified` event. Where a second reading exists (OCR next to a transcription), disagreements are listed, not resolved.

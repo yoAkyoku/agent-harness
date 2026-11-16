@@ -56,6 +56,10 @@ class Store:
                     model_calls INTEGER DEFAULT 0, tool_calls INTEGER DEFAULT 0,
                     result TEXT DEFAULT '', error_json TEXT, created_at TEXT
                 );
+                CREATE TABLE IF NOT EXISTS routines (
+                    id TEXT PRIMARY KEY, workspace_id TEXT REFERENCES workspaces(id), session_id TEXT REFERENCES sessions(id),
+                    name TEXT, request_json TEXT, paused INTEGER DEFAULT 0, created_at TEXT
+                );
                 CREATE TABLE IF NOT EXISTS checkpoints (
                     run_id TEXT PRIMARY KEY REFERENCES runs(id), sha256 TEXT, payload_json TEXT
                 );
@@ -309,6 +313,58 @@ class Store:
             "INSERT INTO sessions VALUES (:id, :workspace_id, :title, :created_at)", session,
         ))
         return session
+
+    @staticmethod
+    def _routine(row: sqlite3.Row) -> Record:
+        result = dict(row)
+        result["request"] = json.loads(result.pop("request_json"))
+        result["paused"] = bool(result["paused"])
+        return result
+
+    async def add_routine(self, workspace_id: str, name: str, request: Record) -> Record:
+        """A saved Run request with its own Session, so its runs have a history and never overlap."""
+        identity, session_id, created = uuid4().hex, uuid4().hex, now()
+
+        def add(connection: sqlite3.Connection) -> None:
+            connection.execute("INSERT INTO sessions VALUES (?, ?, ?, ?)", (session_id, workspace_id, f"Routine: {name}", created))
+            connection.execute("INSERT INTO routines VALUES (?, ?, ?, ?, ?, 0, ?)",
+                               (identity, workspace_id, session_id, name, json.dumps(request, ensure_ascii=False), created))
+
+        await self._run(add)
+        routine = await self.routine(identity)
+        assert routine is not None
+        return routine
+
+    async def routines(self) -> list[Record]:
+        return await self._run(lambda connection: [self._routine(row) for row in connection.execute(
+            "SELECT * FROM routines ORDER BY rowid")])
+
+    async def routine(self, identity: str) -> Record | None:
+        def get(connection: sqlite3.Connection) -> Record | None:
+            row = connection.execute("SELECT * FROM routines WHERE id=?", (identity,)).fetchone()
+            return self._routine(row) if row else None
+        return await self._run(get)
+
+    async def pause_routine(self, identity: str, paused: bool) -> None:
+        await self._run(lambda connection: connection.execute("UPDATE routines SET paused=? WHERE id=?", (int(paused), identity)))
+
+    async def delete_routine(self, identity: str) -> None:
+        """Remove the routine; its Session and past Runs stay, so what it did remains inspectable."""
+        await self._run(lambda connection: connection.execute("DELETE FROM routines WHERE id=?", (identity,)))
+
+    async def routine_runs(self, session_id: str, limit: int = 20) -> list[Record]:
+        """The routine's most recent Runs, newest first, as short records."""
+        def get(connection: sqlite3.Connection) -> list[Record]:
+            return [{"id": row["id"], "status": row["status"], "created_at": row["created_at"],
+                     "error": json.loads(row["error_json"] or "null"), "result": (row["result"] or "")[:500]}
+                    for row in connection.execute(
+                        "SELECT id, status, created_at, error_json, result FROM runs WHERE session_id=? ORDER BY rowid DESC LIMIT ?",
+                        (session_id, limit))]
+        return await self._run(get)
+
+    async def runs_since(self, session_id: str, since: str) -> int:
+        return await self._run(lambda connection: connection.execute(
+            "SELECT COUNT(*) FROM runs WHERE session_id=? AND created_at>=?", (session_id, since)).fetchone()[0])
 
     async def sessions(self) -> list[Record]:
         return await self._run(lambda connection: [dict(row) for row in connection.execute(

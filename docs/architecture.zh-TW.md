@@ -91,6 +91,8 @@ Token 用量來自每次回覆：Chat Completions 供應商回報 `prompt_tokens
 
 `trace.py` 把 Run 的事件轉成 OTLP/JSON，不會更動 Run：`run_trace` 依序走過事件一次，在 `model.requested`、`tool.requested` 或 `subagent.started` 開啟 span，在對應的結束事件關閉；trace 與 span 的 ID 由 Run ID 推導，所以同一個 Run 每次匯出的 trace 都相同。沒有回報結束的工作會在最後一個事件關閉並標示為 `unfinished`。屬性只帶名稱、代碼、大小與雜湊，不帶訊息、來源與結果的文字。
 
+Routine（`routines` 資料表、`/api/routines`）儲存一份驗證過的 Run 請求，以及它專屬的 Session。`trigger_routine` 先確認它沒有被暫停、過去一小時內執行不到 60 次，再呼叫和工作台相同的 `start_run`；所以受理、冪等性、「每個 Session 同時只有一個執行中的 Run」以及之後的每一項檢查都是原本那一套，routine 不會在 Run 的政策裡加任何東西。`skills.py` 的 `skill_draft` 走過完成的 Run 的事件一次，只用工具名稱、參數名稱與副檔名寫出 `SKILL.md`，因此來源或答案的文字不可能進入草稿。`sources.py` 現在也把 YAML 與 log 檔當成文字讀取，並從 HTML（和 `web_fetch` 相同的解析器）、email（標準函式庫的 `email`；附件只列出、不開啟）與 notebook（cell 與文字輸出）擷取文字。
+
 ## 無頭用戶端
 
 `agent_harness.headless` 只是一般的觀察者：透過 HTTP API 建立工作區、Session 與 Run，再以 `flow=ack` 讀取持久事件串流，逐筆確認，串流中斷時從最後的 cursor 重新接上（已輸出的序號會略過）。它原樣輸出事件為 NDJSON，並把終止狀態對應成退出碼。觀察者從不擁有執行，所以用戶端結束時 Run 仍會繼續。重新連線的路徑目前還沒有測試。加上 `--unattended` 時，用戶端會在第一個 `approval.requested` 事件取消 Run 並以退出碼 5 結束，因此排程工作不會等待不在場的人。

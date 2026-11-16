@@ -2,7 +2,7 @@
 
 [繁體中文](landscape.zh-TW.md)
 
-This note compares the harness with agent products whose operation flows are publicly documented: OpenAI Codex, Claude Code (and the Claude Agent SDK / Managed Agents), opencode, DeepSeek Harness (DSH), and agentic browsers. It was checked against first-party documentation and source on 2026-11-08; product details change quickly, so the [sources](#sources) list exactly what was read.
+This note compares the harness with agent products whose operation flows are publicly documented: OpenAI Codex, Claude Code (and the Claude Agent SDK / Managed Agents), opencode, DeepSeek Harness (DSH), agentic browsers, and (added on 2026-11-16, in [its own section](#grok-bot)) xAI's Grok Bot. It was checked against first-party documentation and source on 2026-11-08; product details change quickly, so the [sources](#sources) list exactly what was read.
 
 The point is not feature parity. Those products are coding agents or browsers with shells, file edits and network access. This harness is deliberately narrower: it answers questions **from selected local sources** and publishes **cited artifacts**. The comparison asks which of their control and safety mechanisms apply to that shape, which ones the harness already has, and which are worth adding.
 
@@ -29,6 +29,26 @@ The point is not feature parity. Those products are coding agents or browsers wi
 | Instructions and memory | `AGENTS.md` / `CLAUDE.md` chains | Opt-in workspace `AGENTS.md`, pinned with its SHA-256 when the Run starts; user-saved, versioned memories with optimistic concurrency |
 | Extensibility | Hooks, plugins, MCP, subagents | Fixed built-in tools, user-allowed local or remote MCP tools (read-only, or approval-each-time) and skills, all selected per Run; HTTP webhook hooks before (allow/deny, fail closed) and after tool calls; providers behind one `DecisionModel` protocol; opt-in subagents with narrower permissions and verified reports. No plugins |
 | Verification | Mostly left to the user or an auto-reviewer model | Evidence-only verifiers that never see the task text |
+
+## Grok Bot
+
+Added on 2026-11-16 from xAI's Grok Bot documentation (pages last updated 2026-11-07; see [sources](#sources)). Grok Bot is a different kind of product from the ones above: named, long-lived “Bots” that share a cloud computer (browser, files, terminal), connect to apps, remember the user, and run saved work on a schedule or on events. Most of that (the cloud computer, the credential vault, voice, image and video generation, a marketplace) is outside what this harness is. Its control mechanisms are comparable, and three of them were missing here.
+
+| Mechanism | What Grok Bot documents | This harness |
+|---|---|---|
+| Approving an action | An approval card shows the proposed operation and its inputs. Allow once, Always allow (saves a rule), or Deny; some cards carry warnings such as “can't be undone”. An approval covers the proposed action and does not reverse completed work | A single-use approval bound to a digest of the exact call; approve or deny. No “always allow”, on purpose. The same statement about completed work holds |
+| Deciding what needs approval | Auto Review, a model-based check of each action, plus up to 20 “Ask first” and 20 “Allow automatically” rules in plain words; Ask first wins; team rules can only make behaviour stricter. The docs say it should complement least privilege, not replace it | No model decides. The tool set is the boundary, publishing and tools marked as having effects need approval by configuration, and hooks can deny any call. Deterministic, and narrower |
+| Whose words count | Auto Review considers only what the user asked in their own messages; text from an e-mail or a web page does not count as a request | Source, page and memory text is labelled as untrusted data; verifiers never read it as instructions, and no tool can be reached through it that the Run was not given |
+| An approval nobody answers | A card from a chat message waits; one raised by a routine or other background work expires after 30 minutes | Every approval expires after the Run's approval timeout (at most 10 minutes); headless `--unattended` cancels at the first approval and exits 5 |
+| Repeating work | A routine tells one Bot when to run: a schedule, an app event or a webhook call with a bearer key. 200 means accepted, not finished. Test, pause, resume, run history, hourly rate limits | **Added (row 34).** A routine is a saved Run request with a trigger endpoint, pause and resume, its last 20 runs and an hourly limit. No built-in schedule or app events: the system scheduler or another service calls the trigger |
+| Saving a method | “Save the process we just used as a skill”; a skill states when to use it, inputs, the sequence, how to validate, what to return and what needs approval. A skill taught by demonstration is a draft to review | **Added (row 35).** A completed Run can be drafted as a `SKILL.md` with those sections, built from its events without a model call. It is a draft, and the user saves it |
+| Inputs | Images, audio, video, PDF, Office files, CSV, JSON, YAML, source code, HTML, e-mail and notebooks, up to 250 MB each | **Extended (row 36).** Text, CSV, JSON, YAML, logs, PDF, Office files, images through OCR or a vision model, HTML, e-mail and notebooks; at most 10–20 MiB each. No audio or video |
+| Results | Files, pages and drafts shown as cards; asks users to have the Bot separate facts found, inferences, completed actions, actions awaiting approval and open questions; revise an existing artifact, not disconnected copies | Immutable, hashed artifacts with versions and diffs, or a cited direct answer. The split between facts and inferences is enforced only for values: a figure must cite the evidence or calculation it came from |
+| Memory | The Bot decides on its own what to keep and does not ask first; each Bot has its own memory and a few facts are shared | Only memories the user saved, versioned, shown before use and never treated as evidence |
+| Several agents | Bots hand work to one another and share one computer; the docs say separate Bots are not a security boundary | Subagents with fewer permissions than their parent, whose reports are verified before the parent sees them |
+| Secrets | A vault and secure forms fill logins without showing them to the model | API keys come from the environment and never enter a request; there are no logins to fill |
+
+What the comparison changed: the three rows marked above. What it did not change: there is still no “always allow”, no model-based reviewer and no memory the user did not save. Each of those trades predictability for convenience, and this harness is built to show the predictable side.
 
 ## Where the harness is intentionally different
 
@@ -75,6 +95,9 @@ The products' mechanisms were used as a checklist against the code. Each item re
 | 31 | A source larger than the model's context window could not be used at all: the Run stopped. | Compaction and rolling summaries in Claude Code, opencode and DSH | Opt-in per Run (`context_compaction`): the largest evidence text in the model's view is replaced by a chunk-by-chunk model summary, labelled as lossy and recorded in `context.compacted`. Citations and verifiers still use the full text; a failed or non-shrinking summary leaves the Run stopped. |
 | 32 | Runs could be inspected only in the workbench's own event list. | OpenTelemetry export in Claude Code and Codex; tracing in the agent SDKs | `GET /api/runs/{id}/trace` returns OTLP/JSON derived from the saved events, using the GenAI conventions (`invoke_agent`, `chat`, `execute_tool`), with subagents nested and no message content. Pull only; nothing is pushed. |
 | 33 | A large source had to be read whole or summarised. | Retrieval and file search in Claude, ChatGPT and Codex; grep-style search in coding agents | Opt-in per Run `source_search`: BM25 over the lines of one selected source (CJK character pairs included), returning exact lines with line numbers as evidence for that file version. No embeddings or index; a search with no match is citable evidence of what was searched, labelled as not proof of absence, and a read that cannot fit the window is refused with a pointer to search. |
+| 34 | Repeating work needed an external scheduler and a headless client; the workbench had no notion of a saved job or its history. | Routines in Grok Bot (schedule, event or webhook; test, pause, run history, rate limits) | `POST /api/routines` saves a Run request for a workspace; `POST /api/routines/{id}/trigger` starts a Run (202: accepted, not finished). Each routine has its own Session, so its runs have a history and cannot overlap; pause, resume, delete and 60 triggers an hour. The Run is an ordinary one. |
+| 35 | A skill could only be written by hand. | Grok Bot: “save the process we just used as a skill”; a learned skill is a draft | `GET /api/runs/{id}/skill-draft?name=…` builds a `SKILL.md` from a completed Run's events (source kinds, options, the order of tool calls, what was sent back, what was approved, what was returned), with no model call and no source or answer text. Nothing is written; saving it is the user's step. |
+| 36 | HTML pages, e-mails, notebooks, YAML and log files could not be sources. | File inputs in Grok Bot, Claude and ChatGPT | YAML and logs are read as text. HTML is reduced to its visible text, an e-mail to its headers and body with attachments only named, a notebook to its cells and text outputs; each keeps the file's hash and says what it was converted from. |
 
 ## Already in place
 
@@ -87,6 +110,13 @@ The products' mechanisms were used as a checklist against the code. Each item re
 1. **A real Claude batch.** The adapter is covered by mock-transport tests only; a recorded run needs an API key and consent to spend.
 
 ## Sources
+
+Grok Bot (xAI; read 2026-11-16, pages last updated 2026-11-07)
+- Overview: https://docs.x.ai/grok-bot/overview
+- Create and manage Bots (including what a Bot remembers): https://docs.x.ai/grok-bot/bots
+- Skills and routines: https://docs.x.ai/grok-bot/skills-routines-and-automations
+- Files and results: https://docs.x.ai/grok-bot/files-and-results
+- Approvals, security, and privacy: https://docs.x.ai/grok-bot/approvals-security-and-privacy
 
 OpenAI Codex
 - App Server: https://developers.openai.com/codex/app-server and https://github.com/openai/codex/blob/main/codex-rs/app-server/README.md

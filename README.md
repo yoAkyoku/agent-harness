@@ -178,6 +178,22 @@ schtasks /Create /TN "Weekly report" /SC WEEKLY /D MON /ST 07:00 /TR "powershell
 
 The exit code tells the scheduler what happened; every event of the Run is in the NDJSON file and in the workbench.
 
+### Routines
+
+A routine is a saved Run request that anything able to send an authenticated POST can start: the system scheduler, a CI job, another service. Save one with the task, sources and options of a Run:
+
+```bash
+curl -s -X POST -H "Authorization: Bearer $AGENT_HARNESS_TOKEN" -H "Content-Type: application/json" http://127.0.0.1:8787/api/routines -d '{"workspace_id": "WORKSPACE_ID", "name": "Daily summary", "run": {"task": "Summarise notes.md into summary.md with sources.", "sources": ["notes.md"]}}'
+```
+
+```bash
+curl -s -X POST -H "Authorization: Bearer $AGENT_HARNESS_TOKEN" http://127.0.0.1:8787/api/routines/ROUTINE_ID/trigger
+```
+
+The trigger answers `202` with the new Run as soon as it is accepted; that means it started, not that it finished. `GET /api/routines/{id}` shows the routine with its 20 most recent Runs (status, error, start of the result), `/pause` and `/resume` switch it off and on, and `DELETE` removes it while leaving its past Runs inspectable. Each routine has its own Session, so two Runs of one routine never overlap (a trigger while one is running gets `409`), and a routine accepts at most 60 triggers an hour (`429` after that).
+
+A routine is a way to start a Run, never a way around one. The sources' current versions are admitted on every trigger (a missing source fails the trigger and creates no Run), and the Run keeps its limits, verifiers and approvals. Nobody is there to answer an approval, so it expires after the Run's approval timeout and the Run fails without the effect; prefer routines that only prepare, and keep publishing behind a person. The workbench has no clock of its own: use cron or Task Scheduler as above, with the `curl` trigger in place of the headless command. There is no routine page in the workbench yet; routines are managed through the API.
+
 ### Traces (OpenTelemetry)
 
 `GET /api/runs/{id}/trace` returns a Run as an OpenTelemetry trace in OTLP/JSON, which any collector accepts on `/v1/traces`:
@@ -226,6 +242,8 @@ A `command` hook is a list of program arguments, started directly and never thro
 
 Point `--skills-dir` at a folder of skills in the Agent Skills format: each skill is a folder with a `SKILL.md` whose frontmatter has a `name` (matching the folder) and a `description`. A Run sees only the names and descriptions of the skills it selected (all of them by default in the workbench; `"skills": [...]` in the API; `--skill` in headless mode) and loads a skill's instructions with `skill_load` when it needs them. Starting a task with `/skill-name` also selects that skill. Invalid skills are listed in `/api/config` with the reason. Scripts inside skill folders are never run.
 
+A completed Run can be turned into a first draft of a skill. `GET /api/runs/{id}/skill-draft?name=weekly-report` returns a `SKILL.md` built from the Run's own events: when to use it (the task), the kinds of sources and the options it used, the order of tool calls that worked, what was sent back and corrected, what was approved, and what it returned. No model writes it, and it contains no source or answer text. It is a draft: one Run shows what was done, not the rules behind it, so the file ends with an empty section for decision rules and failure handling. Nothing is written to disk; saving the file under `--skills-dir` is your step.
+
 ## Tests
 
 ```bash
@@ -262,7 +280,7 @@ Tests go through the public HTTP/WebSocket interface and replace only the model'
 
 ## Limits
 
-Single user, bound to localhost behind a per-launch token, with restricted tools: at most eight sources per task (UTF-8 text up to 256 KiB; CSV and Excel tables up to 20 MiB and 200,000 rows, previewed for the model; PDF, Word and PowerPoint files up to 10 MiB whose extracted text fits 256 KiB; images and scanned PDFs only with `--tesseract`, `--tesseract-docker` or `--vision-model`), no shell or browser tools (Python runs only in the opt-in Docker sandbox), network access only through the opt-in `web_fetch` for public https pages, no multi-tenant or distributed workers, and no production performance claims. A citation proves where a value came from, not that every sentence is correct. A published artifact does not mean the Run completed. Effects whose outcome is unknown after a crash are never retried or rolled back; continuing requires an explicit new Run.
+Single user, bound to localhost behind a per-launch token, with restricted tools: at most eight sources per task (UTF-8 text, including YAML and logs, up to 256 KiB; HTML pages, e-mails and notebooks up to 10 MiB whose extracted text fits 256 KiB; CSV and Excel tables up to 20 MiB and 200,000 rows, previewed for the model; PDF, Word and PowerPoint files up to 10 MiB whose extracted text fits 256 KiB; images and scanned PDFs only with `--tesseract`, `--tesseract-docker` or `--vision-model`), no shell or browser tools (Python runs only in the opt-in Docker sandbox), network access only through the opt-in `web_fetch` for public https pages, no multi-tenant or distributed workers, and no production performance claims. A citation proves where a value came from, not that every sentence is correct. A published artifact does not mean the Run completed. Effects whose outcome is unknown after a crash are never retried or rolled back; continuing requires an explicit new Run.
 
 Why there is no multi-user or hosted deployment: the guarantees above rest on one person, one machine and one local store. Approvals bind to the person at the keyboard; sources are files that person can already read; the event log and artifacts live in one SQLite store with one lease. A shared service would need accounts and roles, per-tenant isolation of workspaces, stores, tokens and sandboxes, a job queue across workers, secrets management and audit of who approved what. That is a different product built around this core, not a flag on it, so it is left out rather than half-done.
 
