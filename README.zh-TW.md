@@ -27,6 +27,8 @@ flowchart LR
 
 *截圖使用英文介面（左上角可切換為繁中），以模擬的 Claude 回覆經 mock SDK 傳輸產生（沒有呼叫 API），並開啟計畫與發布核准、套用工作區 `AGENTS.md`。*
 
+執行過程每個工具呼叫顯示一行，含狀態與證據編號，以及需要你決定的事件；勾選「顯示全部事件」可以看到完整的保存記錄。Run 結束後，「這次執行之後」可以把它存成 routine、產生 skill 草稿，或下載 trace。
+
 ## 可以展示什麼
 
 | 能力 | 實作重點 |
@@ -194,7 +196,7 @@ curl -s -X POST -H "Authorization: Bearer $AGENT_HARNESS_TOKEN" http://127.0.0.1
 
 觸發端點在 Run 被接受後立刻回覆 `202` 與新的 Run；這表示它已經開始，不是已經完成。`GET /api/routines/{id}` 顯示 routine 與它最近 20 次的 Run（狀態、錯誤、結果開頭），`/pause` 與 `/resume` 可以暫停與恢復，`DELETE` 會移除 routine，但過去的 Run 仍可檢視。每個 routine 有自己的 Session，所以同一個 routine 的兩次 Run 不會重疊（執行中再觸發會得到 `409`）；每個 routine 每小時最多接受 60 次觸發（之後回 `429`）。
 
-Routine 只是啟動 Run 的方式，不是繞過 Run 的方式。每次觸發都會重新受理來源目前的版本（來源不見了，觸發就失敗，不會建立 Run），Run 的限額、驗證器與核准照常適用。沒有人在場回應核准，所以核准會在 Run 的核准逾時後過期，Run 失敗、不會產生該效果；建議讓 routine 只做準備工作，把發布留給人確認。工作台本身沒有時鐘：請像上面一樣使用 cron 或工作排程器，把無頭模式的指令換成 `curl` 觸發。工作台目前沒有 routine 的頁面，routine 透過 API 管理。
+Routine 只是啟動 Run 的方式，不是繞過 Run 的方式。每次觸發都會重新受理來源目前的版本（來源不見了，觸發就失敗，不會建立 Run），Run 的限額、驗證器與核准照常適用。沒有人在場回應核准，所以核准會在 Run 的核准逾時後過期，Run 失敗、不會產生該效果；建議讓 routine 只做準備工作，把發布留給人確認。工作台本身沒有時鐘：請像上面一樣使用 cron 或工作排程器，把無頭模式的指令換成 `curl` 觸發。工作台的 Routines 面板會列出工作區的 routine，可以立即執行、暫停、查看紀錄與刪除；完成的 Run 有「存成 routine」。所有操作也都可以透過 API 進行。
 
 ### 追蹤（OpenTelemetry）
 
@@ -246,7 +248,7 @@ uv run python -m agent_harness --mcp-config mcp.json --store .private/demo
 
 用 `--skills-dir` 指向 Agent Skills 格式的 skills 資料夾：每個 skill 是一個含 `SKILL.md` 的資料夾，frontmatter 寫明 `name`（須與資料夾同名）與 `description`。Run 只會看到所選 skills 的名稱與說明（工作台預設全選；API 用 `"skills": [...]`；無頭模式用 `--skill`），需要時才以 `skill_load` 載入完整指示。任務以 `/skill名稱` 開頭也會選用該 skill。無效的 skill 會連同原因列在 `/api/config`。skill 資料夾裡的腳本永遠不會執行。
 
-完成的 Run 可以變成 skill 的初稿。`GET /api/runs/{id}/skill-draft?name=weekly-report` 會回傳一份由這個 Run 自己的事件產生的 `SKILL.md`：何時使用（任務）、用到的來源種類與選項、成功的工具呼叫順序、被退回並修正的項目、核准過的項目，以及回傳了什麼。它不是模型寫的，也不含來源或答案的文字。它是草稿：一次 Run 只說明做了什麼，不說明背後的規則，所以檔案最後留了一個空的「判斷規則與失敗處理」段落。不會寫入任何檔案；把它存到 `--skills-dir` 底下是你的步驟。
+完成的 Run 可以變成 skill 的初稿。`GET /api/runs/{id}/skill-draft?name=weekly-report` 會回傳一份由這個 Run 自己的事件產生的 `SKILL.md`：何時使用（任務）、用到的來源種類與選項、成功的工具呼叫順序、被退回並修正的項目、核准過的項目，以及回傳了什麼。它不是模型寫的，也不含來源或答案的文字。它是草稿：一次 Run 只說明做了什麼，不說明背後的規則，所以檔案最後留了一個空的「判斷規則與失敗處理」段落。不會寫入任何檔案；把它存到 `--skills-dir` 底下是你的步驟。在工作台中，完成的 Run 的「產生草稿」會顯示同一份草稿與下載連結。
 
 ## 測試
 

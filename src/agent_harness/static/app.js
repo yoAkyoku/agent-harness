@@ -1,11 +1,12 @@
-import {observeEvents} from "/assets/run-stream.js?v=7.2";
-import {memoryPanel} from "/assets/memory.js?v=6.2";
-import {lang, saveLang, t, translatePage} from "/assets/i18n.js?v=1.6";
+import {observeEvents} from "/assets/run-stream.js?v=7.3";
+import {memoryPanel} from "/assets/memory.js?v=6.3";
+import {lang, saveLang, t, translatePage} from "/assets/i18n.js?v=1.7";
+import {initExtras, noteEvent, refreshRoutines, renderRunActions} from "/assets/extras.js?v=1.0";
 const $ = (id) => document.getElementById(id);
 translatePage();
 const locale = lang === "en" ? "en-US" : "zh-TW";
 const state = {config: null, workspace: null, session: null, run: null, approval: null, sources: [], selected: new Set(), busy: false, socket: null, generation: 0, approvalPending: false, cancelPending: false, runs: [], base: null, previewArtifact: null, pendingSubmission: null, initializing: true, planSequence: 0, correctionSequence: 0, mcpSelected: new Set(), skillSelected: new Set()};
-const toolNames = {workspace_list: t("列出允許的來源"), source_read: t("讀取來源"), base_artifact_read: t("讀取修改基底"), artifact_write: t("保存成果"), artifact_draft: t("保存待核對草稿（尚未發布）"), plan_update: t("更新計畫"), table_inspect: t("檢查表格"), table_aggregate: t("計算欄位"), number_calculate: t("計算比例"), task_finish: t("提交完成回覆")};
+const toolNames = {workspace_list: t("列出允許的來源"), source_read: t("讀取來源"), base_artifact_read: t("讀取修改基底"), artifact_write: t("保存成果"), artifact_draft: t("保存待核對草稿（尚未發布）"), plan_update: t("更新計畫"), table_inspect: t("檢查表格"), table_aggregate: t("計算欄位"), number_calculate: t("計算比例"), task_finish: t("提交完成回覆"), source_search: t("在來源內搜尋"), subagent_run: t("委派給子代理"), web_fetch: t("讀取網頁"), python_run: t("執行 Python"), skill_load: t("載入 skill")};
 const statusNames = {queued: t("等待執行"), running: t("執行中"), waiting_approval: t("等待你的確認"), cancel_requested: t("正在取消"), cancelled: t("已取消"), completed: t("已完成"), failed: t("未完成"), interrupted: t("執行已中斷")};
 const effortNames = {low: t("低"), medium: t("中"), high: t("高"), xhigh: t("很高"), max: t("最高")};
 const activeStatuses = new Set(["queued", "running", "waiting_approval", "cancel_requested"]);
@@ -63,7 +64,7 @@ function newTask() {
   $("approval-card").hidden = true; $("require-publish-approval").checked = true; $("require-plan-approval").checked = false;
   $("web-access").checked = false; $("python-sandbox").checked = false; $("subagents").checked = false; $("context-compaction").checked = false; $("source-search").checked = false;
   $("use-instructions").checked = Boolean(state.instructions?.instructions);
-  $("execution").hidden = true; resetPlan(); $("timeline").replaceChildren(); resetPreview(); clearError();
+  $("execution").hidden = true; resetPlan(); $("timeline").replaceChildren(); resetPreview(); clearError(); renderRunActions(null);
   $("task-input").value = t("讀取已選來源，保存一份可檢查的來源快照。");
   selectSkills();
   document.querySelectorAll(".session-button").forEach((button) => button.classList.remove("active"));
@@ -79,7 +80,7 @@ async function loadWorkspace(path) {
   $("workspace-path").value = workspace.path; $("workspace-label").textContent = workspace.name;
   $("workspace-breadcrumb").textContent = t("{workspace} / 新的工作", {workspace: workspace.name});
   $("upload-area").hidden = false;
-  renderInstructions(); renderSources(); updateControls(); await memories.load(workspace);
+  renderInstructions(); renderSources(); updateControls(); await memories.load(workspace); await refreshRoutines();
 }
 // Saves each chosen file into the workspace's uploads/ folder (never overwriting), then selects it as a source.
 async function uploadFiles(files) {
@@ -411,7 +412,7 @@ function renderRun(run) {
   $("add-message").hidden = !state.busy || run.status === "cancel_requested";
   $("cancel-run").disabled = state.cancelPending || run.status === "cancel_requested";
   $("cancel-run").textContent = run.status === "cancel_requested" ? t("正在停止…") : t("取消執行");
-  renderApproval(run);
+  renderApproval(run); renderRunActions(run);
   $("recovery-card").hidden = !run.recovery;
   if (state.checkpoint?.source_run_id !== run.id) state.checkpoint = null;
   if (!state.busy) $("reload-run").hidden = true;
@@ -450,6 +451,10 @@ function renderApproval(run) {
   $("approval-target").textContent = plan ? t("模型提出 {count} 個步驟；核准後才會依計畫讀取來源與執行。若要修改，寫下意見後按「要求修改」。", {count: approval.arguments.steps.length})
     : publication ? t("{tool}：{name}", {tool: toolNames[approval.tool] || approval.tool, name: approval.arguments.name})
     : t("外部工具 {tool}（MCP 伺服器 {server}），可能變更資料", {tool: approval.tool, server: approval.scope?.mcp?.server || t("未知")});
+  // What approving leads to, in plain words: what cannot be changed afterwards and what still can.
+  $("approval-consequence").textContent = plan ? t("核准後模型才會開始讀取來源與執行；之後每次修改計畫都會再問你。")
+    : publication ? t("保存後這個版本不能修改或覆寫；之後的修改會另存成新版本，這一版仍會保留。")
+    : t("這個操作會在工作台以外的系統產生效果，工作台無法替你復原。");
   $("approval-expiry").textContent = t("這次操作有效至 {time}", {time: new Date(approval.expires_at).toLocaleString(locale)});
   $("approval-content").textContent = plan ? approval.arguments.steps.map((step, index) => `${index + 1}. ${step}`).join("\n")
     : publication ? approval.arguments.content : JSON.stringify(approval.arguments, null, 2);
@@ -611,6 +616,7 @@ function appendEvent(event) {
   const time = document.createElement("time"); time.className = "event-time"; time.dateTime = event.timestamp; time.textContent = new Date(event.timestamp).toLocaleTimeString(locale, {hour12: false});
   summary.append(number, title, time); const raw = document.createElement("pre"); raw.textContent = JSON.stringify(event.data, null, 2);
   details.append(summary, raw); row.append(details); $("timeline").append(row);
+  noteEvent(event, toolNames, row);
 }
 async function showArtifacts(artifacts, generation) {
   if (generation !== state.generation) return;
@@ -707,6 +713,8 @@ try {
   $("compaction-option").hidden = state.config.mode === "fixture";
   $("search-option").hidden = state.config.mode === "fixture";
   renderMcpTools(); selectSkills(); renderModelChoices();
+  initExtras({api, statusNames, getWorkspace: () => state.workspace, openSession, showError});
+  await refreshRoutines();
   await refreshSessions(); await restorePendingSubmission(); updateControls();
 } catch (error) { showError(error); }
 finally { state.initializing = false; updateControls(); }

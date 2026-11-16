@@ -26,3 +26,27 @@
 #compare-artifact{margin:0 0 10px 6px}.diff-view span{display:block;padding:0 6px;border-radius:3px}.diff-summary{font-weight:600;margin-bottom:8px}.diff-add{background:#e6f4ea;color:#17664a}.diff-del{background:#fbe9eb;color:#a23141}.diff-hunk{color:#3658c9}.diff-file{color:var(--muted)}
 .model-choice{display:grid;grid-template-columns:auto 1fr;gap:8px 10px;align-items:center;margin:14px 0}.model-choice label{font-size:12px;font-weight:600}.model-choice select{min-width:0}.model-choice [hidden]{display:none}
 .lang-switch{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:18px;font-size:11px;color:#b5c3e2}.lang-switch select{border:1px solid #607194;color:#fff;background:#1d2942;border-radius:6px;padding:5px 8px;font:inherit;font-size:11px}.lang-switch select:focus-visible{outline:3px solid #91b4ff;outline-offset:2px}.lang-switch+.new-task{margin-top:22px}@media(max-width:700px){.lang-switch{grid-column:1/-1;margin:0;justify-content:flex-start}.lang-switch+.new-task{margin:0;grid-row:1}}
+.timeline-bar{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.timeline-toggle{font-size:11px;color:#5a6a8a;white-space:nowrap;display:flex;gap:5px;align-items:center}
+.timeline.compact .raw:not(.important):not(.keep){display:none}
+.timeline:not(.compact) .step{display:none}
+.step-line{display:flex;gap:10px;align-items:baseline;font-size:12px}
+.step-status{flex-shrink:0;min-width:64px;font-size:10px;border-radius:9px;padding:1px 8px;background:#e3e9f5;color:#40507a;text-align:center}
+.event.step.running .step-status{background:#fff3d6;color:#7a5a12}
+.event.step.done .step-status{background:#dff3e6;color:#1f6a3d}
+.event.step.failure .step-status{background:#fbe1e5;color:#96283a}
+.event.step.done::before{background:#2f9a5c}
+.substeps{list-style:none;margin:6px 0 0 74px;padding:0 0 0 12px;border-left:1px solid #ccd6e7;font-size:11px;color:#4a5a7c}
+.substeps li{padding:2px 0}
+.substeps li.failure{color:#96283a}
+.approval-consequence{font-size:12px;color:#5c4a12;margin:4px 0}
+.run-actions{margin-top:18px;border-top:1px solid #d8e0ee;padding-top:14px}
+.run-actions h3{font-size:13px;margin:0 0 8px}
+.run-action{margin:10px 0;font-size:12px}
+.run-action label{display:block;font-size:11px;color:#5a6a8a;margin-bottom:4px}
+.trace-link{font-size:12px;color:#2f4fb5;cursor:pointer;text-decoration:underline}
+#skill-draft-text{font:11px/1.7 Consolas,"Microsoft JhengHei",monospace;white-space:pre-wrap;overflow-wrap:anywhere;background:#eaf0f8;border-radius:5px;padding:10px;max-height:320px;overflow:auto}
+.routine-list{list-style:none;padding:0;margin:8px 0}
+.routine{padding:8px 0;border-top:1px solid #33415f}
+.routine strong{display:block;font-size:12px}
+.routine-actions{display:grid;grid-template-columns:1fr 1fr;gap:0 6px}

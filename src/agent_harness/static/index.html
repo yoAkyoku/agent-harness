@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' ws://127.0.0.1:* ws://localhost:*; img-src 'self' data:; object-src 'none'; base-uri 'none'">
   <title>Agent Harness Demo</title>
-  <link rel="stylesheet" href="/assets/styles.css?v=9.0.8">
-  <script type="module" src="/assets/app.js?v=13.9"></script>
+  <link rel="stylesheet" href="/assets/styles.css?v=9.1.0">
+  <script type="module" src="/assets/app.js?v=14.1"></script>
 </head>
 <body>
   <div class="workbench">
@@ -50,6 +50,13 @@
           <button id="memory-reset" class="subtle-button" type="button">取消編輯</button>
           <p id="memory-feedback" role="status" class="sidebar-note"></p>
         </form>
+      </details>
+      <details id="routines-panel" class="memory-panel">
+        <summary>Routines <span id="routine-count">0</span></summary>
+        <p class="sidebar-note">儲存起來的任務，可以立即執行，或由排程與其他服務觸發。每次執行都是一般的任務，核准與驗證照常。</p>
+        <p id="routine-empty" class="sidebar-note">還沒有 routine。完成一個任務後，可以把它存成 routine。</p>
+        <ul id="routine-list" class="routine-list"></ul>
+        <p id="routine-feedback" role="status" class="sidebar-note"></p>
       </details>
       <section class="history-section" aria-labelledby="history-heading">
         <h2 id="history-heading">工作紀錄</h2>
@@ -125,7 +132,7 @@
           </section>
           <section id="approval-card" class="approval-card" aria-labelledby="approval-heading" hidden>
             <p class="approval-eyebrow">需要你的決定</p><h3 id="approval-heading">確認這次成果保存</h3>
-            <p id="approval-target"></p><p id="approval-expiry" class="approval-meta"></p>
+            <p id="approval-target"></p><p id="approval-consequence" class="approval-consequence"></p><p id="approval-expiry" class="approval-meta"></p>
             <pre id="approval-content" tabindex="0" aria-label="待批准的完整成果內容"></pre>
             <details><summary>查看完整有效參數與範圍</summary><pre id="approval-parameters"></pre></details>
             <p id="approval-version" class="approval-meta"></p>
@@ -133,9 +140,17 @@
             <div class="approval-actions"><button id="approve-operation" class="primary-button" type="button">批准這次保存</button><button id="deny-operation" class="subtle-button" type="button">拒絕</button></div>
           </section>
           <div id="plan" class="fixture-note" hidden><strong id="plan-title">模型提出的計畫</strong><p id="plan-context">計畫是預計動作；工具是否成功、引用是否有效，以實際結果為準。</p><ol id="plan-steps"></ol></div>
-          <p id="connection-state" class="connection-state" role="status"></p>
+          <div class="timeline-bar"><p id="connection-state" class="connection-state" role="status"></p><label class="timeline-toggle"><input id="show-all-events" type="checkbox"> 顯示全部事件</label></div>
           <ol id="timeline" class="timeline" aria-label="已保存的執行事件"></ol>
           <p id="run-result" class="run-result"></p>
+          <section id="run-actions" class="run-actions" aria-labelledby="run-actions-heading" hidden>
+            <h3 id="run-actions-heading">這次執行之後</h3>
+            <div class="run-action"><label for="routine-name">存成 routine（之後可重複執行）</label><div class="add-message-row"><input id="routine-name" maxlength="100" autocomplete="off"><button id="save-routine" class="subtle-button" type="button">存成 routine</button></div></div>
+            <div class="run-action"><label for="skill-name">把這次的做法整理成 skill 草稿</label><div class="add-message-row"><input id="skill-name" maxlength="64" autocomplete="off" placeholder="weekly-report"><button id="draft-skill" class="subtle-button" type="button">產生草稿</button></div></div>
+            <p class="run-action"><a id="download-trace" class="trace-link">下載這次執行的 trace（OpenTelemetry JSON，不含內容）</a></p>
+            <p id="run-action-feedback" role="status" class="approval-meta"></p>
+            <section id="skill-draft-card" class="fixture-note" hidden><strong>Skill 草稿</strong><p id="skill-draft-path"></p><pre id="skill-draft-text" tabindex="0" translate="no"></pre><a id="skill-draft-download" class="trace-link">下載 SKILL.md</a></section>
+          </section>
           <button id="reload-run" class="subtle-button" type="button" hidden>重新載入進度</button>
         </section>
       </div>

@@ -325,7 +325,7 @@ def create_app(
 
     @app.get("/", response_class=FileResponse)
     async def home() -> FileResponse:
-        return FileResponse(package / "static" / "index.html")
+        return FileResponse(package / "static" / "index.html", headers={"Cache-Control": "no-cache"})  # its asset URLs carry versions
 
     @app.get("/api/config")
     async def config() -> dict[str, Any]:

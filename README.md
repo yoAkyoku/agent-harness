@@ -27,6 +27,8 @@ flowchart LR
 
 *Screenshots: a scripted Claude reply sequence over a mock SDK transport (no API calls), with plan and publish approval on and a workspace `AGENTS.md` applied.*
 
+The Run view shows one row per tool call, with its state and evidence ID, and the decisions that needed you; “Show every event” brings back the full saved log. When a Run has finished, “After this run” offers to save it as a routine, draft a skill from it, or download its trace.
+
 ## What it demonstrates
 
 | Capability | How it is built |
@@ -194,7 +196,7 @@ curl -s -X POST -H "Authorization: Bearer $AGENT_HARNESS_TOKEN" http://127.0.0.1
 
 The trigger answers `202` with the new Run as soon as it is accepted; that means it started, not that it finished. `GET /api/routines/{id}` shows the routine with its 20 most recent Runs (status, error, start of the result), `/pause` and `/resume` switch it off and on, and `DELETE` removes it while leaving its past Runs inspectable. Each routine has its own Session, so two Runs of one routine never overlap (a trigger while one is running gets `409`), and a routine accepts at most 60 triggers an hour (`429` after that).
 
-A routine is a way to start a Run, never a way around one. The sources' current versions are admitted on every trigger (a missing source fails the trigger and creates no Run), and the Run keeps its limits, verifiers and approvals. Nobody is there to answer an approval, so it expires after the Run's approval timeout and the Run fails without the effect; prefer routines that only prepare, and keep publishing behind a person. The workbench has no clock of its own: use cron or Task Scheduler as above, with the `curl` trigger in place of the headless command. There is no routine page in the workbench yet; routines are managed through the API.
+A routine is a way to start a Run, never a way around one. The sources' current versions are admitted on every trigger (a missing source fails the trigger and creates no Run), and the Run keeps its limits, verifiers and approvals. Nobody is there to answer an approval, so it expires after the Run's approval timeout and the Run fails without the effect; prefer routines that only prepare, and keep publishing behind a person. The workbench has no clock of its own: use cron or Task Scheduler as above, with the `curl` trigger in place of the headless command. The workbench's Routines panel lists a workspace's routines with Run now, Pause, View runs and Delete, and a finished Run has “Save as routine”; everything is also available through the API.
 
 ### Traces (OpenTelemetry)
 
@@ -246,7 +248,7 @@ A `command` hook is a list of program arguments, started directly and never thro
 
 Point `--skills-dir` at a folder of skills in the Agent Skills format: each skill is a folder with a `SKILL.md` whose frontmatter has a `name` (matching the folder) and a `description`. A Run sees only the names and descriptions of the skills it selected (all of them by default in the workbench; `"skills": [...]` in the API; `--skill` in headless mode) and loads a skill's instructions with `skill_load` when it needs them. Starting a task with `/skill-name` also selects that skill. Invalid skills are listed in `/api/config` with the reason. Scripts inside skill folders are never run.
 
-A completed Run can be turned into a first draft of a skill. `GET /api/runs/{id}/skill-draft?name=weekly-report` returns a `SKILL.md` built from the Run's own events: when to use it (the task), the kinds of sources and the options it used, the order of tool calls that worked, what was sent back and corrected, what was approved, and what it returned. No model writes it, and it contains no source or answer text. It is a draft: one Run shows what was done, not the rules behind it, so the file ends with an empty section for decision rules and failure handling. Nothing is written to disk; saving the file under `--skills-dir` is your step.
+A completed Run can be turned into a first draft of a skill. `GET /api/runs/{id}/skill-draft?name=weekly-report` returns a `SKILL.md` built from the Run's own events: when to use it (the task), the kinds of sources and the options it used, the order of tool calls that worked, what was sent back and corrected, what was approved, and what it returned. No model writes it, and it contains no source or answer text. It is a draft: one Run shows what was done, not the rules behind it, so the file ends with an empty section for decision rules and failure handling. Nothing is written to disk; saving the file under `--skills-dir` is your step. In the workbench, “Draft it” on a finished Run shows the same draft with a download link.
 
 ## Tests
 

@@ -40,7 +40,7 @@ Added on 2026-11-16 from xAI's Grok Bot documentation (pages last updated 2026-1
 | Deciding what needs approval | Auto Review, a model-based check of each action, plus up to 20 “Ask first” and 20 “Allow automatically” rules in plain words; Ask first wins; team rules can only make behaviour stricter. The docs say it should complement least privilege, not replace it | No model decides. The tool set is the boundary, publishing and tools marked as having effects need approval by configuration, and hooks can deny any call. Deterministic, and narrower |
 | Whose words count | Auto Review considers only what the user asked in their own messages; text from an e-mail or a web page does not count as a request | Source, page and memory text is labelled as untrusted data; verifiers never read it as instructions, and no tool can be reached through it that the Run was not given |
 | An approval nobody answers | A card from a chat message waits; one raised by a routine or other background work expires after 30 minutes | Every approval expires after the Run's approval timeout (at most 10 minutes); headless `--unattended` cancels at the first approval and exits 5 |
-| Repeating work | A routine tells one Bot when to run: a schedule, an app event or a webhook call with a bearer key. 200 means accepted, not finished. Test, pause, resume, run history, hourly rate limits | **Added (row 34).** A routine is a saved Run request with a trigger endpoint, pause and resume, its last 20 runs and an hourly limit. No built-in schedule or app events: the system scheduler or another service calls the trigger |
+| Repeating work | A routine tells one Bot when to run: a schedule, an app event or a webhook call with a bearer key. 200 means accepted, not finished. Test, pause, resume, run history, hourly rate limits | **Added (row 34).** A routine is a saved Run request with a trigger endpoint, pause and resume, its last 20 runs and an hourly limit. A Routines panel in the workbench. No built-in schedule or app events: the system scheduler or another service calls the trigger |
 | Saving a method | “Save the process we just used as a skill”; a skill states when to use it, inputs, the sequence, how to validate, what to return and what needs approval. A skill taught by demonstration is a draft to review | **Added (row 35).** A completed Run can be drafted as a `SKILL.md` with those sections, built from its events without a model call. It is a draft, and the user saves it |
 | Inputs | Images, audio, video, PDF, Office files, CSV, JSON, YAML, source code, HTML, e-mail and notebooks, up to 250 MB each | **Extended (row 36).** Text, CSV, JSON, YAML, logs, PDF, Office files, images through OCR or a vision model, HTML, e-mail and notebooks; at most 10–20 MiB each. No audio or video |
 | Results | Files, pages and drafts shown as cards; asks users to have the Bot separate facts found, inferences, completed actions, actions awaiting approval and open questions; revise an existing artifact, not disconnected copies | Immutable, hashed artifacts with versions and diffs, or a cited direct answer. The split between facts and inferences is enforced only for values: a figure must cite the evidence or calculation it came from |
@@ -49,6 +49,28 @@ Added on 2026-11-16 from xAI's Grok Bot documentation (pages last updated 2026-1
 | Secrets | A vault and secure forms fill logins without showing them to the model | API keys come from the environment and never enter a request; there are no logins to fill |
 
 What the comparison changed: the three rows marked above. What it did not change: there is still no “always allow”, no model-based reviewer and no memory the user did not save. Each of those trades predictability for convenience, and this harness is built to show the predictable side.
+
+## Interface and flow
+
+The sections above compare mechanisms. This one compares what a person sees and does, pattern by pattern, with what the workbench does. “Taken” means the pattern is in the workbench; “Partly” and “Not taken” say what is missing and why.
+
+| Pattern in the products | Where it comes from | In the workbench |
+|---|---|---|
+| Plan first, then act | Plan mode in Claude Code, `plan` agent in opencode, plan approval in agentic browsers | **Taken.** The plan is shown before anything else runs, can require approval, and can be sent back with a note |
+| An approval card with the exact action | Typed approvals in Codex, approval cards in Grok Bot | **Taken.** The card shows the full content or arguments, the digest the approval is bound to and when it expires. Added in this pass: one plain sentence on what approving leads to and what can still be changed afterwards, like Grok Bot's card warnings |
+| “Always allow” on the card | Grok Bot, opencode, Claude Code | **Not taken**, on purpose: every approval covers one call |
+| Steer or stop while it works | Codex, Claude Code, opencode | **Taken.** A message can be added while the Run works, and the Run can be cancelled |
+| One row per step, details on demand | Activity views in Claude Code, Codex and Grok Bot | **Taken in this pass.** The Run view used to list every saved event (three rows per tool call). It now shows one row per tool call with its state and evidence ID, a subagent's steps under the call that started it, and the decisions that needed the user. “Show every event” brings back the full log |
+| Results as something to open, compare and revise | Artifact cards and pages in Grok Bot, diffs in Codex | **Taken.** The artifact is previewed beside the Run, versions can be compared, and a revision starts from a chosen version |
+| Save a finished task as repeatable work | Routines in Grok Bot | **Taken in this pass.** A finished Run has “Save as routine”; the Routines panel lists them with the last run's state, Run now, Pause, View runs and Delete |
+| Turn a finished task into a reusable method | “Save the process as a skill” in Grok Bot | **Taken in this pass.** A finished Run has “Draft it”, which shows the SKILL.md draft to review and download. The workbench does not install it |
+| See what happened afterwards | Run history in Grok Bot, traces in the SDKs | **Taken.** History per Session, every event kept, and a trace download on each finished Run |
+| A home view of what needs you | Grok Bot's primary Bot and morning brief | **Not taken.** There is one Run on screen at a time; a waiting approval is visible only in its own Run or routine row |
+| Schedules set in plain words, with a Test button | Grok Bot routines | **Partly.** “Run now” is the test; the schedule itself is set outside the workbench (cron, Task Scheduler) |
+| Chat as the main surface, voice, mobile | Grok Bot, Claude, ChatGPT | **Not taken.** The workbench is a form: sources, task, options. That fits tasks over selected files and is clumsy for back-and-forth conversation |
+| Starter prompts and templates | Grok Bot's marketplace and use cases | **Partly.** One bundled demo workspace and task; no gallery |
+
+What this leaves out is deliberate in two cases (no “always allow”, no chat surface) and simply not built in the others. The workbench is one page of plain JavaScript; it was checked in a browser in both languages, but there are no automated browser tests, so the interface is the least tested part of the project.
 
 ## Where the harness is intentionally different
 

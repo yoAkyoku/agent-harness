@@ -330,3 +330,15 @@ def test_largest_admitted_fixture_snapshot_remains_downloadable(tmp_path: Path) 
         assert response.status_code == 200
         for content in contents:
             assert content in response.text
+
+
+def test_the_page_is_revalidated_and_carries_the_run_view_extras(tmp_path: Path) -> None:
+    """The page itself is never served stale (its assets are versioned), and the Run view's added parts are present."""
+    with TestClient(create_app(tmp_path / "store")) as client:
+        page = client.get("/")
+        extras = client.get("/assets/extras.js")
+    assert page.headers["cache-control"] == "no-cache"
+    for identity in ("routines-panel", "routine-list", "show-all-events", "run-actions", "save-routine", "draft-skill",
+                     "download-trace", "skill-draft-text", "approval-consequence"):
+        assert f'id="{identity}"' in page.text, identity
+    assert extras.status_code == 200 and "export function noteEvent" in extras.text
