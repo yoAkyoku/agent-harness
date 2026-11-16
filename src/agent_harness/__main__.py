@@ -76,6 +76,9 @@ def parser() -> argparse.ArgumentParser:
     parser.add_argument("--allow-subagents", action="store_true",
                         help="Let Runs that ask for it delegate sub-tasks to subagents: a fresh context, read-only tools, "
                              "only the sources the Run selected, spent from the Run's own limits.")
+    parser.add_argument("--otlp-endpoint", metavar="URL",
+                        help="Push each finished Run's OpenTelemetry trace to this OTLP/HTTP endpoint, such as "
+                             "http://127.0.0.1:4318/v1/traces (https, or http on this computer). No message content is sent.")
     parser.add_argument("--docker", default="docker", help="The Docker command for --python-sandbox (default %(default)s).")
     parser.add_argument("--allow-command-hooks", action="store_true",
                         help="Allow hooks that start local programs (argument lists, never a shell) from --hooks-config.")
@@ -223,7 +226,8 @@ def main() -> None:
                          oauth_redirect_url=f"http://127.0.0.1:{arguments.port}{OAUTH_CALLBACK_PATH}",
                          allow_web=arguments.allow_web, web_allow_domains=web_domains,
                          python_image=python_image, docker_command=arguments.docker,
-                         vision_model=arguments.vision_model, allow_subagents=arguments.allow_subagents)
+                         vision_model=arguments.vision_model, allow_subagents=arguments.allow_subagents,
+                         otlp_endpoint=arguments.otlp_endpoint)
     except ValueError as error:
         cli.error(str(error))
     shown = "<the value of " + TOKEN_ENV + ">" if configured else token

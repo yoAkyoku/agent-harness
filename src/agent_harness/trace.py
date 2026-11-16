@@ -14,6 +14,8 @@ import hashlib
 from datetime import datetime
 from typing import Any
 
+import httpx
+
 Record = dict[str, Any]
 INTERNAL, CLIENT = 1, 3  # SpanKind
 OK, ERROR = 1, 2  # StatusCode
@@ -156,3 +158,29 @@ def run_trace(run: Record, events: list[Record]) -> Record:
         "resource": {"attributes": _attributes({"service.name": "agent-harness"})},
         "scopeSpans": [{"scope": {"name": "agent_harness.trace"}, "spans": trace.spans}],
     }]}
+
+
+class TraceExporter:
+    """Pushes finished Runs' traces to one OTLP/HTTP endpoint; a failed push is counted and changes nothing else."""
+
+    def __init__(self, endpoint: str, transport: httpx.AsyncBaseTransport | None = None) -> None:
+        from .model import _validated_base_url  # https, or plain http on this computer; no credentials or query
+
+        self.endpoint = _validated_base_url(endpoint)
+        self.exported = self.failed = 0
+        self._client = httpx.AsyncClient(transport=transport, trust_env=False, follow_redirects=False, timeout=10)
+
+    def status(self) -> Record:
+        return {"enabled": True, "endpoint": self.endpoint, "exported": self.exported, "failed": self.failed}
+
+    async def export(self, run: Record, events: list[Record]) -> None:
+        try:
+            response = await self._client.post(self.endpoint, json=run_trace(run, events))
+            response.raise_for_status()
+        except httpx.HTTPError:
+            self.failed += 1
+            return
+        self.exported += 1
+
+    async def close(self) -> None:
+        await self._client.aclose()

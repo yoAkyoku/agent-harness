@@ -205,7 +205,9 @@ curl -s -H "Authorization: Bearer $AGENT_HARNESS_TOKEN" http://127.0.0.1:8787/ap
   | curl -s -X POST -H "Content-Type: application/json" --data-binary @- http://127.0.0.1:4318/v1/traces
 ```
 
-trace 由已保存的事件推導而來，所以任何 Run（無論是否結束）都能取得，產生它也不會改變任何東西。span 依照 GenAI 語意慣例（OpenTelemetry 仍標示為開發中）：Run 是 `invoke_agent` span；每次模型請求是 `chat` span，帶有 token 用量與上下文上限；每次工具呼叫是 `execute_tool` span，狀態帶有拒絕或失敗的代碼；子代理是巢狀的 `invoke_agent` span，掛在啟動它的工具呼叫之下。上下文步驟、壓縮、修正、核准與 hook 決定是 span event。依慣例的預設，trace 不含任何提示、來源或結果的文字，只有名稱、代碼、大小與雜湊。工作台本身不會主動把 trace 送到任何地方。
+trace 由已保存的事件推導而來，所以任何 Run（無論是否結束）都能取得，產生它也不會改變任何東西。span 依照 GenAI 語意慣例（OpenTelemetry 仍標示為開發中）：Run 是 `invoke_agent` span；每次模型請求是 `chat` span，帶有 token 用量與上下文上限；每次工具呼叫是 `execute_tool` span，狀態帶有拒絕或失敗的代碼；子代理是巢狀的 `invoke_agent` span，掛在啟動它的工具呼叫之下。上下文步驟、壓縮、修正、核准與 hook 決定是 span event。依慣例的預設，trace 不含任何提示、來源或結果的文字，只有名稱、代碼、大小與雜湊。
+
+要讓工作台自己送出 trace，啟動時加上 `--otlp-endpoint http://127.0.0.1:4318/v1/traces`（https，或本機的 http）。每個 Run 到達最終狀態後，它的 trace 會被 POST 一次。collector 沒有回應或拒絕 trace，都不會影響 Run；`/api/config` 會顯示成功與失敗的匯出次數。沒有這個旗標時，不會送出任何東西。
 
 ### MCP 工具
 

@@ -45,7 +45,7 @@ from .storage import Store
 from .sandbox import PythonSandbox, Runner
 from .extraction import DockerTesseract, Extraction, LocalTesseract, ProcessRunner
 from .subagent import status as subagent_status
-from .trace import run_trace
+from .trace import TraceExporter, run_trace
 from .vision import VisionTranscriber
 from .web_fetch import Resolver, WebFetcher
 
@@ -180,6 +180,8 @@ def create_app(
     vision_model: str | None = None,
     vision_transport: httpx.BaseTransport | None = None,
     allow_subagents: bool = False,
+    otlp_endpoint: str | None = None,
+    otlp_transport: httpx.AsyncBaseTransport | None = None,
 ) -> FastAPI:
     """Build the workbench app.
 
@@ -209,6 +211,9 @@ def create_app(
 
     `allow_subagents` lets Runs that ask for it delegate sub-tasks with subagent_run.
 
+    `otlp_endpoint` pushes each finished Run's trace to an OTLP/HTTP collector (`otlp_transport` replaces
+    the network in tests); without it traces are only available from GET /api/runs/{id}/trace.
+
     `ocr_command` names a local Tesseract; `ocr_docker_image` runs Tesseract in a locked-down container
     instead (`ocr_runner` replaces Docker in tests). At most one of the two may be set.
     """
@@ -224,6 +229,13 @@ def create_app(
     mcp = (McpHub.from_config(mcp_config, oauth_redirect_url=oauth_redirect_url, token_directory=store_directory / "oauth")
            if mcp_config is not None else None)
     skills = SkillLibrary.from_directory(skills_dir) if skills_dir is not None else None
+    exporter = TraceExporter(otlp_endpoint, otlp_transport) if otlp_endpoint is not None else None
+
+    async def export_trace(run_id: str) -> None:
+        finished = await storage.run(run_id)
+        if exporter is not None and finished is not None:
+            await exporter.export(finished, await storage.events(run_id))
+
     if ocr_command is not None and ocr_docker_image is not None:
         raise ValueError("Choose a local Tesseract or a Tesseract container, not both.")
     container_ocr = (DockerTesseract(ocr_docker_image, ocr_languages, docker=docker_command, runner=ocr_runner)
@@ -265,7 +277,8 @@ def create_app(
                     await claude.prepare()
                     model = claude
                     runtime = Runtime(storage, model, hold_first_tool=hold_first_tool, mcp=mcp, skills=skills, hooks=hooks, web=web, python=python, subagents=allow_subagents,
-                                      extraction=extraction)
+                                      extraction=extraction,
+                                      on_finished=export_trace if exporter is not None else None)
                     try:
                         yield
                     finally:
@@ -278,7 +291,8 @@ def create_app(
                         await adapter.prepare()
                         model = adapter
                         runtime = Runtime(storage, model, hold_first_tool=hold_first_tool, mcp=mcp, skills=skills, hooks=hooks, web=web, python=python, subagents=allow_subagents,
-                                      extraction=extraction)
+                                      extraction=extraction,
+                                      on_finished=export_trace if exporter is not None else None)
                         try:
                             yield
                         finally:
@@ -292,6 +306,8 @@ def create_app(
                     await web.close()
                 if vision is not None:
                     vision.close()
+                if exporter is not None:
+                    await exporter.close()
                 await storage.close()
         finally:
             await asyncio.to_thread(lease.close)
@@ -322,7 +338,8 @@ def create_app(
                 "web": web.status() if web is not None else {"enabled": False},
                 "python": python.status() if python is not None else {"enabled": False},
                 "vision": vision.status() if vision is not None else {"enabled": False},
-                "subagents": subagent_status(allow_subagents)}
+                "subagents": subagent_status(allow_subagents),
+                "trace_export": exporter.status() if exporter is not None else {"enabled": False}}
 
     @app.post("/api/workspaces", status_code=201)
     async def add_workspace(body: WorkspaceInput) -> dict[str, Any]:

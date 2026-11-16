@@ -89,7 +89,7 @@ Token 用量來自每次回覆：Chat Completions 供應商回報 `prompt_tokens
 
 `search.py` 是處理大型來源的無損做法。`search_lines` 把每一行切成 token（`tokens`：任何文字系統的小寫詞；CJK 連續字元則切成相鄰的兩字組），以 BM25 對照查詢中不重複的詞評分，取分數最高的 `max_results` 行，加上 `context` 行相鄰內容，依來源順序回傳；總量上限 8 KiB，超過時先捨棄分數最低的匹配並標示截斷。`Tools._search` 以和 `source_read` 相同的雜湊檢查讀取來源，並把這些行登記為該檔案版本的證據。沒有匹配的搜尋也會登記，文字為空、範圍是整個檔案：搜尋是決定性的，「這個版本沒有任何一行包含這些字詞」可以重新檢查，`evidence_note` 會註明它不能證明資訊不存在。開啟搜尋且未開啟壓縮時，迴圈會在每個請求量測後，把 `Tools.read_limit_bytes` 設為剩餘的空間；`_read` 遇到文字超過這個大小的來源，會在建立任何證據之前拒絕。這個失敗可重試、也不要求模型重試同一個呼叫，所以模型可以改用搜尋。基於同樣的理由，搜尋結果的大小以剩餘空間為上限（先放匹配的行、再放相鄰的行，所以空間緊時先捨棄分數最低的匹配）；對同一個檔案版本重複完全相同的搜尋會以 `repeated_search` 拒絕，訊息指出先前產生的證據，並計入修正額度；因此不斷重複的模型會在幾次決策後停止，而不是耗到步數上限。
 
-`trace.py` 把 Run 的事件轉成 OTLP/JSON，不會更動 Run：`run_trace` 依序走過事件一次，在 `model.requested`、`tool.requested` 或 `subagent.started` 開啟 span，在對應的結束事件關閉；trace 與 span 的 ID 由 Run ID 推導，所以同一個 Run 每次匯出的 trace 都相同。沒有回報結束的工作會在最後一個事件關閉並標示為 `unfinished`。屬性只帶名稱、代碼、大小與雜湊，不帶訊息、來源與結果的文字。
+`trace.py` 把 Run 的事件轉成 OTLP/JSON，不會更動 Run：`run_trace` 依序走過事件一次，在 `model.requested`、`tool.requested` 或 `subagent.started` 開啟 span，在對應的結束事件關閉；trace 與 span 的 ID 由 Run ID 推導，所以同一個 Run 每次匯出的 trace 都相同。沒有回報結束的工作會在最後一個事件關閉並標示為 `unfinished`。屬性只帶名稱、代碼、大小與雜湊，不帶訊息、來源與結果的文字。加上 `--otlp-endpoint` 時，`TraceExporter` 會在 Run 的最終狀態保存之後，由 `Runtime._run_job` 把同一份文件 POST 一次；推送失敗只會被計數，其他都不變；因服務停止而中斷的 Run 不會推送。
 
 Routine（`routines` 資料表、`/api/routines`）儲存一份驗證過的 Run 請求，以及它專屬的 Session。`trigger_routine` 先確認它沒有被暫停、過去一小時內執行不到 60 次，再呼叫和工作台相同的 `start_run`；所以受理、冪等性、「每個 Session 同時只有一個執行中的 Run」以及之後的每一項檢查都是原本那一套，routine 不會在 Run 的政策裡加任何東西。`skills.py` 的 `skill_draft` 走過完成的 Run 的事件一次，只用工具名稱、參數名稱與副檔名寫出 `SKILL.md`，因此來源或答案的文字不可能進入草稿。`sources.py` 現在也把 YAML 與 log 檔當成文字讀取，並從 HTML（和 `web_fetch` 相同的解析器）、email（標準函式庫的 `email`；附件只列出、不開啟）與 notebook（cell 與文字輸出）擷取文字。
 

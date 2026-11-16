@@ -205,7 +205,9 @@ curl -s -H "Authorization: Bearer $AGENT_HARNESS_TOKEN" http://127.0.0.1:8787/ap
   | curl -s -X POST -H "Content-Type: application/json" --data-binary @- http://127.0.0.1:4318/v1/traces
 ```
 
-The trace is derived from the saved events, so it is available for any Run, finished or not, and producing it changes nothing. Spans follow the GenAI semantic conventions (which OpenTelemetry still marks as in development): the Run is an `invoke_agent` span, each model request a `chat` span with its token usage and context bound, each tool call an `execute_tool` span whose status carries the refusal or failure code, and a subagent a nested `invoke_agent` span under the tool call that started it. Context steps, compaction, corrections, approvals and hook decisions are span events. As the conventions recommend by default, the trace contains no prompt, source or result text: only names, codes, sizes and hashes. The workbench does not push traces anywhere by itself.
+The trace is derived from the saved events, so it is available for any Run, finished or not, and producing it changes nothing. Spans follow the GenAI semantic conventions (which OpenTelemetry still marks as in development): the Run is an `invoke_agent` span, each model request a `chat` span with its token usage and context bound, each tool call an `execute_tool` span whose status carries the refusal or failure code, and a subagent a nested `invoke_agent` span under the tool call that started it. Context steps, compaction, corrections, approvals and hook decisions are span events. As the conventions recommend by default, the trace contains no prompt, source or result text: only names, codes, sizes and hashes.
+
+To have the workbench send traces itself, start it with `--otlp-endpoint http://127.0.0.1:4318/v1/traces` (https, or plain http on this computer). Each Run's trace is then POSTed once, after the Run has reached a final state. A collector that is down or refuses the trace never affects the Run; `/api/config` shows how many traces were exported and how many failed. Without the flag, nothing is sent anywhere.
 
 ### MCP tools
 

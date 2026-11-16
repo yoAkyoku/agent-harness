@@ -2,7 +2,7 @@
 
 import asyncio
 from copy import deepcopy
-from dataclasses import replace
+from dataclasses import dataclass, replace
 import hashlib
 from collections.abc import Awaitable, Callable
 import json
@@ -13,7 +13,8 @@ from typing import Any, Literal, TypeVar
 
 from .context import added_message, executor_state_message, publication_finalization_prefix
 from .context_fit import RequestFitter, Window
-from .contracts import Decision, PendingCorrection, RunCancelled, RunFailure, RunLimits, ToolCall, canonical_tool_arguments
+from .contracts import (Decision, PendingCorrection, PreparedCall, RunCancelled, RunFailure, RunLimits, ToolCall,
+                        canonical_tool_arguments)
 from .extraction import Extraction
 from .hooks import HookRunner
 from .mcp_hub import McpHub
@@ -43,6 +44,36 @@ INITIAL_PUBLIC_PLAN_STEPS = (
     "核對成果。",
 )
 WorkResult = TypeVar("WorkResult")
+# A refused call with one of these codes goes back to the model with the fields it may change.
+CORRECTABLE_REJECTIONS = frozenset({
+    "invalid_arguments", "invalid_evidence", "missing_evidence", "evidence_section_mismatch", "missing_body_citation",
+    "missing_calculation_citation", "unsupported_completion_claim", "mixed_source_roles", "column_mismatch",
+    "missing_answer_citation", "tool_not_offered", "hook_denied", "subagent_limit_exceeded"})
+# ... and these need no corrected retry of the same call before the Run may finish.
+REJECTIONS_NOT_OWED = frozenset({"tool_not_offered", "hook_denied", "subagent_limit_exceeded"})
+# A read tool that failed with one of these may be tried again by the model.
+RETRYABLE_FAILURES = frozenset({
+    "source_unavailable", "invalid_table", "invalid_calculation", "mcp_tool_error", "mcp_result_too_large",
+    *WEB_ERRORS, *SANDBOX_ERRORS, "subagent_failed", "source_too_large_for_context", "repeated_search"})
+FAILURES_NOT_OWED = frozenset({"source_too_large_for_context", "repeated_search"})
+
+
+@dataclass(frozen=True)
+class CallContext:
+    """What the guards need to know about the step a tool call arrived in."""
+
+    run: Record
+    tools: Tools
+    step: int
+    calls_in_decision: int
+    review_mode: bool
+    receipt_mode: bool
+    answer_mode: bool
+    latest_draft: Record | None
+    draft_step: int
+    delegations: int
+    pending: dict[str, PendingCorrection]
+    offered_tools: set[str]
 
 
 def request_digest(body: Record) -> str:
@@ -79,9 +110,11 @@ class Runtime:
     def __init__(self, store: Store, model: DecisionModel, *, hold_first_tool: Literal["source_read", "artifact_write"] | None = None,
                  mcp: McpHub | None = None, skills: SkillLibrary | None = None, hooks: HookRunner | None = None,
                  web: WebFetcher | None = None, python: PythonSandbox | None = None, subagents: bool = False,
-                 extraction: Extraction | None = None) -> None:
+                 extraction: Extraction | None = None,
+                 on_finished: Callable[[str], Awaitable[None]] | None = None) -> None:
         self.store = store
         self.extraction = extraction
+        self.on_finished = on_finished  # called with the Run ID once a Run has reached a final state
         self.subagents = subagents
         self.model = model
         self.mcp = mcp
@@ -101,12 +134,20 @@ class Runtime:
 
     def start(self, run_id: str, root: Path) -> None:
         self._cancel_events[run_id] = asyncio.Event()
-        job = asyncio.create_task(self._execute(run_id, root))
+        job = asyncio.create_task(self._run_job(run_id, root))
         self._jobs.add(job)
         def done(task: asyncio.Task[None]) -> None:
             self._jobs.discard(task)
             self._cancel_events.pop(run_id, None)
         job.add_done_callback(done)
+
+    async def _run_job(self, run_id: str, root: Path) -> None:
+        await self._execute(run_id, root)  # raises only when the service is stopping; then nothing is reported
+        if self.on_finished is not None:
+            try:
+                await self.on_finished(run_id)
+            except Exception:
+                logger.exception("Reporting Run %s as finished failed", run_id)
 
     async def cancel(self, identity: str) -> None:
         await self.store.request_cancel(identity)
@@ -295,6 +336,66 @@ class Runtime:
         if (name, effort) == (settings.name, settings.effort):
             return self.model
         return self.model.with_settings(replace(settings, name=name, effort=effort, alternatives=()))
+
+    async def _guard(self, identity: str, call: ToolCall, context: CallContext) -> PreparedCall:
+        """Every check a proposed tool call must pass before it may be dispatched; raises RunFailure on the first that fails.
+
+        Order matters: the specific guards keep their own error codes, the offered-tools gate comes after them,
+        and user hooks see only calls that passed every built-in guard.
+        """
+        run, tools = context.run, context.tools
+        if call.name == "artifact_draft" and not context.review_mode:
+            raise RunFailure("tool_not_permitted", "Draft staging is not enabled for this Run.")
+        completion_artifacts = None
+        if call.name == "task_finish" and context.receipt_mode:
+            current = await self.store.run(identity)
+            completion_artifacts = current["artifacts"] + current["inherited_artifacts"] if current else []
+        prepared = tools.prepare(call, draft=context.latest_draft if context.review_mode else None,
+                                 completion_artifacts=completion_artifacts)
+        if call.name == subagent.TOOL_NAME and context.delegations >= subagent.MAX_PER_RUN:
+            raise RunFailure("subagent_limit_exceeded", f"This Run already started {subagent.MAX_PER_RUN} "
+                             "subagents; do the remaining work with your own tools.")
+        if call.name == "artifact_write" and context.review_mode:
+            if (context.latest_draft is None or context.draft_step >= context.step
+                    or prepared.arguments != context.latest_draft):
+                raise RunFailure("unreviewed_artifact", "Publish the latest staged candidate in a later model decision.")
+        if run["mode"] != "fixture" and call.name in {"artifact_draft", "artifact_write"}:
+            candidate_content = (
+                call.arguments.get("content") if call.name == "artifact_draft"
+                else context.latest_draft["content"] if context.review_mode and context.latest_draft is not None
+                else call.arguments.get("content")
+            )
+            if isinstance(candidate_content, str):
+                failure = verify_artifact(candidate_content, tools.evidence)
+                if failure is not None:
+                    raise failure
+        if call.name == "task_finish":
+            if context.calls_in_decision != 1:
+                raise RunFailure("invalid_completion", "Completion must be a separate model decision after tool results.")
+            blocking = any(correction.call.name != "task_finish" or not correction.matches(call, context.step)
+                           for correction in context.pending.values())
+            await self._require_completion(identity, blocking, unpublished_draft=context.latest_draft is not None,
+                                           answer=context.answer_mode)
+            if context.answer_mode and isinstance(call.arguments.get("summary"), str):
+                answer_failure = verify_answer(call.arguments["summary"], tools.evidence)
+                if answer_failure is not None:
+                    raise answer_failure
+            elif run["mode"] != "fixture" and not context.receipt_mode and isinstance(call.arguments.get("summary"), str):
+                claim_failure = completion_summary(call.arguments["summary"], await self._published_texts(identity))
+                if claim_failure is not None:
+                    raise claim_failure
+        if call.name not in context.offered_tools:
+            raise RunFailure("tool_not_offered", f"{call.name} was not offered for this step; "
+                             f"use only: {', '.join(sorted(context.offered_tools))}.")
+        if self.hooks is not None:
+            decisions = await self.hooks.before_tool(identity, call.identity, call.name,
+                                                     prepared.arguments, prepared.scope["effect"])
+            for decided in decisions:
+                await self._record(identity, "hook.decided", decided)
+            denied = next((decided for decided in decisions if decided["decision"] == "deny"), None)
+            if denied is not None:
+                raise RunFailure("hook_denied", f"A hook denied {call.name}: {denied.get('reason') or 'no reason given'}")
+        return prepared
 
     async def _loop(self, run: Record, root: Path, limits: RunLimits) -> None:
         model = self._run_model(run)
@@ -771,69 +872,14 @@ class Runtime:
                                      "content": json.dumps(result, ensure_ascii=False)})
                     continue
                 try:
-                    if call.name == "artifact_draft" and not review_mode:
-                        raise RunFailure("tool_not_permitted", "Draft staging is not enabled for this Run.")
-                    completion_artifacts = None
-                    if call.name == "task_finish" and receipt_mode:
-                        current = await self.store.run(identity)
-                        completion_artifacts = current["artifacts"] + current["inherited_artifacts"] if current else []
-                    prepared = tools.prepare(call, draft=latest_draft if review_mode else None,
-                                             completion_artifacts=completion_artifacts)
-                    if call.name == subagent.TOOL_NAME and delegations >= subagent.MAX_PER_RUN:
-                        raise RunFailure("subagent_limit_exceeded", f"This Run already started {subagent.MAX_PER_RUN} "
-                                         "subagents; do the remaining work with your own tools.")
-                    if call.name == "artifact_write" and review_mode:
-                        if latest_draft is None or draft_step >= step or prepared.arguments != latest_draft:
-                            raise RunFailure("unreviewed_artifact", "Publish the latest staged candidate in a later model decision.")
-                    if run["mode"] != "fixture" and call.name in {"artifact_draft", "artifact_write"}:
-                        candidate_content = (
-                            call.arguments.get("content") if call.name == "artifact_draft"
-                            else latest_draft["content"] if review_mode and latest_draft is not None
-                            else call.arguments.get("content")
-                        )
-                        if isinstance(candidate_content, str):
-                            failure = verify_artifact(candidate_content, tools.evidence)
-                            if failure is not None:
-                                raise failure
-                    if call.name == "task_finish":
-                        if len(decision.calls) != 1:
-                            raise RunFailure("invalid_completion", "Completion must be a separate model decision after tool results.")
-                        blocking = any(correction.call.name != "task_finish" or not correction.matches(call, step)
-                                       for correction in pending.values())
-                        await self._require_completion(identity, blocking, unpublished_draft=latest_draft is not None,
-                                                       answer=answer_mode)
-                        if answer_mode and isinstance(call.arguments.get("summary"), str):
-                            answer_failure = verify_answer(call.arguments["summary"], tools.evidence)
-                            if answer_failure is not None:
-                                raise answer_failure
-                        elif run["mode"] != "fixture" and not receipt_mode and isinstance(call.arguments.get("summary"), str):
-                            claim_failure = completion_summary(call.arguments["summary"], await self._published_texts(identity))
-                            if claim_failure is not None:
-                                raise claim_failure
-                    # Last gate before dispatch: the specific guards above keep their own codes, and a call
-                    # that passes them is still refused unless this request offered the tool.
-                    if call.name not in offered_tools:
-                        raise RunFailure("tool_not_offered", f"{call.name} was not offered for this step; "
-                                         f"use only: {', '.join(sorted(offered_tools))}.")
-                    # User hooks see only calls that passed every built-in guard; any deny refuses the call.
-                    if self.hooks is not None:
-                        decisions = await self.hooks.before_tool(identity, call.identity, call.name,
-                                                                 prepared.arguments, prepared.scope["effect"])
-                        for decided in decisions:
-                            await self._record(identity, "hook.decided", decided)
-                        denied = next((decided for decided in decisions if decided["decision"] == "deny"), None)
-                        if denied is not None:
-                            raise RunFailure("hook_denied", f"A hook denied {call.name}: "
-                                             f"{denied.get('reason') or 'no reason given'}")
+                    prepared = await self._guard(identity, call, CallContext(
+                        run=run, tools=tools, step=step, calls_in_decision=len(decision.calls), review_mode=review_mode,
+                        receipt_mode=receipt_mode, answer_mode=answer_mode, latest_draft=latest_draft, draft_step=draft_step,
+                        delegations=delegations, pending=pending, offered_tools=offered_tools))
                 except RunFailure as error:
                     await self._record(identity, "tool.rejected", {"call_id": call.identity, "tool": call.name, "code": error.code})
-                    await feedback(call, error, retryable=error.code in {
-                        "invalid_arguments", "invalid_evidence", "missing_evidence",
-                        "evidence_section_mismatch", "missing_body_citation",
-                        "missing_calculation_citation", "unsupported_completion_claim", "mixed_source_roles",
-                        "column_mismatch", "missing_answer_citation", "tool_not_offered", "hook_denied",
-                        "subagent_limit_exceeded",
-                    }, owed=error.code not in {"tool_not_offered", "hook_denied", "subagent_limit_exceeded"})
+                    await feedback(call, error, retryable=error.code in CORRECTABLE_REJECTIONS,
+                                   owed=error.code not in REJECTIONS_NOT_OWED)
                     continue
                 reused = next((confirmed for confirmed in checkpoint["confirmed"]
                                if confirmed["tool"] == call.name and isinstance(confirmed.get("arguments"), dict)
@@ -885,14 +931,10 @@ class Runtime:
                         result = await self._perform(identity, execute_tool)
                     except RunFailure as error:
                         await self._record(identity, "tool.failed", {"call_id": call.identity, "tool": call.name, "code": error.code})
-                        await feedback(call, error, retryable=call.name in read_tools and error.code in {
-                            "source_unavailable", "invalid_table", "invalid_calculation",
-                            "mcp_tool_error", "mcp_result_too_large", *WEB_ERRORS, *SANDBOX_ERRORS, "subagent_failed",
-                            "source_too_large_for_context", "repeated_search",
-                        # A failed sub-task may be done by the parent itself, a read that cannot fit is replaced by a
-                        # search, and a repeated search needs no retry at all: none of them must be redone to finish.
-                        }, owed=call.name != subagent.TOOL_NAME
-                        and error.code not in {"source_too_large_for_context", "repeated_search"})
+                        # A failed sub-task may be done by the parent itself, a read that cannot fit is replaced by a search,
+                        # and a repeated search needs no retry at all: none of them must be redone to finish.
+                        await feedback(call, error, retryable=call.name in read_tools and error.code in RETRYABLE_FAILURES,
+                                       owed=call.name != subagent.TOOL_NAME and error.code not in FAILURES_NOT_OWED)
                         continue
                     if (run["mode"] != "fixture" and call.name == "source_read"
                             and not any(later.name == "source_read" for later in decision.calls[call_index + 1:])):
