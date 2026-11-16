@@ -30,6 +30,7 @@ const EN = {
   "來源放不進模型上下文時，改讓模型讀取摘要（有損並標示；引用與驗證仍對照完整來源）": "When sources do not fit the model's context, let it read a summary instead (lossy and labelled; citations and checks still use the full source)",
   "已用模型摘要取代證據 {id} 的文字（有損，已標示）": "The text of evidence {id} was replaced by a model summary (lossy, labelled)",
   "無法摘要證據 {id}": "Evidence {id} could not be summarised",
+  "允許在來源內搜尋相關的行（回傳原文與行號，大型來源不必整份讀取）": "Allow searching inside sources for relevant lines (exact text with line numbers, so a large source need not be read whole)",
   "允許在隔離容器執行 Python（無網路、來源唯讀，輸出需引用）": "Allow running Python in an isolated container (no network, sources read-only, output must be cited)",
   "允許讀取公開網頁（web_fetch；內容視為不可信資料，需引用網址）": "Allow reading public web pages (web_fetch; their text is untrusted and must be cited by URL)",
   "直接回答（不產生檔案，需引用證據）": "Answer directly (no file; facts must cite evidence)",

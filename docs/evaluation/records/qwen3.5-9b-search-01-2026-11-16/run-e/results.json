@@ -1,0 +1,123 @@
+[
+  {
+    "id": "search-single",
+    "attempt": 1,
+    "run_id": "a78d30bfa5f6473a93318581713a4a4a",
+    "exit_code": 0,
+    "seconds": 18,
+    "status": "completed",
+    "result": "根據維運日誌，支付閘道憑證更新造成結帳中斷 47 分鐘 [ops-log.md E1]，負責處理的是平台組蔡宗翰 [ops-log.md E1]。",
+    "error": null,
+    "usage": {
+      "model_calls": 5,
+      "tool_calls": 5
+    },
+    "token_usage": {
+      "input_tokens": 5801,
+      "output_tokens": 231,
+      "reported_responses": 5,
+      "unreported_responses": 0
+    },
+    "artifacts": [],
+    "artifact_text": null,
+    "tools": [
+      "plan_update",
+      "workspace_list",
+      "source_search",
+      "task_finish"
+    ],
+    "reads": [],
+    "rejected": [
+      "task_finish:missing_answer_citation"
+    ],
+    "subagents": 0,
+    "compacted": [],
+    "stderr": "Run a78d30bfa5f6473a93318581713a4a4a accepted; events follow on stdout.\n",
+    "problems": [],
+    "passed": true
+  },
+  {
+    "id": "search-scattered",
+    "attempt": 1,
+    "run_id": "31bd19ac6bd442dda8061d0a8fb0c58d",
+    "exit_code": 0,
+    "seconds": 28,
+    "status": "completed",
+    "result": "根據維運日誌，共記錄了三次服務中斷事件：\n\n1. **第 12 週**：訂單寫入中斷 **31 分鐘**，負責處理的是資料組的許雅雯 [ops-log-incidents.md E1]。\n2. **第 67 週**：結帳中斷 **47 分鐘**，負責處理的是平台組的蔡宗翰 [ops-log-incidents.md E1]。\n3. **第 109 週**：搜尋中斷 **58 分鐘**，負責處理的是搜尋組的鄭凱文 [ops-log-incidents.md E1]。",
+    "error": null,
+    "usage": {
+      "model_calls": 6,
+      "tool_calls": 6
+    },
+    "token_usage": {
+      "input_tokens": 7352,
+      "output_tokens": 584,
+      "reported_responses": 6,
+      "unreported_responses": 0
+    },
+    "artifacts": [],
+    "artifact_text": null,
+    "tools": [
+      "plan_update",
+      "workspace_list",
+      "source_search",
+      "task_finish"
+    ],
+    "reads": [],
+    "rejected": [
+      "source_read:source_too_large_for_context",
+      "task_finish:missing_answer_citation"
+    ],
+    "subagents": 0,
+    "compacted": [],
+    "stderr": "Run 31bd19ac6bd442dda8061d0a8fb0c58d accepted; events follow on stdout.\n",
+    "problems": [],
+    "passed": true
+  },
+  {
+    "id": "search-absent",
+    "attempt": 1,
+    "run_id": "c95597358704464b8393354129fc5b83",
+    "exit_code": 1,
+    "seconds": 23,
+    "status": "failed",
+    "result": "",
+    "error": {
+      "code": "correction_limit_exceeded",
+      "message": "This Run exhausted its recoverable tool correction budget."
+    },
+    "usage": {
+      "model_calls": 9,
+      "tool_calls": 9
+    },
+    "token_usage": {
+      "input_tokens": 12476,
+      "output_tokens": 381,
+      "reported_responses": 9,
+      "unreported_responses": 0
+    },
+    "artifacts": [],
+    "artifact_text": null,
+    "tools": [
+      "plan_update",
+      "workspace_list",
+      "source_search",
+      "source_search",
+      "source_search",
+      "source_search"
+    ],
+    "reads": [],
+    "rejected": [
+      "source_search:repeated_search",
+      "source_search:repeated_search",
+      "task_finish:missing_answer_citation"
+    ],
+    "subagents": 0,
+    "compacted": [],
+    "stderr": "Run c95597358704464b8393354129fc5b83 accepted; events follow on stdout.\n",
+    "problems": [
+      "status failed: correction_limit_exceeded"
+    ],
+    "passed": false
+  }
+]

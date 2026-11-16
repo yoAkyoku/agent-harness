@@ -74,6 +74,7 @@
 | 30 | 所有工作都由一個模型迴圈在同一個上下文完成，沒有子代理。 | Claude Code 與 Codex 的子代理；opencode 的 `task` agent | 需選擇開啟的 `subagent_run`（`--allow-subagents` 加上每個 Run 的 `subagents`）：全新上下文、只能讀指定的已選來源與唯讀工具、不能發布或再委派、計入父 Run 的限額。報告要先對照子代理自己的證據通過 `verify_answer`，父 Run 才會收到它，並標示為模型撰寫、附上驗證時對照的來源版本。 |
 | 31 | 比模型上下文還大的來源完全無法使用：Run 會直接停止。 | Claude Code、opencode 與 DSH 的壓縮與滾動摘要 | 由每個 Run 選擇開啟（`context_compaction`）：把模型視角中最大的證據文字換成模型逐段寫的摘要，標示為有損並記錄在 `context.compacted`。引用與驗證器仍使用全文；摘要失敗或沒有變小時，Run 仍會停止。 |
 | 32 | Run 只能在工作台自己的事件列表中檢視。 | Claude Code 與 Codex 的 OpenTelemetry 匯出；各 agent SDK 的 tracing | `GET /api/runs/{id}/trace` 回傳由已保存事件推導的 OTLP/JSON，採用 GenAI 慣例（`invoke_agent`、`chat`、`execute_tool`），子代理為巢狀 span，不含訊息內容。只提供拉取，不主動推送。 |
+| 33 | 大型來源只能整份讀取或做摘要。 | Claude、ChatGPT 與 Codex 的檢索與檔案搜尋；程式碼代理的 grep 式搜尋 | 由每個 Run 選擇開啟的 `source_search`：對一個已選來源的各行做 BM25（含 CJK 兩字組），回傳帶行號的原文，作為該檔案版本的證據。沒有嵌入向量或索引；沒有匹配的搜尋是可引用的證據（證明搜尋過什麼），並標示不能證明資訊不存在；放不進上下文的讀取會被拒絕並提示改用搜尋。 |
 
 ## 已經具備
 

@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "model": "qwen3.5:9b-q4_K_M",
+  "protocol": "json_tools, thinking off",
+  "workbench_args": [],
+  "purpose": "source_search on logs larger than the context window, without compaction: one fact, three scattered facts, and a question about something the log does not contain. Truth fixed before any run.",
+  "limits": {
+    "max_steps": 14,
+    "max_tool_calls": 24,
+    "max_corrections": 2,
+    "timeout_seconds": 420
+  },
+  "cases": [
+    {
+      "id": "search-single",
+      "flags": [
+        "--answer",
+        "--search"
+      ],
+      "sources": [
+        "ops-log.md"
+      ],
+      "task": "維運日誌中，結帳中斷了幾分鐘？負責處理的是誰？請直接回答並附來源。",
+      "truth": {
+        "must_contain": [
+          "47",
+          "蔡宗翰"
+        ],
+        "expects_tool": "source_search",
+        "note": "15901 bytes; larger than the context bound, and compaction is off"
+      }
+    },
+    {
+      "id": "search-scattered",
+      "flags": [
+        "--answer",
+        "--search"
+      ],
+      "sources": [
+        "ops-log-incidents.md"
+      ],
+      "task": "維運日誌中共有哪幾次服務中斷？請列出每一次的週次、中斷分鐘數與負責處理的人，直接回答並附來源。",
+      "truth": {
+        "must_contain": [
+          "31",
+          "許雅雯",
+          "47",
+          "蔡宗翰",
+          "58",
+          "鄭凱文"
+        ],
+        "expects_tool": "source_search",
+        "note": "the three incidents are in weeks 12, 67 and 109"
+      }
+    },
+    {
+      "id": "search-absent",
+      "flags": [
+        "--answer",
+        "--search"
+      ],
+      "sources": [
+        "ops-log.md"
+      ],
+      "task": "維運日誌中有沒有記錄資料外洩事件？如果有，是哪一週？請直接回答並附來源。",
+      "truth": {
+        "must_contain_any": [
+          "沒有",
+          "未記錄",
+          "未提及",
+          "未發現",
+          "查無",
+          "找不到",
+          "並無"
+        ],
+        "note": "the log has no such event; an honest answer says none was found. The check only looks for a negative phrase, so the record also quotes the answer"
+      }
+    }
+  ]
+}

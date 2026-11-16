@@ -1,0 +1,124 @@
+[
+  {
+    "id": "search-single",
+    "attempt": 1,
+    "run_id": "01db59e6c2124ba89faa6b5e8190b6c6",
+    "exit_code": 0,
+    "seconds": 27,
+    "status": "completed",
+    "result": "根據維運日誌，支付閘道憑證更新造成結帳中斷 47 分鐘 [ops-log.md E1]，負責處理的是平台組蔡宗翰 [ops-log.md E1]。",
+    "error": null,
+    "usage": {
+      "model_calls": 5,
+      "tool_calls": 5
+    },
+    "token_usage": {
+      "input_tokens": 5801,
+      "output_tokens": 231,
+      "reported_responses": 5,
+      "unreported_responses": 0
+    },
+    "artifacts": [],
+    "artifact_text": null,
+    "tools": [
+      "plan_update",
+      "workspace_list",
+      "source_search",
+      "task_finish"
+    ],
+    "reads": [],
+    "rejected": [
+      "task_finish:missing_answer_citation"
+    ],
+    "subagents": 0,
+    "compacted": [],
+    "stderr": "Run 01db59e6c2124ba89faa6b5e8190b6c6 accepted; events follow on stdout.\n",
+    "problems": [],
+    "passed": true
+  },
+  {
+    "id": "search-scattered",
+    "attempt": 1,
+    "run_id": "196c7c9966af485783ad3f3147831d13",
+    "exit_code": 1,
+    "seconds": 16,
+    "status": "failed",
+    "result": "",
+    "error": {
+      "code": "context_limit_exceeded",
+      "message": "The complete request exceeds the configured conservative context envelope."
+    },
+    "usage": {
+      "model_calls": 3,
+      "tool_calls": 3
+    },
+    "token_usage": {
+      "input_tokens": 2641,
+      "output_tokens": 235,
+      "reported_responses": 3,
+      "unreported_responses": 0
+    },
+    "artifacts": [],
+    "artifact_text": null,
+    "tools": [
+      "plan_update",
+      "workspace_list",
+      "source_read"
+    ],
+    "reads": [
+      "ops-log-incidents.md"
+    ],
+    "rejected": [],
+    "subagents": 0,
+    "compacted": [],
+    "stderr": "Run 196c7c9966af485783ad3f3147831d13 accepted; events follow on stdout.\n",
+    "problems": [
+      "status failed: context_limit_exceeded"
+    ],
+    "passed": false
+  },
+  {
+    "id": "search-absent",
+    "attempt": 1,
+    "run_id": "967a40814c504501a60b6ab33feb002b",
+    "exit_code": 1,
+    "seconds": 16,
+    "status": "failed",
+    "result": "",
+    "error": {
+      "code": "context_limit_exceeded",
+      "message": "The complete request exceeds the configured conservative context envelope."
+    },
+    "usage": {
+      "model_calls": 6,
+      "tool_calls": 6
+    },
+    "token_usage": {
+      "input_tokens": 6861,
+      "output_tokens": 271,
+      "reported_responses": 6,
+      "unreported_responses": 0
+    },
+    "artifacts": [],
+    "artifact_text": null,
+    "tools": [
+      "plan_update",
+      "workspace_list",
+      "source_search",
+      "source_search",
+      "source_search",
+      "source_read"
+    ],
+    "reads": [
+      "ops-log.md"
+    ],
+    "rejected": [],
+    "subagents": 0,
+    "compacted": [],
+    "stderr": "Run 967a40814c504501a60b6ab33feb002b accepted; events follow on stdout.\n",
+    "problems": [
+      "status failed: context_limit_exceeded"
+    ],
+    "passed": false
+  }
+]

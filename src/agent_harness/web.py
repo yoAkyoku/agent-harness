@@ -98,6 +98,8 @@ class RunInput(BaseModel):
     subagents: bool = Field(default=False, strict=True)
     # When a request cannot fit, replace evidence text in the model's view with a labelled model summary.
     context_compaction: bool = Field(default=False, strict=True)
+    # Offer source_search: the best-matching lines of a selected source, word for word, instead of reading it whole.
+    source_search: bool = Field(default=False, strict=True)
 
 
 class ResumeInput(BaseModel):
@@ -457,7 +459,7 @@ def create_app(
         for optional in ("model", "effort"):
             if effective[optional] is None:
                 del effective[optional]
-        for flag in ("require_plan_approval", "project_instructions", "web_access", "python_sandbox", "subagents", "context_compaction"):
+        for flag in ("require_plan_approval", "project_instructions", "web_access", "python_sandbox", "subagents", "context_compaction", "source_search"):
             if not effective[flag]:
                 del effective[flag]
         if not body.skills:
@@ -519,6 +521,10 @@ def create_app(
                 if settings.mode == "fixture":
                     raise RunFailure("context_compaction_unavailable", "Context compaction needs a model; the fixture has none.")
                 policy["context_compaction"] = True
+            if body.source_search:
+                if settings.mode == "fixture":
+                    raise RunFailure("source_search_unavailable", "source_search needs a model; the fixture has none.")
+                policy["source_search"] = True
             run_model = dict(model.info)
             choices = model.info.get("choices", {})
             if body.model is not None and body.model != model.info["name"]:

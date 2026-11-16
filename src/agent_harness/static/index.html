@@ -6,7 +6,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' ws://127.0.0.1:* ws://localhost:*; img-src 'self' data:; object-src 'none'; base-uri 'none'">
   <title>Agent Harness Demo</title>
   <link rel="stylesheet" href="/assets/styles.css?v=9.0.8">
-  <script type="module" src="/assets/app.js?v=13.7"></script>
+  <script type="module" src="/assets/app.js?v=13.8"></script>
 </head>
 <body>
   <div class="workbench">
@@ -101,6 +101,7 @@
           <label id="web-access-option" class="approval-option" hidden><input id="web-access" type="checkbox"> 允許讀取公開網頁（web_fetch；內容視為不可信資料，需引用網址）</label>
           <label id="python-sandbox-option" class="approval-option" hidden><input id="python-sandbox" type="checkbox"> 允許在隔離容器執行 Python（無網路、來源唯讀，輸出需引用）</label>
           <label id="subagents-option" class="approval-option" hidden><input id="subagents" type="checkbox"> 允許把子問題交給子代理（獨立上下文、只讀指定來源，報告需通過引用驗證）</label>
+          <label id="search-option" class="approval-option" hidden><input id="source-search" type="checkbox"> 允許在來源內搜尋相關的行（回傳原文與行號，大型來源不必整份讀取）</label>
           <label id="compaction-option" class="approval-option" hidden><input id="context-compaction" type="checkbox"> 來源放不進模型上下文時，改讓模型讀取摘要（有損並標示；引用與驗證仍對照完整來源）</label>
           <label class="approval-option"><input id="require-plan-approval" type="checkbox"> 先讓我核准計畫，再開始讀取來源與執行</label>
           <label class="approval-option"><input id="require-publish-approval" type="checkbox" checked> 保存成果前，由我確認這次內容</label>

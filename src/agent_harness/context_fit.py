@@ -197,7 +197,10 @@ class RequestFitter:
                     if call["function"]["name"] not in self.read_tools:
                         continue
                     result = json.loads(message["content"])
-                    ledger[result["evidence_id"]] = result
+                    if "evidence_id" in result:
+                        ledger[result["evidence_id"]] = result
+                    else:  # a read that produced no evidence (a search with no match): keep it, so it is not repeated
+                        self.navigation_state.setdefault("results_without_evidence", []).append(result)
             del window.messages[first:after]
             window.acknowledged_until -= after - first
             canonical, omitted_pinned_text = self._canonical()

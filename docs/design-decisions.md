@@ -104,7 +104,7 @@ flowchart LR
 
 - **A shell and file edits.** They need a real sandbox and change what the project is about. Python runs only in a locked-down container, with sources mounted read-only.
 - **Multi-user hosting.** It needs authentication, tenant isolation and a different store. The README says so instead of offering a half version.
-- **Retrieval (RAG).** Sources are a handful of files the user selected; reading them directly keeps every citation exact. Retrieval would matter with hundreds of documents.
+- **A document store with embeddings.** Sources are a handful of files the user selected, so there is nothing to index. What exists is `source_search`: lexical retrieval inside one selected source that returns exact lines with line numbers, so retrieved text is evidence like any other read. Semantic retrieval over hundreds of documents would need an embedding model and an index, and a way to keep citations exact; that is not built.
 - **Plugins.** MCP, skills and hooks cover extension without loading third-party code into the process.
 
 ## 12. Evaluation records what happened

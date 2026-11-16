@@ -1,0 +1,127 @@
+[
+  {
+    "id": "search-single",
+    "attempt": 1,
+    "run_id": "53646d76666d4dc2b20d1a5dcb47d488",
+    "exit_code": 0,
+    "seconds": 24,
+    "status": "completed",
+    "result": "根據維運日誌，支付閘道憑證更新造成結帳中斷 47 分鐘 [ops-log.md E1]，負責處理的是平台組蔡宗翰 [ops-log.md E1]。",
+    "error": null,
+    "usage": {
+      "model_calls": 5,
+      "tool_calls": 5
+    },
+    "token_usage": {
+      "input_tokens": 5801,
+      "output_tokens": 231,
+      "reported_responses": 5,
+      "unreported_responses": 0
+    },
+    "artifacts": [],
+    "artifact_text": null,
+    "tools": [
+      "plan_update",
+      "workspace_list",
+      "source_search",
+      "task_finish"
+    ],
+    "reads": [],
+    "rejected": [
+      "task_finish:missing_answer_citation"
+    ],
+    "subagents": 0,
+    "compacted": [],
+    "stderr": "Run 53646d76666d4dc2b20d1a5dcb47d488 accepted; events follow on stdout.\n",
+    "problems": [],
+    "passed": true
+  },
+  {
+    "id": "search-scattered",
+    "attempt": 1,
+    "run_id": "b8034d90679c445083bcebd5a6ef51ab",
+    "exit_code": 0,
+    "seconds": 34,
+    "status": "completed",
+    "result": "根據維運日誌，共記錄了三次服務中斷事件：\n\n1. **第 12 週**：訂單寫入中斷 **31 分鐘**，負責處理的是資料組的許雅雯 [ops-log-incidents.md E1]。\n2. **第 67 週**：結帳中斷 **47 分鐘**，負責處理的是平台組的蔡宗翰 [ops-log-incidents.md E1]。\n3. **第 109 週**：搜尋中斷 **58 分鐘**，負責處理的是搜尋組的鄭凱文 [ops-log-incidents.md E1]。",
+    "error": null,
+    "usage": {
+      "model_calls": 6,
+      "tool_calls": 6
+    },
+    "token_usage": {
+      "input_tokens": 7352,
+      "output_tokens": 584,
+      "reported_responses": 6,
+      "unreported_responses": 0
+    },
+    "artifacts": [],
+    "artifact_text": null,
+    "tools": [
+      "plan_update",
+      "workspace_list",
+      "source_search",
+      "task_finish"
+    ],
+    "reads": [],
+    "rejected": [
+      "source_read:source_too_large_for_context",
+      "task_finish:missing_answer_citation"
+    ],
+    "subagents": 0,
+    "compacted": [],
+    "stderr": "Run b8034d90679c445083bcebd5a6ef51ab accepted; events follow on stdout.\n",
+    "problems": [],
+    "passed": true
+  },
+  {
+    "id": "search-absent",
+    "attempt": 1,
+    "run_id": "51d2960be6c2463382a58b7a8cb05677",
+    "exit_code": 1,
+    "seconds": 40,
+    "status": "failed",
+    "result": "",
+    "error": {
+      "code": "step_limit_exceeded",
+      "message": "This Run reached its model decision limit."
+    },
+    "usage": {
+      "model_calls": 14,
+      "tool_calls": 14
+    },
+    "token_usage": {
+      "input_tokens": 20496,
+      "output_tokens": 510,
+      "reported_responses": 14,
+      "unreported_responses": 0
+    },
+    "artifacts": [],
+    "artifact_text": null,
+    "tools": [
+      "plan_update",
+      "workspace_list",
+      "source_search",
+      "source_search",
+      "source_search",
+      "source_search",
+      "source_search",
+      "source_search",
+      "source_search",
+      "source_search",
+      "source_search",
+      "source_search",
+      "source_search",
+      "source_search"
+    ],
+    "reads": [],
+    "rejected": [],
+    "subagents": 0,
+    "compacted": [],
+    "stderr": "Run 51d2960be6c2463382a58b7a8cb05677 accepted; events follow on stdout.\n",
+    "problems": [
+      "status failed: step_limit_exceeded"
+    ],
+    "passed": false
+  }
+]

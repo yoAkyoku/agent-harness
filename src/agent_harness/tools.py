@@ -21,6 +21,8 @@ from .sources import (MAX_SOURCE_BYTES, MAX_SOURCE_PATH, MAX_SOURCES, TABLE_EXTE
 from .storage import Record, Store
 from .tables import ratio_percent, table_result
 from .sandbox import PARAMETERS as PYTHON_PARAMETERS, TOOL_NAME as PYTHON_TOOL, PythonSandbox, is_run_evidence
+from .search import (MAX_RESULT_BYTES as MAX_SEARCH_BYTES, PARAMETERS as SEARCH_PARAMETERS, TOOL_NAME as SEARCH_TOOL,
+                     evidence_note as search_note, search_lines, tokens as search_tokens)
 from .subagent import PARAMETERS as SUBAGENT_PARAMETERS, TOOL_NAME as SUBAGENT_TOOL, is_report_evidence, report_note
 from .vision import transcription_note
 from .web_fetch import PARAMETERS as WEB_PARAMETERS, TOOL_NAME as WEB_TOOL, WebFetcher, is_page_evidence
@@ -374,8 +376,12 @@ class Tools:
                  mcp_hub: McpHub | None = None, skills: dict[str, Skill] | None = None,
                  plan_approval: bool = False, web: WebFetcher | None = None,
                  python: PythonSandbox | None = None, subagents: bool = False,
-                 extraction: Extraction | None = None) -> None:
+                 extraction: Extraction | None = None, search: bool = False) -> None:
         self.store = store
+        self.search = search  # set when this Run asked for source_search
+        # With search offered (and no compaction), the room left in the context window: a read larger than this is refused.
+        self.read_limit_bytes: int | None = None
+        self._searches: dict[tuple[Any, ...], str] = {}  # identical searches return the evidence they already produced
         self.extraction = extraction  # the workbench's OCR and vision configuration for scanned PDFs and images
         # Set when the workbench allows subagents and this Run asked for them; the runtime supplies the runner.
         self.subagents = subagents
@@ -430,7 +436,8 @@ class Tools:
                 if not is_report_evidence(result) or any(
                         self.sources.get(item["path"], {}).get("sha256") != item["sha256"] for item in result["sources"]):
                     raise RunFailure("checkpoint_evidence_invalid", "Restored subagent evidence must match selected source versions.")
-            elif call["tool"] not in {"source_read", "table_inspect", "table_aggregate", "number_calculate", "base_artifact_read"}:
+            elif call["tool"] not in {"source_read", "table_inspect", "table_aggregate", "number_calculate", "base_artifact_read",
+                                      SEARCH_TOOL}:
                 raise RunFailure("checkpoint_evidence_invalid", "The checkpoint contains an unsupported evidence producer.")
             elif call["tool"] == "base_artifact_read":
                 expected = self._base_result()
@@ -517,6 +524,17 @@ class Tools:
             except ValidationError as error:
                 raise RunFailure("invalid_arguments", "python_run takes non-empty code of at most 20000 characters.",
                                  correctable_fields=("code",)) from error
+            return
+        if call.name == SEARCH_TOOL and self.search:
+            try:
+                Draft202012Validator(SEARCH_PARAMETERS).validate(call.arguments)
+            except ValidationError as error:
+                raise RunFailure("invalid_arguments", "source_search takes a selected source path and a query of 1-200 characters.",
+                                 correctable_fields=tuple(str(part) for part in list(error.absolute_path)[:1]) or ("path", "query")) from error
+            if not search_tokens(call.arguments["query"]):
+                raise RunFailure("invalid_arguments", "The query has no searchable words.", correctable_fields=("query",))
+            if call.arguments["path"] not in self.sources:
+                raise RunFailure("source_forbidden", "The requested source was not selected for this task.")
             return
         if call.name == SUBAGENT_TOOL and self.subagents:
             try:
@@ -613,6 +631,7 @@ class Tools:
                        else "read_only" if call.name == WEB_TOOL and self.web is not None
                        else "read_only" if call.name == PYTHON_TOOL and self.python is not None
                        else "read_only" if call.name == SUBAGENT_TOOL and self.subagents
+                       else "read_only" if call.name == SEARCH_TOOL and self.search
                        else DEFINITIONS[call.name]["effect"]),
             "sources": deepcopy(list(self.sources.values()))}
         if call.name in self.mcp_tools:
@@ -658,6 +677,8 @@ class Tools:
             return self._evidence(await self.web.fetch(prepared.arguments["url"]))
         if call.name == PYTHON_TOOL and self.python is not None:
             return self._evidence(await self.python.run(prepared.arguments["code"], self.root, list(self.sources.values())))
+        if call.name == SEARCH_TOOL and self.search:
+            return await self._search(prepared.arguments)
         if call.name == SUBAGENT_TOOL and self.subagents:
             if self.subagent_runner is None:
                 raise RunFailure("subagent_failed", "No subagent runner is available.")
@@ -672,12 +693,51 @@ class Tools:
 
     async def _read(self, arguments: Record) -> Record:
         source = await self._source(arguments["path"])
+        size = len(source["text"].encode("utf-8"))
+        if self.read_limit_bytes is not None and size > self.read_limit_bytes:
+            raise RunFailure("source_too_large_for_context", (
+                f"{arguments['path']} has {size} bytes of text, more than the {self.read_limit_bytes} left in the context "
+                "window, so reading it whole cannot fit. Use source_search to get its relevant lines instead."))
         labelled = await asyncio.to_thread(labelled_source_lines, source["text"])
         if labelled:
             source["labelled_lines"] = labelled
         if arguments.get("labels"):
             source["label_queries"] = await asyncio.to_thread(query_source_labels, source["text"], arguments["labels"])
         return self._evidence({**source, "line_start": 1, "line_end": max(1, len(source["text"].splitlines()))})
+
+    async def _search(self, arguments: Record) -> Record:
+        """The best-matching lines of one source, word for word, as evidence for that file version.
+
+        No match is evidence too, of what was searched: these words are on no line of this version.
+        """
+        source = await self._source(arguments["path"])
+        # The result must fit the room left in the context window, or it would stop the Run it was meant to help.
+        limit = (MAX_SEARCH_BYTES if self.read_limit_bytes is None
+                 else max(256, min(MAX_SEARCH_BYTES, self.read_limit_bytes - 512)))
+        key = (source["path"], source["sha256"], arguments["query"], arguments.get("max_results", 8), arguments.get("context", 1))
+        previous = self.evidence.get(self._searches.get(key, ""))
+        if previous is not None and len(previous["text"].encode("utf-8")) <= limit:
+            # The same search on the same file version cannot return anything new. It is refused, and the refusal
+            # spends the correction budget: a model that keeps asking stops early instead of at the step limit.
+            raise RunFailure("repeated_search", (
+                f"This exact search already ran; its result is evidence {previous['evidence_id']} "
+                f"({previous['matched_lines']} matching lines) and cannot change. Answer from the evidence you have, "
+                "citing it, or search with different words."), correctable_fields=("query",))
+        found = await asyncio.to_thread(search_lines, source["text"], arguments["query"],
+                                        max_results=arguments.get("max_results", 8), context=arguments.get("context", 1),
+                                        limit_bytes=limit)
+        base = {"evidence_type": "source_search", "path": source["path"], "sha256": source["sha256"], "query": arguments["query"]}
+        if not found["lines"] and found["matched_lines"]:
+            return {**base, "matched_lines": found["matched_lines"], "total_lines": found["total_lines"],
+                    "note": "The matching lines are too long to return; narrow the query."}
+        if not found["lines"]:
+            result = self._evidence({**base, **found, "line_start": 1, "line_end": max(1, found["total_lines"]), "note": (
+                "No line shares a word with the query. This is evidence only that these words do not occur in the source, "
+                "not proof that it lacks the information: try other words before concluding.")})
+        else:
+            result = self._evidence({**base, **found, "line_start": found["lines"][0], "line_end": found["lines"][-1]})
+        self._searches[key] = result["evidence_id"]
+        return result
 
     def _base_result(self) -> Record:
         base = self.base_artifact
@@ -806,7 +866,7 @@ class Tools:
                 elif "path" in evidence:
                     notes.append(f"- [{identity}] {evidence['path']}:L{evidence['line_start']}-L{evidence['line_end']} SHA-256 {evidence['sha256']}"
                                  + (f"; {evidence['operation']}({evidence['column']}) = {evidence['value']}" if "value" in evidence else "")
-                                 + transcription_note(evidence) + report_note(evidence))
+                                 + transcription_note(evidence) + report_note(evidence) + search_note(evidence))
                 else:
                     references.extend(evidence["inputs"])
                     notes.append(f"- [{identity}] {evidence['operation']}({', '.join(evidence['inputs'])}) = {evidence['value']}")

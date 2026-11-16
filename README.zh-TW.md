@@ -107,6 +107,14 @@ Run 可以把一個獨立的子問題交給子代理：同一個模型的另一�
 
 證據不會因為「信任」而跨越邊界。子代理必須以一個答案結束，而且這個答案要對照它自己的證據，通過和直接回答相同的引用檢查；沒通過的答案不會送到父 Run，父 Run 只會被告知子任務失敗，可以改用自己的工具完成。通過驗證的報告在父 Run 成為一筆證據（`[subagent EID]`）：內容是報告文字（子代理自己的證據 ID 會改寫成來源名稱，避免和父 Run 的 ID 混淆），加上驗證時對照的來源版本路徑與 SHA-256。證據附錄與 `answer.verified` 都會註明這是模型撰寫的報告，不是來源原文。子代理的每一步都以 `subagent.*` 事件記錄在父 Run 的事件中。
 
+### 在來源內搜尋
+
+來源太大、無法整份讀取時，Run 可以改用搜尋。勾選「允許在來源內搜尋相關的行」（API：`"source_search": true`，無頭模式：`--search`），模型就會多一個 `source_search {path, query}` 工具。它依查詢為一個已選來源的每一行評分，回傳最相關的幾行與其相鄰的行，逐字不改，並附上行號。評分使用 BM25，以詞為單位；中文、日文、韓文則以相鄰的兩個字為單位。這裡沒有嵌入模型，也沒有索引：每次呼叫都重新讀取來源、核對受理時的雜湊，再評分。
+
+回傳的是來源自己的文字，所以它和 `source_read` 一樣是同一個檔案版本的證據（`[path EID]`，並記錄涵蓋的行），引用與驗證器都照常運作。和壓縮不同，這裡沒有任何改寫。檢索給不了的是完整性：和查詢沒有共同字詞的行不會被回傳。沒有匹配的搜尋仍然是證據，證明的正是被檢查的那件事：這個檔案版本沒有任何一行包含這些字詞。它可以被引用（所以 Run 能誠實回答「找不到」），而證據記錄、附錄與 `answer.verified` 都會註明字詞搜尋不能證明資訊不存在。結果最多 20 筆匹配、8 KiB；上下文剩餘空間更小時以剩餘空間為上限。截斷時會標示，並優先保留匹配的行而不是相鄰的行。重複完全相同的搜尋會被拒絕（`repeated_search`），訊息指出先前產生的證據，並計入 Run 的修正次數。
+
+開啟搜尋（且未開啟壓縮）時，如果 `source_read` 要讀的文字比上下文剩餘的空間還大，會以 `source_too_large_for_context` 拒絕，並提示改用 `source_search`。照樣執行只會讓整個 Run 在下一個請求失敗；拒絕它，模型才有機會改變做法。
+
 ### 來源比模型上下文還大
 
 預設情況下 Run 不會做摘要：無損的調整都做完仍放不進去時，就以 `context_limit_exceeded` 停止。小型本機模型遇到長文件就會碰到這個上限。在 Run 勾選「來源放不進模型上下文時，改讓模型讀取摘要」（API：`"context_compaction": true`，無頭模式：`--compact`）可以多一個步驟：把模型視角中最大的一段證據文字，換成同一個模型逐段寫出的摘要；每個分段請求只包含任務和一段原文。
@@ -246,7 +254,7 @@ docker build -f Dockerfile.test --secret id=ca,src=host-ca.pem -t agent-harness-
 
 ## 目錄
 
-- `src/agent_harness/`：harness 本體。`runtime.py`（循環）、`context_fit.py`（依序執行的上下文步驟）、`context.py`（預算量測與訊息搬移）、`extraction.py`（掃描檔與圖片的 OCR 與視覺模型）、`trace.py`（OpenTelemetry 匯出）、`tools.py`、`verifiers.py`、`storage.py`、`checkpoints.py`、`event_stream.py`、`model.py` 與 `anthropic_adapter.py`（供應商）、`mcp_hub.py`（MCP 工具）、`skills.py`（Skills）、`instructions.py`（AGENTS.md）、`uploads.py`、`hooks.py`、`subagent.py`（委派的子任務）、`compaction.py`（選用的摘要）、`web_fetch.py`、`sandbox.py`、`vision.py`、`remote.py`（端點與憑證規則）、`headless.py`（NDJSON 用戶端）、`web.py`（API）、`static/`（工作台）。
+- `src/agent_harness/`：harness 本體。`runtime.py`（循環）、`context_fit.py`（依序執行的上下文步驟）、`context.py`（預算量測與訊息搬移）、`extraction.py`（掃描檔與圖片的 OCR 與視覺模型）、`search.py`（來源內的原文檢索）、`trace.py`（OpenTelemetry 匯出）、`tools.py`、`verifiers.py`、`storage.py`、`checkpoints.py`、`event_stream.py`、`model.py` 與 `anthropic_adapter.py`（供應商）、`mcp_hub.py`（MCP 工具）、`skills.py`（Skills）、`instructions.py`（AGENTS.md）、`uploads.py`、`hooks.py`、`subagent.py`（委派的子任務）、`compaction.py`（選用的摘要）、`web_fetch.py`、`sandbox.py`、`vision.py`、`remote.py`（端點與憑證規則）、`headless.py`（NDJSON 用戶端）、`web.py`（API）、`static/`（工作台）。
 - `tests/`：公開介面測試與 fixtures，包含錄製的模型執行紀錄。
 - `evaluation/`：固定題組，真值在任何模型執行前寫定。
 - `scripts/`：對執行中的工作台跑題組，保存每個事件、成果與評分的記錄器。

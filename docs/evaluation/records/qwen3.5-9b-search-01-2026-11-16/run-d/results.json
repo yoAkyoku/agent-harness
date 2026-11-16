@@ -1,0 +1,125 @@
+[
+  {
+    "id": "search-single",
+    "attempt": 1,
+    "run_id": "1b7975333468448690db646adc8204a5",
+    "exit_code": 0,
+    "seconds": 19,
+    "status": "completed",
+    "result": "根據維運日誌，支付閘道憑證更新造成結帳中斷 47 分鐘 [ops-log.md E1]，負責處理的是平台組蔡宗翰 [ops-log.md E1]。",
+    "error": null,
+    "usage": {
+      "model_calls": 5,
+      "tool_calls": 5
+    },
+    "token_usage": {
+      "input_tokens": 5801,
+      "output_tokens": 231,
+      "reported_responses": 5,
+      "unreported_responses": 0
+    },
+    "artifacts": [],
+    "artifact_text": null,
+    "tools": [
+      "plan_update",
+      "workspace_list",
+      "source_search",
+      "task_finish"
+    ],
+    "reads": [],
+    "rejected": [
+      "task_finish:missing_answer_citation"
+    ],
+    "subagents": 0,
+    "compacted": [],
+    "stderr": "Run 1b7975333468448690db646adc8204a5 accepted; events follow on stdout.\n",
+    "problems": [],
+    "passed": true
+  },
+  {
+    "id": "search-scattered",
+    "attempt": 1,
+    "run_id": "e7b1331a5b46492f8eb5b4b5c0e1c06f",
+    "exit_code": 0,
+    "seconds": 199,
+    "status": "completed",
+    "result": "根據維運日誌，共記錄了三次服務中斷事件：\n\n1. **第 12 週**：訂單寫入中斷 **31 分鐘**，負責處理的是資料組的許雅雯 [ops-log-incidents.md E1]。\n2. **第 67 週**：結帳中斷 **47 分鐘**，負責處理的是平台組的蔡宗翰 [ops-log-incidents.md E1]。\n3. **第 109 週**：搜尋中斷 **58 分鐘**，負責處理的是搜尋組的鄭凱文 [ops-log-incidents.md E1]。",
+    "error": null,
+    "usage": {
+      "model_calls": 6,
+      "tool_calls": 6
+    },
+    "token_usage": {
+      "input_tokens": 7352,
+      "output_tokens": 584,
+      "reported_responses": 6,
+      "unreported_responses": 0
+    },
+    "artifacts": [],
+    "artifact_text": null,
+    "tools": [
+      "plan_update",
+      "workspace_list",
+      "source_search",
+      "task_finish"
+    ],
+    "reads": [],
+    "rejected": [
+      "source_read:source_too_large_for_context",
+      "task_finish:missing_answer_citation"
+    ],
+    "subagents": 0,
+    "compacted": [],
+    "stderr": "Run e7b1331a5b46492f8eb5b4b5c0e1c06f accepted; events follow on stdout.\n",
+    "problems": [],
+    "passed": true
+  },
+  {
+    "id": "search-absent",
+    "attempt": 1,
+    "run_id": "f4094a4f2f8348128032b4acc553ed02",
+    "exit_code": 1,
+    "seconds": 28,
+    "status": "failed",
+    "result": "",
+    "error": {
+      "code": "context_limit_exceeded",
+      "message": "The complete request exceeds the configured conservative context envelope."
+    },
+    "usage": {
+      "model_calls": 12,
+      "tool_calls": 12
+    },
+    "token_usage": {
+      "input_tokens": 17618,
+      "output_tokens": 444,
+      "reported_responses": 12,
+      "unreported_responses": 0
+    },
+    "artifacts": [],
+    "artifact_text": null,
+    "tools": [
+      "plan_update",
+      "workspace_list",
+      "source_search",
+      "source_search",
+      "source_search",
+      "source_search",
+      "source_search",
+      "source_search",
+      "source_search",
+      "source_search",
+      "source_search",
+      "source_search"
+    ],
+    "reads": [],
+    "rejected": [],
+    "subagents": 0,
+    "compacted": [],
+    "stderr": "Run f4094a4f2f8348128032b4acc553ed02 accepted; events follow on stdout.\n",
+    "problems": [
+      "status failed: context_limit_exceeded"
+    ],
+    "passed": false
+  }
+]

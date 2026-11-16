@@ -17,7 +17,7 @@ from .contracts import Decision, PendingCorrection, RunCancelled, RunFailure, Ru
 from .extraction import Extraction
 from .hooks import HookRunner
 from .mcp_hub import McpHub
-from . import subagent
+from . import search, subagent
 from .sandbox import SANDBOX_ERRORS, TOOL_NAME as PYTHON_TOOL, PythonSandbox
 from .web_fetch import TOOL_NAME as WEB_TOOL, WEB_ERRORS, WebFetcher
 from .instructions import instructions_message
@@ -262,7 +262,10 @@ class Runtime:
              **({"transcription": evidence[key]["transcription"]} if "transcription" in evidence[key] else {}),
              # A cited subagent report is model-written; record the source versions it was verified against.
              **({"subagent_sources": evidence[key]["sources"]}
-                if evidence[key].get("evidence_type") == "subagent_report" else {})}
+                if evidence[key].get("evidence_type") == "subagent_report" else {}),
+             # A cited search says what was searched for and how much matched (zero is a statement about words, not meaning).
+             **({"search": {"query": evidence[key]["query"], "matched_lines": evidence[key]["matched_lines"]}}
+                if evidence[key].get("evidence_type") == "source_search" else {})}
             for key in cited]})
 
     async def _wait_approval(self, identity: str, approval_id: str) -> None:
@@ -321,10 +324,11 @@ class Runtime:
         delegation = bool(run.get("policy", {}).get("subagents"))
         if delegation and not self.subagents:
             raise RunFailure("subagents_unavailable", "This Run asked for subagents, but the workbench does not allow them.")
+        searching = bool(run.get("policy", {}).get("source_search"))
         # MCP tools are read-only evidence producers, like the built-in read tools.
         read_tools = (READ_TOOLS | {name for name, tool in mcp_tools.items() if not tool.approval}
                       | ({WEB_TOOL} if web_access else set()) | ({PYTHON_TOOL} if python_access else set())
-                      | ({subagent.TOOL_NAME} if delegation else set()))
+                      | ({subagent.TOOL_NAME} if delegation else set()) | ({search.TOOL_NAME} if searching else set()))
         tools = Tools(self.store, identity, root, run["sources"], require_citations=require_citations,
                       receipt_completion=receipt_mode, answer_completion=answer_mode,
                       base_artifact=run.get("base_artifact"),
@@ -332,7 +336,7 @@ class Runtime:
                       mcp_tools=mcp_tools, mcp_hub=self.mcp, skills=selected_skills,
                       plan_approval=bool(run.get("policy", {}).get("require_plan_approval")),
                       web=self.web if web_access else None, python=self.python if python_access else None,
-                      subagents=delegation, extraction=self.extraction)
+                      subagents=delegation, extraction=self.extraction, search=searching)
         if checkpoint is not None:
             tools.restore_evidence(checkpoint["confirmed"])
         label_queries_available = model.settings.mode == "fixture" and any(
@@ -369,6 +373,9 @@ class Runtime:
         if answer_mode:
             messages[0]["content"] += ("此任務以回答結束，不發布檔案：讀取來源後用 task_finish 的 summary 直接回答，"
                                        "每個事實與數值緊接引用 [來源 EID]；缺資料就說明未提供。")
+        if searching:
+            messages[0]["content"] += ("大型來源可用 source_search 找出與問題相關的行（回傳原文與行號，引用格式同 source_read），"
+                                       "不必整份讀取；沒有匹配不代表來源沒有該資訊，可換關鍵字或改讀全文。")
         if delegation:
             messages[0]["content"] += ("獨立且範圍明確的子問題可用 subagent_run 交給子代理：它只看得到你寫的 task 與指定的已選來源，"
                                        "回傳模型撰寫的報告作為證據，引用格式 [subagent EID]；失敗時改用自己的工具。")
@@ -575,6 +582,7 @@ class Runtime:
                 + ([self.web.definition()] if web_access and self.web is not None else [])
                 + ([self.python.definition()] if python_access and self.python is not None else [])
                 + ([subagent.definition()] if delegation else [])
+                + ([search.definition()] if searching else [])
                 + ([loader_definition(selected_skills)] if selected_skills else []))
             pending_tools = {correction.call.name for correction in pending.values()}
             if pending_tools == {"number_calculate"}:
@@ -618,6 +626,10 @@ class Runtime:
             messages, available_tools, budget = window.messages, window.tools, window.budget
             current_start, acknowledged_until, canonical_index = window.current_start, window.acknowledged_until, window.canonical_index
             compactions, summary_guidance_applied = window.compactions, window.summary_guidance_applied
+            # With search offered and no compaction, a whole-source read larger than the room left can only fail the
+            # Run at the next request, so it is refused now with a reason the model can act on.
+            tools.read_limit_bytes = (max(0, budget["capacity_tokens"] - budget["upper_bound_tokens"])
+                                      if searching and not compacting else None)
             usage["model_calls"] += 1
             # Calls are checked against exactly the catalogue this request offered.
             offered_tools = {tool["function"]["name"] for tool in available_tools}
@@ -875,7 +887,11 @@ class Runtime:
                         await feedback(call, error, retryable=call.name in read_tools and error.code in {
                             "source_unavailable", "invalid_table", "invalid_calculation",
                             "mcp_tool_error", "mcp_result_too_large", *WEB_ERRORS, *SANDBOX_ERRORS, "subagent_failed",
-                        }, owed=call.name != subagent.TOOL_NAME)  # a failed sub-task may be done by the parent itself
+                            "source_too_large_for_context", "repeated_search",
+                        # A failed sub-task may be done by the parent itself, a read that cannot fit is replaced by a
+                        # search, and a repeated search needs no retry at all: none of them must be redone to finish.
+                        }, owed=call.name != subagent.TOOL_NAME
+                        and error.code not in {"source_too_large_for_context", "repeated_search"})
                         continue
                     if (run["mode"] != "fixture" and call.name == "source_read"
                             and not any(later.name == "source_read" for later in decision.calls[call_index + 1:])):

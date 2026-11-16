@@ -87,6 +87,8 @@ Token 用量來自每次回覆：Chat Completions 供應商回報 `prompt_tokens
 
 `compaction.py` 是上下文預算中需選擇開啟的最後一步。`largest_target` 從目前 Run 的工具訊息與已保存的證據快照中，挑出文字最多的一筆證據；`summarize` 依行切段（`chunk_lines`），段落大小由「空白摘要請求」的實測預算推得，再透過單一的 `context_summary` 工具請模型逐段摘要（因此原生 tool calling 與 JSON tools 協定都適用）。遇到分段放不進去、摘要是空的、需要超過 12 次呼叫，或結果大於原文一半時就拒絕。`compacted_view` 接著從模型看到的記錄中移除 `text` 與其衍生視圖，加上 `text_summary` 與 `compacted` 標示。`tools.evidence`（引用與驗證器讀取的內容）不會被更動。摘要呼叫受 Run 的取消控制，並計入用量與 token 總計（`compaction.model_responded`）。
 
+`search.py` 是處理大型來源的無損做法。`search_lines` 把每一行切成 token（`tokens`：任何文字系統的小寫詞；CJK 連續字元則切成相鄰的兩字組），以 BM25 對照查詢中不重複的詞評分，取分數最高的 `max_results` 行，加上 `context` 行相鄰內容，依來源順序回傳；總量上限 8 KiB，超過時先捨棄分數最低的匹配並標示截斷。`Tools._search` 以和 `source_read` 相同的雜湊檢查讀取來源，並把這些行登記為該檔案版本的證據。沒有匹配的搜尋也會登記，文字為空、範圍是整個檔案：搜尋是決定性的，「這個版本沒有任何一行包含這些字詞」可以重新檢查，`evidence_note` 會註明它不能證明資訊不存在。開啟搜尋且未開啟壓縮時，迴圈會在每個請求量測後，把 `Tools.read_limit_bytes` 設為剩餘的空間；`_read` 遇到文字超過這個大小的來源，會在建立任何證據之前拒絕。這個失敗可重試、也不要求模型重試同一個呼叫，所以模型可以改用搜尋。基於同樣的理由，搜尋結果的大小以剩餘空間為上限（先放匹配的行、再放相鄰的行，所以空間緊時先捨棄分數最低的匹配）；對同一個檔案版本重複完全相同的搜尋會以 `repeated_search` 拒絕，訊息指出先前產生的證據，並計入修正額度；因此不斷重複的模型會在幾次決策後停止，而不是耗到步數上限。
+
 `trace.py` 把 Run 的事件轉成 OTLP/JSON，不會更動 Run：`run_trace` 依序走過事件一次，在 `model.requested`、`tool.requested` 或 `subagent.started` 開啟 span，在對應的結束事件關閉；trace 與 span 的 ID 由 Run ID 推導，所以同一個 Run 每次匯出的 trace 都相同。沒有回報結束的工作會在最後一個事件關閉並標示為 `unfinished`。屬性只帶名稱、代碼、大小與雜湊，不帶訊息、來源與結果的文字。
 
 ## 無頭用戶端

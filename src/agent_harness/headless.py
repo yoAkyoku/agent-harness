@@ -69,6 +69,9 @@ def parser() -> argparse.ArgumentParser:
                      help="Let this Run use the Python sandbox (the workbench must run with --python-sandbox).")
     cli.add_argument("--subagents", action="store_true",
                      help="Let this Run delegate sub-tasks to subagents (the workbench must run with --allow-subagents).")
+    cli.add_argument("--search", action="store_true",
+                     help="Offer source_search: the best-matching lines of a selected source, word for word, so a large "
+                          "source need not be read whole.")
     cli.add_argument("--compact", action="store_true",
                      help="When a request cannot fit the context window, let the model read a labelled summary of the "
                           "largest evidence text instead of stopping (citations and checks still use the full source).")
@@ -173,6 +176,8 @@ async def run(arguments: argparse.Namespace, task: str, out: TextIO) -> int:
         body["subagents"] = True
     if arguments.compact:
         body["context_compaction"] = True
+    if arguments.search:
+        body["source_search"] = True
     async with httpx.AsyncClient(base_url=base, headers=headers, trust_env=False, timeout=30) as client:
         workspace = await _post(client, "/api/workspaces", {"path": str(Path(arguments.workspace).resolve())})
         session = await _post(client, "/api/sessions", {"workspace_id": workspace["id"]})

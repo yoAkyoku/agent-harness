@@ -1,0 +1,124 @@
+[
+  {
+    "id": "search-single",
+    "attempt": 1,
+    "run_id": "bf3f0389c30847688248a78033244db2",
+    "exit_code": 0,
+    "seconds": 19,
+    "status": "completed",
+    "result": "根據維運日誌，支付閘道憑證更新造成結帳中斷 47 分鐘 [ops-log.md E1]，負責處理的是平台組蔡宗翰 [ops-log.md E1]。",
+    "error": null,
+    "usage": {
+      "model_calls": 5,
+      "tool_calls": 5
+    },
+    "token_usage": {
+      "input_tokens": 5801,
+      "output_tokens": 231,
+      "reported_responses": 5,
+      "unreported_responses": 0
+    },
+    "artifacts": [],
+    "artifact_text": null,
+    "tools": [
+      "plan_update",
+      "workspace_list",
+      "source_search",
+      "task_finish"
+    ],
+    "reads": [],
+    "rejected": [
+      "task_finish:missing_answer_citation"
+    ],
+    "subagents": 0,
+    "compacted": [],
+    "stderr": "Run bf3f0389c30847688248a78033244db2 accepted; events follow on stdout.\n",
+    "problems": [],
+    "passed": true
+  },
+  {
+    "id": "search-scattered",
+    "attempt": 1,
+    "run_id": "fc3e7379f5e840e6ab4d29f37bb9e21a",
+    "exit_code": 1,
+    "seconds": 13,
+    "status": "failed",
+    "result": "",
+    "error": {
+      "code": "context_limit_exceeded",
+      "message": "The complete request exceeds the configured conservative context envelope."
+    },
+    "usage": {
+      "model_calls": 4,
+      "tool_calls": 4
+    },
+    "token_usage": {
+      "input_tokens": 3817,
+      "output_tokens": 280,
+      "reported_responses": 4,
+      "unreported_responses": 0
+    },
+    "artifacts": [],
+    "artifact_text": null,
+    "tools": [
+      "plan_update",
+      "workspace_list",
+      "source_search"
+    ],
+    "reads": [],
+    "rejected": [
+      "source_read:source_too_large_for_context"
+    ],
+    "subagents": 0,
+    "compacted": [],
+    "stderr": "Run fc3e7379f5e840e6ab4d29f37bb9e21a accepted; events follow on stdout.\n",
+    "problems": [
+      "status failed: context_limit_exceeded"
+    ],
+    "passed": false
+  },
+  {
+    "id": "search-absent",
+    "attempt": 1,
+    "run_id": "34b5cd97221d48bf864332e6d16064cd",
+    "exit_code": 0,
+    "seconds": 25,
+    "status": "completed",
+    "result": "根據提供的維運日誌來源（ops-log.md），文件中未出現「外洩」或相關關鍵字，因此無法確認有記錄資料外洩事件。[E1] [E2] [E3] [E4] [E5] [E6]",
+    "error": null,
+    "usage": {
+      "model_calls": 10,
+      "tool_calls": 10
+    },
+    "token_usage": {
+      "input_tokens": 14169,
+      "output_tokens": 432,
+      "reported_responses": 10,
+      "unreported_responses": 0
+    },
+    "artifacts": [],
+    "artifact_text": null,
+    "tools": [
+      "plan_update",
+      "workspace_list",
+      "source_search",
+      "source_search",
+      "source_search",
+      "source_search",
+      "source_search",
+      "source_search",
+      "task_finish"
+    ],
+    "reads": [],
+    "rejected": [
+      "task_finish:missing_answer_citation"
+    ],
+    "subagents": 0,
+    "compacted": [],
+    "stderr": "Run 34b5cd97221d48bf864332e6d16064cd accepted; events follow on stdout.\n",
+    "problems": [
+      "answer does not say the field is missing"
+    ],
+    "passed": false
+  }
+]
