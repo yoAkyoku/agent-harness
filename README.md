@@ -25,7 +25,9 @@ flowchart LR
 <td><img src="docs/images/publish-approval.png" alt="Publish approval: the exact artifact, its evidence hashes and the parameter digest the approval binds to"></td>
 </tr></table>
 
-*Screenshots: a scripted Claude reply sequence over a mock SDK transport (no API calls), with plan and publish approval on and a workspace `AGENTS.md` applied.*
+*Screenshots: the built-in scripted demo model (no model and no API is called), with plan and publish approval on.*
+
+The workbench is laid out like a desktop app and fills the window: a title bar, a rail that switches the side panel (sources, routines, memory, history), the task area with a “Set up the task” tab and a “Run progress” tab, the artifact preview on the right and a status bar. Each region scrolls on its own, and the less-used settings sit under “Advanced options”.
 
 The Run view shows one row per tool call, with its state and evidence ID, and the decisions that needed you; “Show every event” brings back the full saved log. When a Run has finished, “After this run” offers to save it as a routine, draft a skill from it, or download its trace. A “Waiting for your decision” notice in the sidebar lists every Run paused at an approval, whichever Session or routine it belongs to (`GET /api/attention`).
 

@@ -342,3 +342,17 @@ def test_the_page_is_revalidated_and_carries_the_run_view_extras(tmp_path: Path)
                      "download-trace", "skill-draft-text", "approval-consequence"):
         assert f'id="{identity}"' in page.text, identity
     assert extras.status_code == 200 and "export function noteEvent" in extras.text
+
+
+def test_the_page_is_an_app_shell_whose_regions_are_switched_by_its_own_script(tmp_path: Path) -> None:
+    """Title bar, activity rail, side panel, task tabs, inspector and status bar; shell.js only shows and hides them."""
+    with TestClient(create_app(tmp_path / "store")) as client:
+        page = client.get("/").text
+        shell = client.get("/assets/shell.js")
+    for part in ('class="titlebar"', 'class="activity"', 'class="statusbar"', 'id="tab-compose"', 'id="tab-run"',
+                 'data-main-pane="compose"', 'data-main-pane="run"', 'src="/assets/shell.js'):
+        assert part in page, part
+    for side in ("workspace", "routines", "memory", "history"):  # every rail button has the panel it opens
+        assert f'data-side="{side}"' in page and f'data-side-section="{side}"' in page, side
+    assert page.index('data-main-pane="run"') < page.index('id="execution"') < page.index('class="preview-panel"')
+    assert shell.status_code == 200 and "MutationObserver" in shell.text

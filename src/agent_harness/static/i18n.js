@@ -371,7 +371,17 @@ const EN = {
   "請重新載入執行紀錄": "Reload the Run",
   "連線中斷，可手動重新連線": "Disconnected; you can reconnect manually",
   "連線中斷，正在重連": "Disconnected; reconnecting",
-  "連線暫時不可用": "Connection temporarily unavailable"
+  "連線暫時不可用": "Connection temporarily unavailable",
+  "主要區域": "Main areas",
+  "任務檢視": "Task views",
+  "來源": "Sources",
+  "記憶": "Memory",
+  "紀錄": "History",
+  "設定任務": "Set up the task",
+  "需要我確認的步驟": "Steps that wait for me",
+  "這次任務可以使用": "This task may use",
+  "已選的來源一律可以讀取。其他能力要在啟動工作台時開啟，才會出現在這裡。": "The selected sources can always be read. Other abilities appear here only when the workbench was started with them enabled.",
+  "進階選項": "Advanced options"
 };
 
 const has = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
