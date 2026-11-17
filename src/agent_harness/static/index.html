@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' ws://127.0.0.1:* ws://localhost:*; img-src 'self' data:; object-src 'none'; base-uri 'none'">
   <title>Agent Harness Demo</title>
-  <link rel="stylesheet" href="/assets/styles.css?v=10.0.0">
-  <script type="module" src="/assets/app.js?v=15.0"></script>
-  <script type="module" src="/assets/shell.js?v=1.1"></script>
+  <link rel="stylesheet" href="/assets/styles.css?v=10.1.0">
+  <script type="module" src="/assets/app.js?v=15.1"></script>
+  <script type="module" src="/assets/shell.js?v=1.2"></script>
 </head>
 <body>
   <div class="app">
@@ -85,6 +85,8 @@
         <div id="sessions"><p class="sidebar-note">完成的工作會保留在這裡。</p></div>
       </section>
     </aside>
+
+    <div id="split-side" class="splitter" role="separator" aria-orientation="vertical" tabindex="0" data-split="side" aria-label="調整側邊面板寬度（拖曳或用左右方向鍵；按兩下還原）"></div>
 
     <main class="task-panel">
       <div class="main-tabs" role="tablist" aria-label="任務檢視">
@@ -197,6 +199,8 @@
         </div>
       </div>
     </main>
+
+    <div id="split-inspect" class="splitter" role="separator" aria-orientation="vertical" tabindex="0" data-split="inspect" aria-label="調整成果預覽寬度（拖曳或用左右方向鍵；按兩下還原）"></div>
 
     <aside class="preview-panel" aria-label="來源與成果預覽">
       <header class="preview-header"><h2 id="preview-heading">成果預覽</h2><span id="preview-kind" class="preview-kind">等待成果</span></header>

@@ -356,3 +356,6 @@ def test_the_page_is_an_app_shell_whose_regions_are_switched_by_its_own_script(t
         assert f'data-side="{side}"' in page and f'data-side-section="{side}"' in page, side
     assert page.index('data-main-pane="run"') < page.index('id="execution"') < page.index('class="preview-panel"')
     assert shell.status_code == 200 and "MutationObserver" in shell.text
+    for name in ("side", "inspect"):  # a keyboard-reachable splitter for each resizable panel
+        assert f'id="split-{name}" class="splitter" role="separator" aria-orientation="vertical" tabindex="0"' in page, name
+    assert "pointerdown" in shell.text and "ArrowLeft" in shell.text

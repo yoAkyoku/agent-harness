@@ -56,7 +56,7 @@
 /* App shell: a fixed window with a title bar, an activity rail, a side panel, the task area, an inspector and a status bar. Each region scrolls on its own. */
 html,body{height:100%}
 body{overflow:hidden}
-.app{display:grid;grid-template-columns:76px 284px minmax(420px,1fr) minmax(340px,30%);grid-template-rows:46px minmax(0,1fr) 26px;height:100vh}
+.app{display:grid;grid-template-columns:76px var(--side-width,284px) minmax(420px,1fr) var(--inspect-width,minmax(340px,30%));grid-template-rows:46px minmax(0,1fr) 26px;height:100vh}
 .titlebar{grid-column:1/-1;display:flex;align-items:center;gap:14px;padding:0 14px;background:#1b2740;color:#e8edfa;border-bottom:1px solid #111a2e;min-width:0}
 .titlebar .brand{font-size:14px;gap:8px;color:#fff;flex-shrink:0}
 .titlebar .brand svg{width:22px;height:22px}
@@ -115,5 +115,17 @@ body{overflow:hidden}
 .statusbar .local-note{margin:0;font-size:11px;color:inherit}
 .statusbar .task-footer{padding:0;color:inherit;font-size:11px}
 .statusbar .preview-footnote{padding:0;border:0;color:inherit;font-size:11px;margin-left:auto}
-@media(max-width:1180px){.app{grid-template-columns:76px 250px minmax(0,1fr);grid-template-rows:46px minmax(0,1fr) minmax(0,38%) 26px}.activity,.sidebar{grid-row:2/4}.preview-panel{grid-column:3;border-left:0;border-top:1px solid var(--line)}.statusbar .task-footer{display:none}}
-@media(max-width:760px){body{overflow:auto}.app{display:flex;flex-direction:column;height:auto;min-height:100vh}.titlebar{flex-wrap:wrap;padding:8px 14px}.activity{flex-direction:row;overflow-x:auto}.activity .new-task{margin:0 6px 0 0;padding:7px 10px}.activity-button{padding:7px 10px}.sidebar{max-height:45vh}.task-panel,.main-pane,.preview-panel{overflow:visible}.statusbar{flex-wrap:wrap;white-space:normal;padding:6px 14px}}
+/* Every region has its place, so the two splitters can share a cell with the panel they resize. */
+.titlebar{grid-row:1}
+.activity{grid-column:1;grid-row:2}
+.sidebar{grid-column:2;grid-row:2}
+.task-panel{grid-column:3;grid-row:2}
+.preview-panel{grid-column:4;grid-row:2}
+.statusbar{grid-row:3}
+.splitter{grid-row:2;width:7px;z-index:3;cursor:col-resize;touch-action:none;background:transparent}
+#split-side{grid-column:2;justify-self:end;margin-right:-3px}
+#split-inspect{grid-column:4;justify-self:start;margin-left:-3px}
+.splitter:hover,.splitter:focus-visible,.resizing .splitter.dragging{background:#7f98d3;outline:0}
+body.resizing{cursor:col-resize;user-select:none}
+@media(max-width:1180px){.app{grid-template-columns:76px min(var(--side-width,250px),40vw) minmax(0,1fr);grid-template-rows:46px minmax(0,1fr) minmax(0,38%) 26px}.activity,.sidebar,#split-side{grid-row:2/4}.preview-panel{grid-column:3;grid-row:3;border-left:0;border-top:1px solid var(--line)}.statusbar{grid-row:4}#split-inspect{display:none}.statusbar .task-footer{display:none}}
+@media(max-width:760px){.splitter{display:none}body{overflow:auto}.app{display:flex;flex-direction:column;height:auto;min-height:100vh}.titlebar{flex-wrap:wrap;padding:8px 14px}.activity{flex-direction:row;overflow-x:auto}.activity .new-task{margin:0 6px 0 0;padding:7px 10px}.activity-button{padding:7px 10px}.sidebar{max-height:45vh}.task-panel,.main-pane,.preview-panel{overflow:visible}.statusbar{flex-wrap:wrap;white-space:normal;padding:6px 14px}}

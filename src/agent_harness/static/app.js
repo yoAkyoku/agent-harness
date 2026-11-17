@@ -1,7 +1,7 @@
-import {observeEvents} from "/assets/run-stream.js?v=7.4";
-import {memoryPanel} from "/assets/memory.js?v=6.4";
-import {lang, saveLang, t, translatePage} from "/assets/i18n.js?v=1.8";
-import {initExtras, noteEvent, refreshAttention, refreshRoutines, renderRunActions} from "/assets/extras.js?v=1.3";
+import {observeEvents} from "/assets/run-stream.js?v=7.5";
+import {memoryPanel} from "/assets/memory.js?v=6.5";
+import {lang, saveLang, t, translatePage} from "/assets/i18n.js?v=1.9";
+import {initExtras, noteEvent, refreshAttention, refreshRoutines, renderRunActions} from "/assets/extras.js?v=1.4";
 const $ = (id) => document.getElementById(id);
 translatePage();
 const locale = lang === "en" ? "en-US" : "zh-TW";
