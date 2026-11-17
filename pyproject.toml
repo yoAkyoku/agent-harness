@@ -21,6 +21,8 @@ dependencies = [
 
 [dependency-groups]
 dev = ["pytest>=8,<10", "mypy>=1,<2", "types-jsonschema>=4"]
+# Browser tests (tests/test_browser_flows.py); also needs `playwright install chromium`.
+e2e = ["playwright>=1.50,<2"]
 
 [build-system]
 requires = ["hatchling"]

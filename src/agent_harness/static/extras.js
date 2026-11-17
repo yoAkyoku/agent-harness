@@ -1,6 +1,6 @@
 // Workbench parts added around the Run view: the compact activity list, the actions on a finished Run
 // (save as routine, draft a skill, download the trace) and the routines panel.
-import {t} from "/assets/i18n.js?v=1.9";
+import {t} from "/assets/i18n.js?v=2.0";
 
 const $ = (id) => document.getElementById(id);
 const showAllKey = "agent-harness.show-all-events.v1";
@@ -30,7 +30,8 @@ export function initActivity() {
 }
 
 function hint(argumentsOf) {
-  const value = argumentsOf?.path || argumentsOf?.name || argumentsOf?.query || argumentsOf?.url;
+  const where = argumentsOf?.path || argumentsOf?.name || argumentsOf?.url, query = argumentsOf?.query;
+  const value = typeof where === "string" && typeof query === "string" ? `${where} · ${query}` : where || query;  // a search: where, and for what
   if (typeof value === "string") return value.length > 60 ? `${value.slice(0, 57)}…` : value;
   if (Array.isArray(argumentsOf?.steps)) return t("{count} 個步驟", {count: argumentsOf.steps.length});
   if (Array.isArray(argumentsOf?.sources)) return argumentsOf.sources.join(", ");

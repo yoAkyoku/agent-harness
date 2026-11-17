@@ -260,7 +260,26 @@ uv run mypy
 for file in src/agent_harness/static/*.js; do node --check "$file"; done
 ```
 
-Or run every check in a clean Linux container, with the real Tesseract:
+Six flows also run in a real browser (Chromium through Playwright) and are recorded. The model is a script, but the workbench, the MCP server and the command hook are real processes:
+
+| Recording | What it shows |
+|---|---|
+| `01-plan-and-publish-approval` | A plan is sent back with a note, the revised plan is approved, and the exact artifact is approved before it is saved |
+| `02-mcp-tools-and-approval` | An MCP tool with side effects waits for a single-use approval; a read-only MCP tool's result is cited as evidence |
+| `03-skills` | A skill is picked for the task and loaded on request; the finished Run drafts a new `SKILL.md` |
+| `04-hook-denies-a-tool-call` | A command hook refuses one `source_read`; the Run carries on with the other source |
+| `05-subagent-search-and-direct-answer` | A subagent and a source search answer a question directly, with verified citations and no file |
+| `06-app-shell-routines-and-attention` | Side panels, a resized panel remembered across a reload, the “waiting for your decision” list, a routine saved and triggered, the language switch |
+
+```bash
+uv sync --group e2e
+uv run playwright install chromium   # or set E2E_BROWSER_CHANNEL=msedge to use an installed browser
+E2E_SLOW_MO=250 E2E_HOLD_MS=1500 E2E_REPLY_DELAY=0.7 uv run pytest -q tests/test_browser_flows.py
+```
+
+The videos are written to `.tmp/e2e-videos/` (`E2E_VIDEO_DIR`). CI runs the same flows in the “Browser flows (recorded)” job and keeps the videos as the `browser-flow-videos` artifact. Without Playwright installed, `uv run pytest` skips these six tests. They check what the page shows for a scripted model; they say nothing about how a real model behaves.
+
+Or run every other check in a clean Linux container, with the real Tesseract:
 
 ```bash
 docker build -f Dockerfile.test -t agent-harness-test .

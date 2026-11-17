@@ -72,6 +72,35 @@ jobs:
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8787/api/config)" = 401
           docker rm -f harness
 
+  browser:
+    name: Browser flows (recorded)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies and Chromium
+        run: |
+          uv sync --locked --group e2e
+          uv run playwright install --with-deps chromium
+      - name: Drive the workbench in a browser
+        # A scripted model, a real MCP server and a real command hook; slowed down so the videos can be followed.
+        run: uv run pytest -q tests/test_browser_flows.py
+        env:
+          REQUIRE_BROWSER_TESTS: "1"
+          E2E_SLOW_MO: "250"
+          E2E_HOLD_MS: "1500"
+          E2E_REPLY_DELAY: "0.7"
+          E2E_VIDEO_DIR: e2e-videos
+      - name: Keep the recordings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-flow-videos
+          path: e2e-videos
+          retention-days: 30
+
   docker-tests:
     name: Tests in Docker
     runs-on: ubuntu-latest

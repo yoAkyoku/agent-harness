@@ -260,7 +260,26 @@ uv run mypy
 for file in src/agent_harness/static/*.js; do node --check "$file"; done
 ```
 
-也可以在乾淨的 Linux 容器中執行所有檢查（含真正的 Tesseract）：
+另外有六個流程會在真正的瀏覽器（透過 Playwright 的 Chromium）裡執行並錄影。模型是腳本，但工作台、MCP 伺服器與指令 hook 都是真正的行程：
+
+| 影片 | 內容 |
+|---|---|
+| `01-plan-and-publish-approval` | 附上意見退回計畫、核准修改後的計畫，並在保存前核准確切的成果內容 |
+| `02-mcp-tools-and-approval` | 有副作用的 MCP 工具等待單次核准；唯讀 MCP 工具的結果被引用為證據 |
+| `03-skills` | 為任務勾選 skill 並在需要時載入；完成的 Run 產生新的 `SKILL.md` 草稿 |
+| `04-hook-denies-a-tool-call` | 指令 hook 拒絕一次 `source_read`；Run 以另一份來源繼續完成 |
+| `05-subagent-search-and-direct-answer` | 子代理與來源搜尋直接回答問題，引用通過驗證，不產生檔案 |
+| `06-app-shell-routines-and-attention` | 側邊面板切換、調整後的面板寬度在重新載入後保留、「等待你的決定」清單、儲存並觸發 routine、切換語言 |
+
+```bash
+uv sync --group e2e
+uv run playwright install chromium   # 或設定 E2E_BROWSER_CHANNEL=msedge 使用已安裝的瀏覽器
+E2E_SLOW_MO=250 E2E_HOLD_MS=1500 E2E_REPLY_DELAY=0.7 uv run pytest -q tests/test_browser_flows.py
+```
+
+影片會寫到 `.tmp/e2e-videos/`（`E2E_VIDEO_DIR`）。CI 的「Browser flows (recorded)」工作會執行同樣的流程，並把影片保留為 `browser-flow-videos` artifact。沒有安裝 Playwright 時，`uv run pytest` 會略過這六個測試。它們檢查的是頁面對腳本模型顯示了什麼，不能說明真實模型的行為。
+
+也可以在乾淨的 Linux 容器中執行其餘所有檢查（含真正的 Tesseract）：
 
 ```bash
 docker build -f Dockerfile.test -t agent-harness-test .

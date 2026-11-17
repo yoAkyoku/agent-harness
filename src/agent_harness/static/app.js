@@ -1,7 +1,7 @@
-import {observeEvents} from "/assets/run-stream.js?v=7.5";
-import {memoryPanel} from "/assets/memory.js?v=6.5";
-import {lang, saveLang, t, translatePage} from "/assets/i18n.js?v=1.9";
-import {initExtras, noteEvent, refreshAttention, refreshRoutines, renderRunActions} from "/assets/extras.js?v=1.4";
+import {observeEvents} from "/assets/run-stream.js?v=7.6";
+import {memoryPanel} from "/assets/memory.js?v=6.6";
+import {lang, saveLang, t, translatePage} from "/assets/i18n.js?v=2.0";
+import {initExtras, noteEvent, refreshAttention, refreshRoutines, renderRunActions} from "/assets/extras.js?v=1.6";
 const $ = (id) => document.getElementById(id);
 translatePage();
 const locale = lang === "en" ? "en-US" : "zh-TW";
@@ -611,6 +611,7 @@ function appendEvent(event) {
   const number = document.createElement("span"); number.className = "event-number"; number.textContent = String(event.sequence).padStart(2, "0");
   Object.assign(titles, {"checkpoint.saved": t("中斷恢復紀錄已保存"), "checkpoint.loaded": t("已載入前次確認結果"), "recovery.detected": t("重啟後已檢查中斷狀態"), "tool.reconciled": t("成果對帳確認：{tool}", {tool}), "tool.reused": t("沿用已確認結果：{tool}", {tool}), "artifact.reconciled": t("保留成果已核對")});
   Object.assign(titles, {"completion.recovery_requested": t("完成回覆空白，僅允許補交完成摘要")});
+  Object.assign(titles, {"answer.verified": t("回答的引用已通過驗證")});
   Object.assign(titles, {"subagent.started": t("子代理開始：{task}", {task: String(event.data.task || "").slice(0, 80)}), "subagent.model_requested": t("子代理請求模型"), "subagent.model_responded": event.data.text || t("子代理提出 {count} 個工具操作", {count: event.data.tool_count}), "subagent.tool_completed": t("子代理完成：{tool}", {tool}), "subagent.tool_refused": t("子代理的操作被拒絕：{tool}", {tool}), "context.compacted": t("已用模型摘要取代證據 {id} 的文字（有損，已標示）", {id: event.data.evidence_id}), "context.compaction_failed": t("無法摘要證據 {id}", {id: event.data.evidence_id}), "subagent.completed": t("子代理的報告已通過引用驗證"), "subagent.failed": t("子代理未產生可驗證的報告")});
   const title = document.createElement("span"); title.className = "event-title"; title.textContent = titles[event.kind] || event.kind;
   const time = document.createElement("time"); time.className = "event-time"; time.dateTime = event.timestamp; time.textContent = new Date(event.timestamp).toLocaleTimeString(locale, {hour12: false});

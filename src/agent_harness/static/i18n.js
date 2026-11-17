@@ -382,6 +382,7 @@ const EN = {
   "這次任務可以使用": "This task may use",
   "已選的來源一律可以讀取。其他能力要在啟動工作台時開啟，才會出現在這裡。": "The selected sources can always be read. Other abilities appear here only when the workbench was started with them enabled.",
   "進階選項": "Advanced options",
+  "回答的引用已通過驗證": "The answer's citations passed the checks",
   "調整側邊面板寬度（拖曳或用左右方向鍵；按兩下還原）": "Resize the side panel (drag, or use the left and right arrow keys; double-click to reset)",
   "調整成果預覽寬度（拖曳或用左右方向鍵；按兩下還原）": "Resize the artifact preview (drag, or use the left and right arrow keys; double-click to reset)"
 };
