@@ -25,7 +25,7 @@ flowchart LR
 <td><img src="docs/images/publish-approval.png" alt="Publish approval: the exact artifact, its evidence hashes and the parameter digest the approval binds to"></td>
 </tr></table>
 
-*Screenshots: the built-in scripted demo model (no model and no API is called), with plan and publish approval on.*
+*Screenshots: the built-in scripted demo model (no model and no API is called), with plan and publish approval on. Six recorded browser flows (approvals, MCP tools, skills, a hook, a subagent with search, the app shell) are under [Tests](#tests).*
 
 The workbench is laid out like a desktop app and fills the window: a title bar, a rail that switches the side panel (sources, routines, memory, history), the task area with a “Set up the task” tab and a “Run progress” tab, the artifact preview on the right and a status bar. Each region scrolls on its own, the side panel and the preview can be resized by dragging their edge (or with the arrow keys; the widths are remembered in the browser), and the less-used settings sit under “Advanced options”.
 
@@ -262,14 +262,14 @@ for file in src/agent_harness/static/*.js; do node --check "$file"; done
 
 Six flows also run in a real browser (Chromium through Playwright) and are recorded. The model is a script, but the workbench, the MCP server and the command hook are real processes:
 
-| Recording | What it shows |
+| Recording (click to play) | What it shows |
 |---|---|
-| `01-plan-and-publish-approval` | A plan is sent back with a note, the revised plan is approved, and the exact artifact is approved before it is saved |
-| `02-mcp-tools-and-approval` | An MCP tool with side effects waits for a single-use approval; a read-only MCP tool's result is cited as evidence |
-| `03-skills` | A skill is picked for the task and loaded on request; the finished Run drafts a new `SKILL.md` |
-| `04-hook-denies-a-tool-call` | A command hook refuses one `source_read`; the Run carries on with the other source |
-| `05-subagent-search-and-direct-answer` | A subagent and a source search answer a question directly, with verified citations and no file |
-| `06-app-shell-routines-and-attention` | Side panels, a resized panel remembered across a reload, the “waiting for your decision” list, a routine saved and triggered, the language switch |
+| <a href="docs/videos/01-plan-and-publish-approval.webm"><img src="docs/videos/01-plan-and-publish-approval.png" width="320" alt="01-plan-and-publish-approval"></a><br>[`01-plan-and-publish-approval`](docs/videos/01-plan-and-publish-approval.webm) | A plan is sent back with a note, the revised plan is approved, and the exact artifact is approved before it is saved |
+| <a href="docs/videos/02-mcp-tools-and-approval.webm"><img src="docs/videos/02-mcp-tools-and-approval.png" width="320" alt="02-mcp-tools-and-approval"></a><br>[`02-mcp-tools-and-approval`](docs/videos/02-mcp-tools-and-approval.webm) | An MCP tool with side effects waits for a single-use approval; a read-only MCP tool's result is cited as evidence |
+| <a href="docs/videos/03-skills.webm"><img src="docs/videos/03-skills.png" width="320" alt="03-skills"></a><br>[`03-skills`](docs/videos/03-skills.webm) | A skill is picked for the task and loaded on request; the finished Run drafts a new `SKILL.md` |
+| <a href="docs/videos/04-hook-denies-a-tool-call.webm"><img src="docs/videos/04-hook-denies-a-tool-call.png" width="320" alt="04-hook-denies-a-tool-call"></a><br>[`04-hook-denies-a-tool-call`](docs/videos/04-hook-denies-a-tool-call.webm) | A command hook refuses one `source_read`; the Run carries on with the other source |
+| <a href="docs/videos/05-subagent-search-and-direct-answer.webm"><img src="docs/videos/05-subagent-search-and-direct-answer.png" width="320" alt="05-subagent-search-and-direct-answer"></a><br>[`05-subagent-search-and-direct-answer`](docs/videos/05-subagent-search-and-direct-answer.webm) | A subagent and a source search answer a question directly, with verified citations and no file |
+| <a href="docs/videos/06-app-shell-routines-and-attention.webm"><img src="docs/videos/06-app-shell-routines-and-attention.png" width="320" alt="06-app-shell-routines-and-attention"></a><br>[`06-app-shell-routines-and-attention`](docs/videos/06-app-shell-routines-and-attention.webm) | Side panels, a resized panel remembered across a reload, the “waiting for your decision” list, a routine saved and triggered, the language switch |
 
 ```bash
 uv sync --group e2e
@@ -277,7 +277,7 @@ uv run playwright install chromium   # or set E2E_BROWSER_CHANNEL=msedge to use 
 E2E_SLOW_MO=250 E2E_HOLD_MS=1500 E2E_REPLY_DELAY=0.7 uv run pytest -q tests/test_browser_flows.py
 ```
 
-The videos are written to `.tmp/e2e-videos/` (`E2E_VIDEO_DIR`). CI runs the same flows in the “Browser flows (recorded)” job and keeps the videos as the `browser-flow-videos` artifact. Without Playwright installed, `uv run pytest` skips these six tests. They check what the page shows for a scripted model; they say nothing about how a real model behaves.
+The videos are written to `.tmp/e2e-videos/` (`E2E_VIDEO_DIR`). The copies in `docs/videos/` were recorded on Windows with headless Edge at those settings and are refreshed by hand (`E2E_VIDEO_DIR=docs/videos`); each picture is the recording's last frame. CI runs the same flows in the “Browser flows (recorded)” job and keeps the videos as the `browser-flow-videos` artifact. Without Playwright installed, `uv run pytest` skips these six tests. They check what the page shows for a scripted model; they say nothing about how a real model behaves.
 
 Or run every other check in a clean Linux container, with the real Tesseract:
 

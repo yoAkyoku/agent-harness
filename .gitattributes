@@ -9,3 +9,7 @@ src/agent_harness/demo_sources/** -text
 docs/evaluation/records/** -text
 docs/validation/** -text
 downloads/** -text
+
+# Recordings and their pictures.
+*.webm binary
+*.png binary
