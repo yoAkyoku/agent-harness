@@ -262,14 +262,14 @@ for file in src/agent_harness/static/*.js; do node --check "$file"; done
 
 另外有六個流程會在真正的瀏覽器（透過 Playwright 的 Chromium）裡執行並錄影。模型是腳本，但工作台、MCP 伺服器與指令 hook 都是真正的行程：
 
-| 影片（點擊播放） | 內容 |
+| 影片（動態預覽，點擊放大） | 內容 |
 |---|---|
-| <a href="docs/videos/01-plan-and-publish-approval.webm"><img src="docs/videos/01-plan-and-publish-approval.png" width="320" alt="01-plan-and-publish-approval"></a><br>[`01-plan-and-publish-approval`](docs/videos/01-plan-and-publish-approval.webm) | 附上意見退回計畫、核准修改後的計畫，並在保存前核准確切的成果內容 |
-| <a href="docs/videos/02-mcp-tools-and-approval.webm"><img src="docs/videos/02-mcp-tools-and-approval.png" width="320" alt="02-mcp-tools-and-approval"></a><br>[`02-mcp-tools-and-approval`](docs/videos/02-mcp-tools-and-approval.webm) | 有副作用的 MCP 工具等待單次核准；唯讀 MCP 工具的結果被引用為證據 |
-| <a href="docs/videos/03-skills.webm"><img src="docs/videos/03-skills.png" width="320" alt="03-skills"></a><br>[`03-skills`](docs/videos/03-skills.webm) | 為任務勾選 skill 並在需要時載入；完成的 Run 產生新的 `SKILL.md` 草稿 |
-| <a href="docs/videos/04-hook-denies-a-tool-call.webm"><img src="docs/videos/04-hook-denies-a-tool-call.png" width="320" alt="04-hook-denies-a-tool-call"></a><br>[`04-hook-denies-a-tool-call`](docs/videos/04-hook-denies-a-tool-call.webm) | 指令 hook 拒絕一次 `source_read`；Run 以另一份來源繼續完成 |
-| <a href="docs/videos/05-subagent-search-and-direct-answer.webm"><img src="docs/videos/05-subagent-search-and-direct-answer.png" width="320" alt="05-subagent-search-and-direct-answer"></a><br>[`05-subagent-search-and-direct-answer`](docs/videos/05-subagent-search-and-direct-answer.webm) | 子代理與來源搜尋直接回答問題，引用通過驗證，不產生檔案 |
-| <a href="docs/videos/06-app-shell-routines-and-attention.webm"><img src="docs/videos/06-app-shell-routines-and-attention.png" width="320" alt="06-app-shell-routines-and-attention"></a><br>[`06-app-shell-routines-and-attention`](docs/videos/06-app-shell-routines-and-attention.webm) | 側邊面板切換、調整後的面板寬度在重新載入後保留、「等待你的決定」清單、儲存並觸發 routine、切換語言 |
+| <a href="docs/videos/01-plan-and-publish-approval.gif"><img src="docs/videos/01-plan-and-publish-approval.gif" width="400" alt="01-plan-and-publish-approval"></a><br>`01-plan-and-publish-approval` · [完整影片（.webm）](docs/videos/01-plan-and-publish-approval.webm) | 附上意見退回計畫、核准修改後的計畫，並在保存前核准確切的成果內容 |
+| <a href="docs/videos/02-mcp-tools-and-approval.gif"><img src="docs/videos/02-mcp-tools-and-approval.gif" width="400" alt="02-mcp-tools-and-approval"></a><br>`02-mcp-tools-and-approval` · [完整影片（.webm）](docs/videos/02-mcp-tools-and-approval.webm) | 有副作用的 MCP 工具等待單次核准；唯讀 MCP 工具的結果被引用為證據 |
+| <a href="docs/videos/03-skills.gif"><img src="docs/videos/03-skills.gif" width="400" alt="03-skills"></a><br>`03-skills` · [完整影片（.webm）](docs/videos/03-skills.webm) | 為任務勾選 skill 並在需要時載入；完成的 Run 產生新的 `SKILL.md` 草稿 |
+| <a href="docs/videos/04-hook-denies-a-tool-call.gif"><img src="docs/videos/04-hook-denies-a-tool-call.gif" width="400" alt="04-hook-denies-a-tool-call"></a><br>`04-hook-denies-a-tool-call` · [完整影片（.webm）](docs/videos/04-hook-denies-a-tool-call.webm) | 指令 hook 拒絕一次 `source_read`；Run 以另一份來源繼續完成 |
+| <a href="docs/videos/05-subagent-search-and-direct-answer.gif"><img src="docs/videos/05-subagent-search-and-direct-answer.gif" width="400" alt="05-subagent-search-and-direct-answer"></a><br>`05-subagent-search-and-direct-answer` · [完整影片（.webm）](docs/videos/05-subagent-search-and-direct-answer.webm) | 子代理與來源搜尋直接回答問題，引用通過驗證，不產生檔案 |
+| <a href="docs/videos/06-app-shell-routines-and-attention.gif"><img src="docs/videos/06-app-shell-routines-and-attention.gif" width="400" alt="06-app-shell-routines-and-attention"></a><br>`06-app-shell-routines-and-attention` · [完整影片（.webm）](docs/videos/06-app-shell-routines-and-attention.webm) | 側邊面板切換、調整後的面板寬度在重新載入後保留、「等待你的決定」清單、儲存並觸發 routine、切換語言 |
 
 ```bash
 uv sync --group e2e
@@ -277,7 +277,7 @@ uv run playwright install chromium   # 或設定 E2E_BROWSER_CHANNEL=msedge 使�
 E2E_SLOW_MO=250 E2E_HOLD_MS=1500 E2E_REPLY_DELAY=0.7 uv run pytest -q tests/test_browser_flows.py
 ```
 
-影片會寫到 `.tmp/e2e-videos/`（`E2E_VIDEO_DIR`）。`docs/videos/` 裡的影片是在 Windows 上以 headless Edge 和上述設定錄製的，需要手動更新（`E2E_VIDEO_DIR=docs/videos`）；每張圖是該影片的最後一格。CI 的「Browser flows (recorded)」工作會執行同樣的流程，並把影片保留為 `browser-flow-videos` artifact。沒有安裝 Playwright 時，`uv run pytest` 會略過這六個測試。它們檢查的是頁面對腳本模型顯示了什麼，不能說明真實模型的行為。
+影片會寫到 `.tmp/e2e-videos/`（`E2E_VIDEO_DIR`）。`docs/videos/` 裡的影片是在 Windows 上以 headless Edge 和上述設定錄製的，需要手動更新（`E2E_VIDEO_DIR=docs/videos`）。GitHub 不會在網頁上播放 `.webm`（只提供下載），所以每段影片另有一張每秒 5 格、寬 800 像素的動態 GIF 預覽。CI 的「Browser flows (recorded)」工作會執行同樣的流程，並把影片保留為 `browser-flow-videos` artifact。沒有安裝 Playwright 時，`uv run pytest` 會略過這六個測試。它們檢查的是頁面對腳本模型顯示了什麼，不能說明真實模型的行為。
 
 也可以在乾淨的 Linux 容器中執行其餘所有檢查（含真正的 Tesseract）：
 

@@ -13,3 +13,4 @@ downloads/** -text
 # Recordings and their pictures.
 *.webm binary
 *.png binary
+*.gif binary
