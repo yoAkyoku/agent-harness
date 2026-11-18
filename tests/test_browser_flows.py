@@ -13,6 +13,7 @@ E2E_REPLY_DELAY (seconds before each scripted model reply) slow a run down so th
 """
 from collections.abc import Iterator
 from contextlib import contextmanager
+import json
 import os
 from pathlib import Path
 import re
@@ -48,34 +49,73 @@ def browser() -> Iterator[playwright_api.Browser]:
         launched.close()
 
 
-@contextmanager
-def workbench(browser: playwright_api.Browser, tmp_path: Path, scenario: str, video: str) -> Iterator[tuple[Page, Path]]:
-    """A running workbench for the scenario and a recorded page open on it; yields the page and the workspace folder."""
-    with socket.socket() as reservation:
-        reservation.bind(("127.0.0.1", 0))
-        port = reservation.getsockname()[1]
-    log = tmp_path / "server.log"
-    with log.open("wb") as output:
-        process = subprocess.Popen([sys.executable, str(SERVER), scenario, str(tmp_path), str(port)], stdout=output,
-                                   stderr=subprocess.STDOUT, creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
-    context = None
-    passed = False
-    try:
+class Server:
+    """The workbench child process for one scenario; it can be killed and started again on the same port and store."""
+
+    def __init__(self, root: Path) -> None:
+        self.root, self.process = root, None
+        with socket.socket() as reservation:
+            reservation.bind(("127.0.0.1", 0))
+            self.port = reservation.getsockname()[1]
+
+    def start(self, scenario: str) -> None:
+        log = self.root / f"server-{scenario}.log"
+        with log.open("wb") as output:
+            self.process = subprocess.Popen([sys.executable, str(SERVER), scenario, str(self.root), str(self.port)], stdout=output,
+                                            stderr=subprocess.STDOUT, creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
         deadline = time.monotonic() + 60
         while True:
-            assert process.poll() is None, log.read_text(encoding="utf-8", errors="replace")[-4000:]
+            assert self.process.poll() is None, log.read_text(encoding="utf-8", errors="replace")[-4000:]
             try:
-                if httpx.get(f"http://127.0.0.1:{port}/api/config", trust_env=False, timeout=5).status_code == 200:
-                    break
+                if httpx.get(f"http://127.0.0.1:{self.port}/api/config", trust_env=False, timeout=5).status_code == 200:
+                    return
             except httpx.TransportError:
                 pass
             assert time.monotonic() < deadline, "The workbench did not start: " + log.read_text(encoding="utf-8", errors="replace")[-4000:]
             time.sleep(.1)
-        context = browser.new_context(viewport=SIZE, locale="en-US", record_video_dir=str(tmp_path / "video"), record_video_size=SIZE)
+
+    def kill(self) -> None:
+        """A crash: no shutdown, no chance to save anything more."""
+        assert self.process is not None
+        self.process.kill()
+        self.process.wait(timeout=20)
+
+    def stop(self) -> None:
+        if self.process is not None and self.process.poll() is None:
+            self.process.terminate()
+            self.process.wait(timeout=20)
+
+    def requests(self) -> list[dict]:
+        """What the scripted model received, in order."""
+        return json.loads((self.root / "requests.json").read_text(encoding="utf-8"))
+
+
+class Bench:
+    """What a flow works with; unpacks as (page, workspace folder)."""
+
+    def __init__(self, page: Page, folder: Path, server: Server) -> None:
+        self.page, self.folder, self.server = page, folder, server
+
+    def __iter__(self) -> Iterator:
+        return iter((self.page, self.folder))
+
+
+@contextmanager
+def workbench(browser: playwright_api.Browser, tmp_path: Path, scenario: str, video: str, *, locale: str = "en-US",
+              size: dict[str, int] = SIZE, scan: bool = False) -> Iterator[Bench]:
+    """A running workbench for the scenario and a recorded page open on it."""
+    server = Server(tmp_path)
+    context = None
+    passed = False
+    try:
+        server.start(scenario)
+        # The page's CSP allows only its own scripts; the accessibility scan injects axe-core, so it needs the bypass.
+        context = browser.new_context(viewport=size, locale=locale, record_video_dir=str(tmp_path / "video"), record_video_size=size,
+                                      bypass_csp=scan)
         page = context.new_page()
-        page.goto(f"http://127.0.0.1:{port}/")
+        page.goto(f"http://127.0.0.1:{server.port}/")
         expect(page.locator("#mode-badge")).not_to_have_text("")
-        yield page, tmp_path / "workspace"
+        yield Bench(page, tmp_path / "workspace", server)
         hold(page)
         passed = True
     finally:
@@ -85,8 +125,41 @@ def workbench(browser: playwright_api.Browser, tmp_path: Path, scenario: str, vi
             if recorded is not None:
                 VIDEOS.mkdir(parents=True, exist_ok=True)
                 shutil.move(recorded.path(), VIDEOS / f"{video}.webm" if passed else VIDEOS / f"{video}.failed.webm")
-        process.terminate()
-        process.wait(timeout=20)
+        server.stop()
+
+
+def axe_violations(page: Page) -> list[str]:
+    """Every axe-core (WCAG 2.x A and AA, plus best practices) violation on the page as it is now."""
+    import importlib.util
+    script = Path(importlib.util.find_spec("axe_playwright_python").origin).parent / "axe.min.js"  # type: ignore[arg-type]
+    page.evaluate(script.read_text(encoding="utf-8"))  # read as UTF-8: the package's own loader breaks on a non-UTF-8 locale
+    found = page.evaluate("""async () => (await axe.run(document, {resultTypes: ["violations"]})).violations
+        .flatMap(v => v.nodes.map(n => `${v.id} (${v.impact}): ${n.target.join(" ")}`))""")
+    return list(found)
+
+
+def untranslated(page: Page) -> list[str]:
+    """Visible interface text in Chinese while the page is in English; user and model content is left out."""
+    return list(page.evaluate("""() => {
+        const own = "#sources, #task-input, #preview-content, #plan-steps, #approval-content, #approval-parameters, #run-result, " +
+                    "#workspace-path, #workspace-label, #workspace-breadcrumb, #sessions, #routine-list, #attention-list, option[lang]";
+        const cjk = /[\u3400-\u9fff]/;
+        const out = [];
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+        while (walker.nextNode()) {
+            const node = walker.currentNode, element = node.parentElement;
+            if (!cjk.test(node.textContent) || element.closest(own) || !element.checkVisibility()) continue;
+            out.push(`${element.id || element.className || element.tagName}: ${node.textContent.trim().slice(0, 60)}`);
+        }
+        for (const element of document.querySelectorAll("[aria-label], [placeholder], [title]")) {
+            if (element.closest(own) || !element.checkVisibility()) continue;
+            for (const name of ["aria-label", "placeholder", "title"]) {
+                const value = element.getAttribute(name);
+                if (value && cjk.test(value)) out.push(`${element.id || element.tagName} [${name}]: ${value.slice(0, 60)}`);
+            }
+        }
+        return out;
+    }"""))
 
 
 def hold(page: Page) -> None:
@@ -260,3 +333,171 @@ def test_the_shell_switches_panels_keeps_widths_and_lists_what_waits_for_you(bro
         expect(page.locator("#tab-compose")).to_have_attribute("aria-selected", "true")
         page.select_option("#lang-select", "zh-TW")
         expect(page.locator("#tab-compose")).to_have_text("設定任務")
+
+
+def test_a_crashed_workbench_comes_back_and_the_run_resumes_from_what_was_confirmed(browser: playwright_api.Browser, tmp_path: Path) -> None:
+    with workbench(browser, tmp_path, "interrupted", "07-crash-and-resume") as bench:
+        page = bench.page
+        load_folder(page, bench.folder, "Save the revenue.")
+        page.uncheck("#require-publish-approval")
+        start(page)
+        expect(page.locator("#timeline .step.done").filter(has_text="facts.md")).to_have_count(1)  # one confirmed read
+        hold(page)
+
+        bench.server.kill()  # the process dies while the model is working
+        expect(page.locator("#connection-state")).to_contain_text("Disconnected")
+        hold(page)
+        bench.server.start("resumed")  # same store, same port; the startup check marks the Run interrupted
+        if page.locator("#reload-run").is_visible():  # the page stops retrying after five attempts
+            page.click("#reload-run")
+        expect(page.locator("#run-status")).to_have_class("run-status interrupted")
+        expect(page.locator("#recovery-card")).to_be_visible()
+        expect(page.locator("#resume-run")).to_be_enabled()
+        hold(page)
+
+        page.click("#resume-run")
+        completed(page)
+        expect(page.locator("#preview-name")).to_have_text("revenue.md")
+        page.check("#show-all-events")
+        expect(page.locator("#timeline")).to_contain_text("Reused confirmed result")  # the read was not dispatched again
+    dispatched = [request for request in bench.server.requests()]
+    assert len(dispatched) == 3  # the resumed Run asked the model three times; the read came from the checkpoint
+
+
+def test_an_instruction_added_while_running_reaches_the_model_and_the_run_can_be_cancelled(browser: playwright_api.Browser, tmp_path: Path) -> None:
+    with workbench(browser, tmp_path, "steer", "08-steer-and-cancel") as bench:
+        page = bench.page
+        load_folder(page, bench.folder, "Read the sources and save a snapshot.")
+        start(page)
+        expect(page.locator("#add-message")).to_be_visible()  # the model is still on its second step
+
+        page.fill("#add-message-text", "Also list the weekly orders.")
+        page.click("#add-message-send")
+        (tmp_path / "go").touch()  # let the model answer
+        expect(page.locator("#timeline .step.done").filter(has_text="facts.md")).to_have_count(1)
+        expect(page.locator("#timeline")).to_contain_text("Also list the weekly orders.")
+        hold(page)
+
+        page.click("#cancel-run")  # the model is now silent; stop the Run
+        expect(page.locator("#run-status")).to_have_class("run-status cancelled")
+        expect(page.locator("#cancel-run")).to_be_hidden()
+    last = bench.server.requests()[-1]
+    assert "Also list the weekly orders." in json.dumps(last["messages"])  # it reached the model's next step
+
+
+def test_errors_are_shown_where_they_happen_and_runs_fail_by_correction_limit_or_at_once_by_scope(browser: playwright_api.Browser, tmp_path: Path) -> None:
+    with workbench(browser, tmp_path, "errors", "09-errors-correction-limit-and-scope") as bench:
+        page = bench.page
+        page.fill("#workspace-path", str(tmp_path / "no-such-folder"))
+        page.click("#workspace-form button[type=submit]")
+        expect(page.locator("#error")).to_be_visible()  # a request the server refused, shown where it was made
+        hold(page)
+
+        load_folder(page, bench.folder, "Save the revenue.")
+        page.uncheck("#require-publish-approval")
+        start(page)
+        expect(page.locator("#run-status")).to_have_class("run-status failed")
+        refused = page.locator("#timeline .step.failure")
+        expect(refused).to_have_count(3)  # an uncited claim, sent back twice, then the limit
+        expect(refused.first).to_contain_text("revenue.md")
+        expect(page.locator("#run-result")).to_contain_text("correction")
+        expect(page.locator("#preview-empty")).to_be_visible()  # nothing was saved
+        expect(page.locator("#save-routine")).to_be_disabled()  # only a completed Run can become a routine
+        hold(page)
+
+        page.click("#tab-compose")
+        page.fill("#task-input", "Report the payroll total.")
+        start(page)  # the model asks for a file that was never selected
+        expect(page.locator("#run-status")).to_have_class("run-status failed")
+        expect(page.locator("#timeline .step.failure")).to_have_count(1)  # outside the Run's scope: no second try
+        expect(page.locator("#timeline .step.failure")).to_contain_text("payroll.md")
+
+
+def test_every_state_of_a_run_passes_an_accessibility_scan_and_shows_no_untranslated_text(browser: playwright_api.Browser, tmp_path: Path) -> None:
+    with workbench(browser, tmp_path, "approvals", "10-accessibility-and-translation-scan", scan=True) as bench:
+        page = bench.page
+        problems: dict[str, list[str]] = {}
+
+        def check(state: str) -> None:
+            found = axe_violations(page) + untranslated(page)
+            if found:
+                problems[state] = found
+
+        check("start")
+        load_folder(page, bench.folder, "Summarise who owns order tracking and what the goal is.")
+        page.check("#require-plan-approval")
+        page.click("details.advanced > summary")
+        check("sources and advanced options")
+        start(page)
+        expect(page.locator("#approval-card")).to_contain_text("Read everything")
+        check("plan approval")
+        page.click("#deny-operation")
+        approve(page, "Name the owner and the goal")
+        expect(page.locator("#approval-card")).to_contain_text("Owner: Mei")
+        check("publish approval")
+        page.click("#approve-operation")
+        completed(page)
+        check("completed")
+        page.check("#show-all-events")
+        check("every event")
+        for side in ("routines", "memory", "history"):
+            page.click(f'[data-side="{side}"]')
+            check(f"{side} panel")
+        page.focus("#split-side")
+        check("splitter focused")
+    assert not problems, problems
+
+
+def test_the_chinese_interface_runs_a_task_end_to_end(browser: playwright_api.Browser, tmp_path: Path) -> None:
+    with workbench(browser, tmp_path, "fixture", "11-chinese-interface", locale="zh-TW", scan=True) as bench:
+        page = bench.page
+        expect(page.locator("html")).to_have_attribute("lang", "zh-Hant")  # chosen from the browser's language
+        expect(page.locator("#tab-compose")).to_have_text("設定任務")
+        page.click("#use-demo")
+        expect(page.locator("#selection-hint")).to_contain_text("3")
+        start(page)
+        expect(page.locator("#run-status")).to_have_text("等待你的確認")
+        expect(page.locator("#approval-heading")).to_have_text("確認這次成果保存")
+        assert axe_violations(page) == []
+        approve(page, "source-snapshot.md")
+        expect(page.locator("#run-status")).to_have_text("已完成")
+        expect(page.locator("#timeline .step.done").first).to_contain_text("完成")
+        expect(page.locator("#run-actions-heading")).to_have_text("這次執行之後")
+        assert axe_violations(page) == []
+
+
+def no_sideways_scroll(page: Page) -> None:
+    assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), "the page scrolls sideways"
+
+
+def test_below_1180_pixels_the_preview_moves_under_the_task(browser: playwright_api.Browser, tmp_path: Path) -> None:
+    size = {"width": 1000, "height": 760}
+    with workbench(browser, tmp_path, "fixture", "12-stacked-layout-1000px", size=size) as bench:
+        page = bench.page
+        page.click("#use-demo")
+        start(page)
+        approve(page, "source-snapshot.md")
+        completed(page)
+        main, preview = page.locator(".task-panel").bounding_box(), page.locator(".preview-panel").bounding_box()
+        assert preview["y"] >= main["y"] + main["height"] - 1 and abs(preview["x"] - main["x"]) < 1  # under it, same column
+        expect(page.locator("#preview-name")).to_be_visible()
+        expect(page.locator("#split-inspect")).to_be_hidden()  # nothing to resize sideways
+        expect(page.locator("#split-side")).to_be_visible()
+        no_sideways_scroll(page)
+
+
+def test_on_a_phone_width_the_page_scrolls_down_and_a_task_still_completes(browser: playwright_api.Browser, tmp_path: Path) -> None:
+    size = {"width": 390, "height": 844}
+    with workbench(browser, tmp_path, "fixture", "13-phone-width-390px", size=size) as bench:
+        page = bench.page
+        expect(page.locator("#split-side")).to_be_hidden()
+        no_sideways_scroll(page)
+        page.click("#use-demo")
+        page.locator("#start-task").scroll_into_view_if_needed()
+        start(page)
+        approve(page, "source-snapshot.md")
+        completed(page)
+        page.locator("#preview-name").scroll_into_view_if_needed()
+        expect(page.locator("#preview-name")).to_have_text("source-snapshot.md")
+        no_sideways_scroll(page)
+        assert page.evaluate("document.documentElement.scrollHeight > innerHeight")  # one column that scrolls down

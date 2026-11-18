@@ -34,13 +34,26 @@ LOG = ["# Yearly log", *(f"Note {week}: nothing relevant happened in week {week}
 
 
 class Script(CompletionPeer):
-    """Replies in order, a little slowly so a recording shows each step; silent once the list is used up."""
+    """Replies in order, a little slowly so a recording shows each step; silent once the list is used up.
+
+    `gates` holds a reply back until a file exists, so a test can act while the model is "thinking". Every request
+    the model received is written to <directory>/requests.json, so a test can check what reached the model.
+    """
+
+    def __init__(self, replies: list[httpx.Response], log: Path, gates: dict[int, Path] | None = None) -> None:
+        super().__init__(replies)
+        self.log, self.gates = log, gates or {}
 
     async def __call__(self, request: httpx.Request) -> httpx.Response:
-        if request.url.path == "/v1/chat/completions":
-            if len(self.requests) >= len(self.replies):
-                await asyncio.Event().wait()
-            await asyncio.sleep(float(os.environ.get("E2E_REPLY_DELAY", "0")))
+        if request.url.path != "/v1/chat/completions":
+            return await super().__call__(request)
+        index = len(self.requests)
+        self.log.write_text(json.dumps([*self.requests, json.loads(request.content)]), encoding="utf-8")
+        if index >= len(self.replies):
+            await asyncio.Event().wait()
+        while index in self.gates and not self.gates[index].exists():
+            await asyncio.sleep(.05)
+        await asyncio.sleep(float(os.environ.get("E2E_REPLY_DELAY", "0")))
         return await super().__call__(request)
 
 
@@ -121,17 +134,64 @@ def delegate(root: Path) -> tuple[list[httpx.Response], dict[str, Any]]:
     ], {"allow_subagents": True}
 
 
+def interrupted(root: Path) -> tuple[list[httpx.Response], dict[str, Any]]:
+    """Before the crash: a plan and one confirmed read, then the model never answers again."""
+    write(root / "workspace", {"facts.md": "Revenue was 42.\n"})
+    return [
+        tool_reply("plan_update", {"steps": ["Read facts.md", "Publish revenue.md"]}, "plan"),
+        tool_reply("source_read", {"path": "facts.md", "labels": []}, "read"),
+    ], {}
+
+
+def resumed(root: Path) -> tuple[list[httpx.Response], dict[str, Any]]:
+    """After the restart, the resumed Run: the same read again (reused, not dispatched), then the artifact."""
+    return [
+        tool_reply("source_read", {"path": "facts.md", "labels": []}, "read-again"),
+        tool_reply("artifact_write", {"name": "revenue.md", "content": "Revenue was 42. [facts.md E1]", "citations": ["E1"]}, "write"),
+        tool_reply("task_finish", {"summary": "Saved revenue.md after resuming."}, "finish"),
+    ], {}
+
+
+def steer(root: Path) -> tuple[list[httpx.Response], dict[str, Any], dict[int, Path]]:
+    """The second reply waits for the test (root/go), so an instruction can be added while the Run works."""
+    write(root / "workspace", {"facts.md": "Revenue was 42.\n", "metrics.csv": "week,orders\n1,120\n"})
+    return [
+        tool_reply("plan_update", {"steps": ["Read the sources", "Publish"]}, "plan"),
+        tool_reply("source_read", {"path": "facts.md", "labels": []}, "read"),
+    ], {}, {1: root / "go"}
+
+
+def errors(root: Path) -> tuple[list[httpx.Response], dict[str, Any]]:
+    """Two Runs that fail in the two ways a Run can fail on the model's account.
+
+    The first keeps citing evidence it never read (E9): that is sent back for correction, twice, then the Run ends
+    at the correction limit. The second asks for a file nobody selected: that is outside the Run's scope, so the Run
+    fails at once, without a correction.
+    """
+    write(root / "workspace", {"facts.md": "Revenue was 42.\n"})
+    bad = {"name": "revenue.md", "content": "Revenue was 42. [facts.md E9]", "citations": ["E9"]}
+    return [
+        tool_reply("plan_update", {"steps": ["Read facts.md", "Publish revenue.md"]}, "plan"),
+        tool_reply("source_read", {"path": "facts.md", "labels": []}, "read"),
+        *(tool_reply("artifact_write", bad, f"write-{attempt}") for attempt in range(3)),
+        tool_reply("plan_update", {"steps": ["Read the payroll file", "Publish"]}, "plan-2"),
+        tool_reply("source_read", {"path": "payroll.md", "labels": []}, "read-payroll"),
+    ], {}
+
+
 def fixture(root: Path) -> tuple[None, dict[str, Any]]:
     """No script: the built-in demo model, as the workbench runs when started without --model."""
     return None, {}
 
 
-SCENARIOS = {"approvals": approvals, "mcp": mcp, "skill": skill, "hook": hook, "delegate": delegate, "fixture": fixture}
+SCENARIOS = {"approvals": approvals, "mcp": mcp, "skill": skill, "hook": hook, "delegate": delegate, "fixture": fixture,
+             "interrupted": interrupted, "resumed": resumed, "steer": steer, "errors": errors}
 
 if __name__ == "__main__":
     name, root, port = sys.argv[1], Path(sys.argv[2]), int(sys.argv[3])
-    replies, options = SCENARIOS[name](root)
+    replies, options, *gates = SCENARIOS[name](root)
     if replies is not None:
+        script = Script(replies, root / "requests.json", gates[0] if gates else None)
         options.update(model_settings=ModelSettings.local("contract-model", stream=False, thinking=True),
-                       model_transport=httpx.MockTransport(Script(replies)))
+                       model_transport=httpx.MockTransport(script))
     uvicorn.run(create_app(root / "store", **options), host="127.0.0.1", port=port, access_log=False)

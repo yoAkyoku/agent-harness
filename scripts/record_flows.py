@@ -46,7 +46,8 @@ def gif(ffmpeg: str, video: Path, fps: float = 5, width: int = 800) -> Path:
         frames = []
         for path in sorted(Path(work).glob("f*.png")):
             with Image.open(path) as frame:
-                frames.append(frame.convert("RGB").resize((width, round(width * frame.height / frame.width)), Image.Resampling.LANCZOS))
+                scale = min(1, width / frame.width)  # never enlarge a small recording
+                frames.append(frame.convert("RGB").resize((round(frame.width * scale), round(frame.height * scale)), Image.Resampling.LANCZOS))
     if not frames:
         raise RuntimeError(f"No frames in {video}")
     palette = frames[-1].quantize(colors=96, method=Image.Quantize.MEDIANCUT)

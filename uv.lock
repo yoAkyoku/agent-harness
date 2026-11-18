@@ -34,6 +34,7 @@ dev = [
     { name = "types-jsonschema" },
 ]
 e2e = [
+    { name = "axe-playwright-python" },
     { name = "pillow" },
     { name = "playwright" },
 ]
@@ -62,6 +63,7 @@ dev = [
     { name = "types-jsonschema", specifier = ">=4" },
 ]
 e2e = [
+    { name = "axe-playwright-python", specifier = ">=0.1.8,<0.2" },
     { name = "pillow", specifier = ">=10" },
     { name = "playwright", specifier = ">=1.50,<2" },
 ]
@@ -123,6 +125,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/9a/8e/82a0fe20a541c03148528be8cac2408564a6c9a0cc7e9171802bc1d26985/attrs-26.1.0.tar.gz", hash = "sha256:d03ceb89cb322a8fd706d4fb91940737b6642aa36998fe130a9bc96c985eff32", size = 952055, upload-time = "2026-03-19T14:22:25.026Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/64/b4/17d4b0b2a2dc85a6df63d1157e028ed19f90d4cd97c36717afef2bc2f395/attrs-26.1.0-py3-none-any.whl", hash = "sha256:c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309", size = 67548, upload-time = "2026-03-19T14:22:23.645Z" },
+]
+
+[[package]]
+name = "axe-playwright-python"
+version = "0.1.8"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "playwright" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4c/3a/0ac4e97b92a3f8dc98f7dfb3b68c3e8d3811eda630000ccf4f7654e3498a/axe_playwright_python-0.1.8.tar.gz", hash = "sha256:97de160210fd5ce51e552d21d3b0a1cabb850235942737643ee3b9398de81a47", size = 194644, upload-time = "2026-07-24T20:11:06.699Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4c/c6/5fdb6d5d96653927b6a4763a4b7aaa9e468d4a6eda5048b7c2e158d17bc9/axe_playwright_python-0.1.8-py3-none-any.whl", hash = "sha256:fdd263c998388f1a8e67cad02677e612d946248bd44d163be5e8650ea31f95f8", size = 160681, upload-time = "2026-07-24T20:11:05.228Z" },
 ]
 
 [[package]]

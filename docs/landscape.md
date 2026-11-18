@@ -71,7 +71,7 @@ The sections above compare mechanisms. This one compares what a person sees and 
 | Chat as the main surface, voice, mobile | Grok Bot, Claude, ChatGPT | **Not taken.** The workbench is a form: sources, task, options. That fits tasks over selected files and is clumsy for back-and-forth conversation |
 | Starter prompts and templates | Grok Bot's marketplace and use cases | **Partly.** One bundled demo workspace and task; no gallery |
 
-What this leaves out is deliberate in two cases (no “always allow”, no chat surface) and simply not built in the others. The workbench is one page of plain JavaScript; six flows are driven in a real browser and recorded (`tests/test_browser_flows.py`: approvals, MCP tools, skills, a hook, a subagent with search, and the shell itself), with a scripted model. That covers the main paths in English at one window size; the stacked layouts, the Chinese interface beyond one label, reconnection and error states are not driven in a browser, so the interface is still the least tested part of the project.
+What this leaves out is deliberate in two cases (no “always allow”, no chat surface) and simply not built in the others. The workbench is one page of plain JavaScript; thirteen flows are driven in a real browser and recorded (`tests/test_browser_flows.py`), with a scripted model: approvals, MCP tools, skills, a hook, a subagent with search, the shell, a crash and resume, steering and cancelling, errors, both languages, two narrow layouts, and an axe-core accessibility scan with no violations. They run in Chromium only, the scan is automated (no one has used the workbench with a screen reader), and no flow uses a real model.
 
 ## Where the harness is intentionally different
 

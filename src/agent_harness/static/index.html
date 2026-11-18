@@ -5,17 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' ws://127.0.0.1:* ws://localhost:*; img-src 'self' data:; object-src 'none'; base-uri 'none'">
   <title>Agent Harness Demo</title>
-  <link rel="stylesheet" href="/assets/styles.css?v=10.1.0">
+  <link rel="stylesheet" href="/assets/styles.css?v=10.2.1">
   <script type="module" src="/assets/app.js?v=15.3"></script>
-  <script type="module" src="/assets/shell.js?v=1.2"></script>
+  <script type="module" src="/assets/shell.js?v=1.3"></script>
 </head>
 <body>
   <div class="app">
     <header class="titlebar">
-      <a class="brand" href="/" aria-label="Agent Harness 首頁">
+      <h1 class="app-title"><a class="brand" href="/" aria-label="Agent Harness 首頁">
         <svg viewBox="0 0 32 32" aria-hidden="true"><path d="m16 3 12 7v12l-12 7L4 22V10Z"/><path d="M10 21V11h5a4 4 0 0 1 0 8h-5m8-8 5 10"/></svg>
         <span>Agent Harness<small>本機任務工作台</small></span>
-      </a>
+      </a></h1>
       <span id="workspace-breadcrumb" class="breadcrumb">新的工作</span>
       <span class="titlebar-spacer"></span>
       <span id="mode-badge" class="mode-badge">載入模型設定</span>
@@ -35,6 +35,7 @@
     </nav>
 
     <aside class="sidebar" aria-label="工作區與紀錄">
+      <div class="sidebar-scroll">
       <section id="attention" class="attention" aria-labelledby="attention-heading" hidden>
         <h2 id="attention-heading">等待你的決定 <span id="attention-count">0</span></h2>
         <ul id="attention-list" class="routine-list"></ul>
@@ -68,7 +69,7 @@
         <p class="sidebar-note">只保存你在此輸入的內容。適用於這個資料夾，不授予檔案或工具權限。</p>
         <div id="memory-list"></div>
         <form id="memory-form">
-          <h3 id="memory-editor-heading">新增記憶</h3>
+          <h2 id="memory-editor-heading">新增記憶</h2>
           <label for="memory-title">名稱</label><input id="memory-title" required maxlength="100">
           <label for="memory-kind">類型</label><select id="memory-kind"><option value="preference">偏好</option><option value="fact">待來源核實的事實</option></select>
           <label for="memory-content">記憶內容</label><textarea id="memory-content" required maxlength="2000" rows="3"></textarea>
@@ -84,9 +85,10 @@
         <h2 id="history-heading">工作紀錄</h2>
         <div id="sessions"><p class="sidebar-note">完成的工作會保留在這裡。</p></div>
       </section>
+      </div>
+      <div id="split-side" class="splitter" role="separator" aria-orientation="vertical" tabindex="0" data-split="side" aria-label="調整側邊面板寬度（拖曳或用左右方向鍵；按兩下還原）"></div>
     </aside>
 
-    <div id="split-side" class="splitter" role="separator" aria-orientation="vertical" tabindex="0" data-split="side" aria-label="調整側邊面板寬度（拖曳或用左右方向鍵；按兩下還原）"></div>
 
     <main class="task-panel">
       <div class="main-tabs" role="tablist" aria-label="任務檢視">
@@ -96,7 +98,7 @@
       <div id="error" class="error-message" role="alert" hidden></div>
       <div class="main-pane current" data-main-pane="compose" role="tabpanel" aria-labelledby="tab-compose">
         <div class="pane-inner">
-          <div class="intro"><div class="intro-symbol" aria-hidden="true">✳</div><h1>把資料交給任務。</h1><p>選好來源、交代工作，在同一個地方查看執行與成果。</p></div>
+          <div class="intro"><div class="intro-symbol" aria-hidden="true">✳</div><h2>把資料交給任務。</h2><p>選好來源、交代工作，在同一個地方查看執行與成果。</p></div>
           <div class="fixture-note"><strong id="mode-title">模型模式</strong><p id="mode-description">正在讀取這個工作台的模型設定。</p></div>
           <form id="task-form" class="task-composer">
             <div id="session-tools" class="session-tools" hidden>
@@ -200,9 +202,10 @@
       </div>
     </main>
 
-    <div id="split-inspect" class="splitter" role="separator" aria-orientation="vertical" tabindex="0" data-split="inspect" aria-label="調整成果預覽寬度（拖曳或用左右方向鍵；按兩下還原）"></div>
 
     <aside class="preview-panel" aria-label="來源與成果預覽">
+      <div id="split-inspect" class="splitter" role="separator" aria-orientation="vertical" tabindex="0" data-split="inspect" aria-label="調整成果預覽寬度（拖曳或用左右方向鍵；按兩下還原）"></div>
+      <div class="preview-scroll">
       <header class="preview-header"><h2 id="preview-heading">成果預覽</h2><span id="preview-kind" class="preview-kind">等待成果</span></header>
       <div id="preview-empty" class="preview-empty"><div class="paper-icon" aria-hidden="true"><span></span><span></span><span></span></div><h3>工作完成後，成果在這裡。</h3><p>內容、檔案大小與下載連結，直接對照實際保存的檔案。</p></div>
       <div id="preview-content" class="preview-content" hidden>
@@ -212,6 +215,7 @@
         <div id="artifact-list" class="artifact-list"></div>
         <pre id="preview-text" tabindex="0"></pre>
         <pre id="preview-diff" class="diff-view" tabindex="0" aria-label="與上一版的差異" hidden></pre>
+      </div>
       </div>
     </aside>
 

@@ -41,6 +41,14 @@ function followRun() {
   selectMain(running ? "run" : "compose");
 }
 new MutationObserver(followRun).observe(execution, {attributes: true, attributeFilter: ["hidden"]});
+// A different Run on screen (a second task in the same Session, or one opened from the history): show it.
+let shownCaption = document.getElementById("run-caption").textContent;
+new MutationObserver(() => {
+  const caption = document.getElementById("run-caption").textContent;
+  if (caption === shownCaption) return;
+  shownCaption = caption;
+  if (!execution.hidden) selectMain("run");
+}).observe(document.getElementById("run-caption"), {childList: true, characterData: true, subtree: true});
 
 // The two splitters: drag, or focus one and use the arrow keys; a double click (or Enter) goes back to the default width.
 // A width is a custom property on the shell, so the stylesheet still decides the layout (and ignores it when stacked).
