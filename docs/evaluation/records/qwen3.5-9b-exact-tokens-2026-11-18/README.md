@@ -2,7 +2,7 @@
 
 ## 目的
 
-[重複執行批次](../qwen3.5-9b-repeat-2026-11-18/README.md)中，`search-absent` 有兩次因 `context_limit_exceeded` 失敗，而保守的上限把每個 byte 當一個 token。提交 `7c8dae4` 加入跨平台的精確計數（`--exact-tokenizer-model`）。這一批只改這一件事，其他設定和重複執行批次相同，看結果有沒有不同。
+[重複執行批次](../qwen3.5-9b-repeat-2026-11-18/README.md)中，`search-absent` 有兩次因 `context_limit_exceeded` 失敗，而保守的上限把每個 byte 當一個 token。提交 `94fd243` 加入跨平台的精確計數（`--exact-tokenizer-model`）。這一批只改這一件事，其他設定和重複執行批次相同，看結果有沒有不同。
 
 ## 事先寫定的計畫（執行前寫入並提交）
 
@@ -55,6 +55,6 @@
 
 ## 版本與設定
 
-- 程式碼：提交 `ec45078`（精確計數 `7c8dae4` 加上兩個執行腳本的 `--exact-tokenizer-model`）。
+- 程式碼：提交 `a1bd4d4`（精確計數 `94fd243` 加上兩個執行腳本的 `--exact-tokenizer-model`）。
 - 模型：`qwen3.5:9b-q4_K_M`，Ollama 0.40.10，JSON tools 協定，上下文 8,192 tokens，以 `qwen35_exact_portable` 計數。
 - browser-01 的事件、Run、結果與成果檔在 `browser-j1/` … `browser-j4/`；search-01 在 `search-j/`。錄影沒有放進 repo。

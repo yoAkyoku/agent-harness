@@ -2,7 +2,7 @@
 
 ## 目的
 
-[browser-01](../qwen3.5-9b-browser-01-2026-11-18/README.md) 的 C 與 [search-01](../qwen3.5-9b-search-01-2026-11-16/README.md) 的 H 都只通過一次。一次通過不是成功率。這一批在 harness 不變的情況下（提交 `0aa86d7` 的程式碼，另加錄影腳本的 `--temperature` 選項）重複執行，看這兩個結果有多穩定。
+[browser-01](../qwen3.5-9b-browser-01-2026-11-18/README.md) 的 C 與 [search-01](../qwen3.5-9b-search-01-2026-11-16/README.md) 的 H 都只通過一次。一次通過不是成功率。這一批在 harness 不變的情況下（提交 `207e509` 的程式碼，另加錄影腳本的 `--temperature` 選項）重複執行，看這兩個結果有多穩定。
 
 ## 事先寫定的計畫（執行前寫入並提交）
 
@@ -55,7 +55,7 @@
 
 ## 版本與設定
 
-- 程式碼：提交 `fa2aba1`（`0aa86d7` 加上錄影腳本的 `--temperature`），在另一個工作目錄開發的程式碼沒有被這一批使用。
+- 程式碼：提交 `74b1e5d`（`207e509` 加上錄影腳本的 `--temperature`），在另一個工作目錄開發的程式碼沒有被這一批使用。
 - 模型：`qwen3.5:9b-q4_K_M`，Ollama 0.40.10，JSON tools 協定，上下文上限 8,192 tokens（保守的 byte 上限）。
 - browser-01：`scripts/record_real_model.py <輸出> --channel msedge --time-limit 600 [--temperature 0.7]`。錄影沒有放進 repo；每次的 `events.ndjson`、`run.json`、`outcome.json`、伺服器紀錄與成果檔在 `browser-d/` … `browser-h/`。
 - search-01：`evaluation/run_suite.py evaluation/search-01 <輸出> --repeat 5 --temperature 0.7`，結果在 `search-i/`。

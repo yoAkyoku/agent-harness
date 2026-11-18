@@ -8,7 +8,7 @@
 The flows are tests/test_browser_flows.py with the same scripted model as in CI, run slowly so they can be
 followed. The videos go to DIR (default `.tmp/recordings/`, outside version control); the repository keeps only
 previews in docs/previews/: a still of each flow's last frame, and a small animated GIF for the featured flows.
-The full videos are published elsewhere (see the README). A flow that fails is reported and gets no new preview.
+CI keeps each run's videos as the browser-flow-videos artifact. A flow that fails is reported and gets no new preview.
 """
 import argparse
 import glob
