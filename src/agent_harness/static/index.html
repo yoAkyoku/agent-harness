@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' ws://127.0.0.1:* ws://localhost:*; img-src 'self' data:; object-src 'none'; base-uri 'none'">
   <title>Agent Harness Demo</title>
-  <link rel="stylesheet" href="/assets/styles.css?v=10.2.1">
-  <script type="module" src="/assets/app.js?v=15.3"></script>
+  <link rel="stylesheet" href="/assets/styles.css?v=10.3.0">
+  <script type="module" src="/assets/app.js?v=15.4"></script>
   <script type="module" src="/assets/shell.js?v=1.3"></script>
 </head>
 <body>
@@ -132,6 +132,9 @@
               <label class="field-label" for="completion-workflow">完成時如何回覆？</label>
               <select id="completion-workflow" aria-describedby="completion-workflow-hint"><option value="model_summary">由模型回覆摘要</option><option value="artifact_receipt">只確認已發布的檔案</option><option value="answer">直接回答（不產生檔案，需引用證據）</option></select>
               <p id="completion-workflow-hint">檔案確認僅列出模型選定、已核對的成果；正文仍需檢查。</p>
+              <label class="field-label" for="time-limit">這次執行的時間上限</label>
+              <select id="time-limit" aria-describedby="time-limit-hint"><option value="180">3 分鐘（預設）</option><option value="300">5 分鐘</option><option value="600">10 分鐘</option></select>
+              <p id="time-limit-hint">時間到了，Run 會停止並以失敗結束。本機模型第一次回應前要先把模型載入記憶體，光這一步就可能超過一分鐘。</p>
               <div id="model-choice" class="model-choice" hidden>
                 <label for="model-select">模型</label><select id="model-select"></select>
                 <label for="effort-select" id="effort-label">思考強度</label><select id="effort-select"></select>

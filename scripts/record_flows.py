@@ -38,8 +38,11 @@ def find_ffmpeg() -> str:
     sys.exit("No ffmpeg found: run `uv run playwright install ffmpeg`.")
 
 
-def gif(ffmpeg: str, video: Path, fps: float = 5, width: int = 800) -> Path:
-    """An animated preview: one palette for the whole clip (the interface colours barely change), a pause at the end."""
+def gif(ffmpeg: str, video: Path, fps: float = 5, width: int = 800, speed: float = 1) -> Path:
+    """An animated preview: one palette for the whole clip (the interface colours barely change), a pause at the end.
+
+    `speed` above 1 makes a time-lapse: frames are taken `fps` times a second and shown `speed` times faster.
+    """
     with tempfile.TemporaryDirectory() as work:
         # Playwright's ffmpeg is a minimal build without the fps and scale filters: set the output rate, scale in Pillow.
         subprocess.run([ffmpeg, "-y", "-loglevel", "error", "-i", str(video), "-r", str(fps), str(Path(work) / "f%04d.png")], check=True)
@@ -54,7 +57,7 @@ def gif(ffmpeg: str, video: Path, fps: float = 5, width: int = 800) -> Path:
     quantized = [frame.quantize(palette=palette, dither=Image.Dither.NONE) for frame in frames]
     target = video.with_suffix(".gif")
     quantized[0].save(target, save_all=True, append_images=quantized[1:], loop=0, optimize=True, disposal=1,
-                      duration=[int(1000 / fps)] * (len(quantized) - 1) + [2500])
+                      duration=[int(1000 / (fps * speed))] * (len(quantized) - 1) + [2500])
     return target
 
 

@@ -202,6 +202,8 @@ def test_a_plan_is_sent_back_then_approved_and_the_artifact_is_approved_before_i
     with workbench(browser, tmp_path, "approvals", "01-plan-and-publish-approval") as (page, folder):
         load_folder(page, folder, "Summarise who owns order tracking and what the goal is.")
         page.check("#require-plan-approval")
+        page.click("details.advanced > summary")
+        page.select_option("#time-limit", "300")
         start(page)
 
         expect(page.locator("#approval-card")).to_contain_text("Read everything")
@@ -217,6 +219,11 @@ def test_a_plan_is_sent_back_then_approved_and_the_artifact_is_approved_before_i
         expect(page.locator("#preview-text")).to_contain_text("Goal: one page that shows the order status.")
         expect(page.locator("#timeline .step.done").filter(has_text="E1")).to_have_count(1)
         expect(page.locator("#download")).to_have_attribute("href", re.compile(r"/api/runs/.+/artifacts/.+"))
+        runs = page.evaluate("""async () => {
+            const sessions = await (await fetch("/api/sessions")).json();
+            return (await fetch(`/api/sessions/${sessions[0].id}/runs`)).json();
+        }""")
+        assert runs[-1]["limits"]["timeout_seconds"] == 300  # the time limit chosen in Advanced options
 
 
 def test_an_mcp_tool_with_side_effects_waits_for_approval_and_a_read_only_one_becomes_evidence(browser: playwright_api.Browser, tmp_path: Path) -> None:

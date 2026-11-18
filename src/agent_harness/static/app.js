@@ -321,6 +321,8 @@ async function startTask(event) {
       if (!state.session) state.session = await api("/api/sessions", {workspace_id: state.workspace.id, title: $("task-input").value.trim().slice(0, 50) || t("新任務")});
       const body = {task: $("task-input").value, sources: [...state.selected], require_publish_approval: $("require-publish-approval").checked, require_plan_approval: $("require-plan-approval").checked, publication_workflow: $("publication-workflow").value, completion_workflow: $("completion-workflow").value, submission_key: crypto.randomUUID()};
       if (state.mcpSelected.size) body.mcp_tools = [...state.mcpSelected];
+      const timeLimit = Number($("time-limit").value);
+      if (timeLimit !== 180) body.limits = {timeout_seconds: timeLimit};  // 180 s is the server's own default
       if (state.instructions?.instructions && $("use-instructions").checked) body.project_instructions = true;
       if (state.config.web?.enabled && $("web-access").checked) body.web_access = true;
       if (state.config.python?.enabled && $("python-sandbox").checked) body.python_sandbox = true;
