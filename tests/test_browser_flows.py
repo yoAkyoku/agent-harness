@@ -305,7 +305,7 @@ def test_a_subagent_and_a_source_search_answer_a_question_without_writing_a_file
 
 
 def test_the_shell_switches_panels_keeps_widths_and_lists_what_waits_for_you(browser: playwright_api.Browser, tmp_path: Path) -> None:
-    with workbench(browser, tmp_path, "fixture", "06-app-shell-routines-and-attention") as (page, _):
+    with workbench(browser, tmp_path, "fixture", "06-app-shell-routines-and-attention", scan=True) as (page, _):
         expect(page.locator("#tab-run")).to_be_disabled()
         page.click('[data-side="history"]')
         expect(page.locator('[data-side-section="history"]')).to_be_visible()
@@ -335,6 +335,21 @@ def test_the_shell_switches_panels_keeps_widths_and_lists_what_waits_for_you(bro
         hold(page)
         page.locator("#routine-list li.routine button").first.click()  # "Run now"
         expect(page.locator("#routine-feedback")).not_to_have_text("")
+
+        routine = page.locator("#routine-list li.routine").first
+        routine.locator(".routine-schedule select").first.select_option("weekly")
+        routine.locator(".routine-schedule select").nth(1).select_option("4")  # Friday
+        routine.locator('.routine-schedule input[type="time"]').fill("18:30")
+        routine.locator(".routine-schedule button").click()
+        expect(page.locator("#routine-feedback")).to_contain_text("Saved the schedule")
+        next_run = page.locator("#routine-list li.routine .routine-next").first
+        expect(next_run).to_contain_text("Next automatic run")
+        when = page.evaluate("async () => (await (await fetch('/api/routines')).json())[0]")
+        assert when["schedule"] == {"every": "weekly", "at": "18:30", "weekday": 4}
+        assert page.evaluate("(stamp) => { const d = new Date(stamp); return [d.getDay(), d.getHours(), d.getMinutes()]; }",
+                             when["next_run_at"]) == [5, 18, 30]  # a Friday, 18:30 local time
+        assert axe_violations(page) == []
+        hold(page)
 
         page.click("#new-task")
         expect(page.locator("#tab-compose")).to_have_attribute("aria-selected", "true")

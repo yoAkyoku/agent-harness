@@ -1,6 +1,6 @@
 // Workbench parts added around the Run view: the compact activity list, the actions on a finished Run
 // (save as routine, draft a skill, download the trace) and the routines panel.
-import {t} from "/assets/i18n.js?v=2.0";
+import {t} from "/assets/i18n.js?v=2.1";
 
 const $ = (id) => document.getElementById(id);
 const showAllKey = "agent-harness.show-all-events.v1";
@@ -146,6 +146,49 @@ async function draftSkill() {
   } catch (error) { host.showError(error); }
 }
 
+// A routine's schedule: the kind, then a weekday (weekly), a time (daily, weekdays, weekly) or a minute (hourly).
+function scheduleControls(routine) {
+  const box = element("div", "routine-schedule");
+  const kind = element("select");
+  kind.setAttribute("aria-label", t("「{name}」的排程", {name: routine.name}));
+  for (const [value, label] of [["", t("不排程")], ["hourly", t("每小時")], ["daily", t("每天")], ["weekdays", t("平日（週一到週五）")], ["weekly", t("每週")]]) {
+    const option = element("option", "", label); option.value = value; kind.append(option);
+  }
+  const day = element("select");
+  day.setAttribute("aria-label", t("星期"));
+  [t("星期一"), t("星期二"), t("星期三"), t("星期四"), t("星期五"), t("星期六"), t("星期日")].forEach((label, index) => {
+    const option = element("option", "", label); option.value = String(index); day.append(option);
+  });
+  const at = element("input"); at.type = "time"; at.setAttribute("aria-label", t("時間"));
+  const minute = element("input"); minute.type = "number"; minute.min = "0"; minute.max = "59"; minute.setAttribute("aria-label", t("每小時的第幾分鐘"));
+  const schedule = routine.schedule || {};
+  kind.value = schedule.every || ""; day.value = String(schedule.weekday ?? 0); at.value = schedule.at || "09:00"; minute.value = String(schedule.minute ?? 0);
+  const sync = () => { day.hidden = kind.value !== "weekly"; at.hidden = !["daily", "weekdays", "weekly"].includes(kind.value); minute.hidden = kind.value !== "hourly"; };
+  kind.addEventListener("change", sync); sync();
+  const save = element("button", "subtle-button", t("儲存排程")); save.type = "button";
+  save.addEventListener("click", () => saveSchedule(routine, kind.value, {at: at.value, minute: Number(minute.value), weekday: Number(day.value)}));
+  box.append(kind, day, at, minute, save);
+  return box;
+}
+
+async function saveSchedule(routine, every, values) {
+  try {
+    const path = `/api/routines/${routine.id}/schedule`;
+    if (!every) {
+      if (!(await fetch(path, {method: "DELETE"})).ok) throw new Error(t("無法變更排程。"));
+      $("routine-feedback").textContent = t("已取消「{name}」的排程。", {name: routine.name});
+    } else {
+      const body = {every};
+      if (every === "hourly") body.minute = values.minute; else body.at = values.at;
+      if (every === "weekly") body.weekday = values.weekday;
+      const response = await fetch(path, {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+      if (!response.ok) throw new Error(t("無法儲存排程，請檢查時間。"));
+      $("routine-feedback").textContent = t("已儲存「{name}」的排程。", {name: routine.name});
+    }
+  } catch (error) { $("routine-feedback").textContent = error.message || String(error); }
+  await refreshRoutines();
+}
+
 async function routineAction(routine, action) {
   try {
     if (action === "delete") {
@@ -165,7 +208,8 @@ export async function refreshRoutines() {
   try { routines = await host.api("/api/routines"); } catch (error) { host.showError(error); return; }
   const workspace = host.getWorkspace();
   const shown = workspace ? routines.filter((routine) => routine.workspace_id === workspace.id) : routines;
-  const snapshot = JSON.stringify(shown.map((routine) => [routine.id, routine.name, routine.paused, routine.last_run?.id, routine.last_run?.status]));
+  const snapshot = JSON.stringify(shown.map((routine) => [routine.id, routine.name, routine.paused, routine.last_run?.id, routine.last_run?.status,
+    routine.schedule, routine.next_run_at, routine.schedule_error]));
   if (snapshot === shownRoutines) return;
   shownRoutines = snapshot;
   $("routine-count").textContent = String(shown.length);
@@ -175,6 +219,15 @@ export async function refreshRoutines() {
     const last = routine.last_run;
     const state = routine.paused ? t("已暫停") : last ? `${host.statusNames[last.status] || last.status} · ${new Date(last.created_at).toLocaleString()}` : t("尚未執行");
     item.append(element("strong", "", routine.name), element("span", "sidebar-note", state));
+    if (routine.next_run_at) {
+      item.append(element("span", "sidebar-note routine-next", routine.paused ? t("已暫停，排程時段會略過")
+        : t("下次自動執行：{time}", {time: new Date(routine.next_run_at).toLocaleString()})));
+    }
+    if (routine.schedule_error) {
+      item.append(element("span", "sidebar-note schedule-error", t("排程啟動被拒絕：{message}",
+        {message: routine.schedule_error.message || routine.schedule_error.code})));
+    }
+    item.append(scheduleControls(routine));
     const buttons = element("div", "routine-actions");
     const add = (text, action, disabled) => {
       const button = element("button", "subtle-button", text);

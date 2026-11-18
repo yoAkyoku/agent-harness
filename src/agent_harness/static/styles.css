@@ -132,3 +132,7 @@ body.resizing{cursor:col-resize;user-select:none}
 @media(max-width:1180px){.app{grid-template-columns:76px min(var(--side-width,250px),40vw) minmax(0,1fr);grid-template-rows:46px minmax(0,1fr) minmax(0,38%) 26px}.activity,.sidebar{grid-row:2/4}.preview-panel{grid-column:3;grid-row:3;border-left:0;border-top:1px solid var(--line)}.statusbar{grid-row:4}#split-inspect{display:none}.statusbar .task-footer{display:none}}
 @media(max-width:760px){.splitter{display:none}body{overflow:auto}.app{display:flex;flex-direction:column;height:auto;min-height:100vh}.titlebar{flex-wrap:wrap;padding:8px 14px}.activity{flex-direction:row;overflow-x:auto}.activity .new-task{margin:0 6px 0 0;padding:7px 10px}.activity-button{padding:7px 10px}.sidebar{max-height:45vh}.task-panel,.main-pane,.preview-panel,.preview-scroll{overflow:visible}.statusbar{flex-wrap:wrap;white-space:normal;padding:6px 14px}}
 .app-title{margin:0;font:inherit;display:flex;min-width:0}
+.routine-schedule{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 8px;color-scheme:dark}
+.routine-schedule select,.routine-schedule input{width:auto;border:1px solid #607194;color:#fff;background:#1d2942;border-radius:6px;padding:5px 6px;font:inherit;font-size:11px}
+.routine-schedule input[type=number]{width:4.5em}
+.schedule-error{color:#f6c1c7}

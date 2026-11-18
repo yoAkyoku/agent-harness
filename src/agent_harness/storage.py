@@ -105,6 +105,10 @@ class Store:
                 self._connection.execute("ALTER TABLE runs ADD COLUMN token_usage_json TEXT NOT NULL DEFAULT '{}'")
             if "resume_json" not in columns:
                 self._connection.execute("ALTER TABLE runs ADD COLUMN resume_json TEXT")
+            routine_columns = {row[1] for row in self._connection.execute("PRAGMA table_info(routines)")}
+            for column in ("schedule_json", "next_run_at", "schedule_error_json"):
+                if column not in routine_columns:
+                    self._connection.execute(f"ALTER TABLE routines ADD COLUMN {column} TEXT")
             artifact_columns = {row[1] for row in self._connection.execute("PRAGMA table_info(artifacts)")}
             if "parent_artifact_id" not in artifact_columns:
                 self._connection.execute("ALTER TABLE artifacts ADD COLUMN parent_artifact_id TEXT REFERENCES artifacts(id)")
@@ -319,6 +323,8 @@ class Store:
         result = dict(row)
         result["request"] = json.loads(result.pop("request_json"))
         result["paused"] = bool(result["paused"])
+        result["schedule"] = json.loads(result.pop("schedule_json") or "null")
+        result["schedule_error"] = json.loads(result.pop("schedule_error_json") or "null")
         return result
 
     async def add_routine(self, workspace_id: str, name: str, request: Record) -> Record:
@@ -327,7 +333,8 @@ class Store:
 
         def add(connection: sqlite3.Connection) -> None:
             connection.execute("INSERT INTO sessions VALUES (?, ?, ?, ?)", (session_id, workspace_id, f"Routine: {name}", created))
-            connection.execute("INSERT INTO routines VALUES (?, ?, ?, ?, ?, 0, ?)",
+            connection.execute("INSERT INTO routines (id, workspace_id, session_id, name, request_json, paused, created_at) "
+                               "VALUES (?, ?, ?, ?, ?, 0, ?)",
                                (identity, workspace_id, session_id, name, json.dumps(request, ensure_ascii=False), created))
 
         await self._run(add)
@@ -351,6 +358,25 @@ class Store:
     async def delete_routine(self, identity: str) -> None:
         """Remove the routine; its Session and past Runs stay, so what it did remains inspectable."""
         await self._run(lambda connection: connection.execute("DELETE FROM routines WHERE id=?", (identity,)))
+
+    async def set_schedule(self, identity: str, schedule: Record | None, next_run_at: str | None) -> None:
+        """Set or clear when the routine starts on its own; a new schedule starts with no error."""
+        await self._run(lambda connection: connection.execute(
+            "UPDATE routines SET schedule_json=?, next_run_at=?, schedule_error_json=NULL WHERE id=?",
+            (json.dumps(schedule) if schedule else None, next_run_at, identity)))
+
+    async def due_routines(self, now: str) -> list[Record]:
+        """Scheduled routines whose next slot is at or before `now` (both in schedule.stamp format)."""
+        return await self._run(lambda connection: [self._routine(row) for row in connection.execute(
+            "SELECT * FROM routines WHERE next_run_at IS NOT NULL AND next_run_at <= ? ORDER BY next_run_at, rowid", (now,))])
+
+    async def advance_schedule(self, identity: str, expected: str, next_run_at: str, error: Record | None) -> bool:
+        """Move to the next slot, unless the slot changed meanwhile (a new schedule, or another tick got there first)."""
+        def advance(connection: sqlite3.Connection) -> bool:
+            return connection.execute(
+                "UPDATE routines SET next_run_at=?, schedule_error_json=? WHERE id=? AND next_run_at=?",
+                (next_run_at, json.dumps(error) if error else None, identity, expected)).rowcount == 1
+        return await self._run(advance)
 
     async def routine_runs(self, session_id: str, limit: int = 20) -> list[Record]:
         """The routine's most recent Runs, newest first, as short records."""

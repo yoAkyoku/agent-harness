@@ -162,7 +162,7 @@ uv run python -m agent_harness.headless --workspace ./docs --source notes.md --t
 
 ### 排程與無人值守執行
 
-本專案沒有內建排程器，而是由作業系統的排程工具呼叫無頭模式。讓工作台持續執行（例如登入時啟動），並在 `AGENT_HARNESS_TOKEN` 設定固定權杖；權杖放在只有自己帳號能讀的檔案，不要寫在排程定義裡。加上 `--unattended` 後，需要核准的 Run（計畫、發布或 `askTools` 的 MCP 呼叫）會被取消，工作以退出碼 `5` 結束並附上 `needs_approval`，而不是一直等待；需要人確認的事不會在沒人看的情況下執行。帶日期的 `--submission-key` 讓重試的排程回到同一個 Run，而不是再開一個。
+工作台執行時可以依排程啟動儲存的 routine（見 [Routines](#routines)）；其他情況由作業系統的排程工具呼叫無頭模式。讓工作台持續執行（例如登入時啟動），並在 `AGENT_HARNESS_TOKEN` 設定固定權杖；權杖放在只有自己帳號能讀的檔案，不要寫在排程定義裡。加上 `--unattended` 後，需要核准的 Run（計畫、發布或 `askTools` 的 MCP 呼叫）會被取消，工作以退出碼 `5` 結束並附上 `needs_approval`，而不是一直等待；需要人確認的事不會在沒人看的情況下執行。帶日期的 `--submission-key` 讓重試的排程回到同一個 Run，而不是再開一個。
 
 cron（Linux、macOS）：
 
@@ -198,7 +198,15 @@ curl -s -X POST -H "Authorization: Bearer $AGENT_HARNESS_TOKEN" http://127.0.0.1
 
 觸發端點在 Run 被接受後立刻回覆 `202` 與新的 Run；這表示它已經開始，不是已經完成。`GET /api/routines/{id}` 顯示 routine 與它最近 20 次的 Run（狀態、錯誤、結果開頭），`/pause` 與 `/resume` 可以暫停與恢復，`DELETE` 會移除 routine，但過去的 Run 仍可檢視。每個 routine 有自己的 Session，所以同一個 routine 的兩次 Run 不會重疊（執行中再觸發會得到 `409`）；每個 routine 每小時最多接受 60 次觸發（之後回 `429`）。
 
-Routine 只是啟動 Run 的方式，不是繞過 Run 的方式。每次觸發都會重新受理來源目前的版本（來源不見了，觸發就失敗，不會建立 Run），Run 的限額、驗證器與核准照常適用。沒有人在場回應核准，所以核准會在 Run 的核准逾時後過期，Run 失敗、不會產生該效果；建議讓 routine 只做準備工作，把發布留給人確認。工作台本身沒有時鐘：請像上面一樣使用 cron 或工作排程器，把無頭模式的指令換成 `curl` 觸發。工作台的 Routines 面板會列出工作區的 routine，可以立即執行、暫停、查看紀錄與刪除；完成的 Run 有「存成 routine」。所有操作也都可以透過 API 進行。
+Routine 只是啟動 Run 的方式，不是繞過 Run 的方式。每次觸發都會重新受理來源目前的版本（來源不見了，觸發就失敗，不會建立 Run），Run 的限額、驗證器與核准照常適用。沒有人在場回應核准，所以核准會在 Run 的核准逾時後過期，Run 失敗、不會產生該效果；建議讓 routine 只做準備工作，把發布留給人確認。其他系統（cron、工作排程器、CI）可以用上面的 `curl` 觸發來啟動它。工作台的 Routines 面板會列出工作區的 routine，可以立即執行、暫停、查看紀錄、刪除與設定排程；完成的 Run 有「存成 routine」。所有操作也都可以透過 API 進行。
+
+工作台執行時，routine 也可以自己依排程啟動。在 Routines 面板設定，或：
+
+```bash
+curl -s -X PUT -H "Authorization: Bearer $AGENT_HARNESS_TOKEN" -H "Content-Type: application/json" http://127.0.0.1:8787/api/routines/ROUTINE_ID/schedule -d '{"every": "weekdays", "at": "09:00"}'
+```
+
+排程有四種，使用這台電腦的本地時間：`{"every": "hourly", "minute": 15}`、`{"every": "daily", "at": "09:00"}`、`{"every": "weekdays", "at": "09:00"}` 與 `{"every": "weekly", "at": "09:00", "weekday": 0}`（0 是星期一）；對同一路徑送 `DELETE` 會清除排程。沒有自由格式的 cron。依排程啟動就是一般的觸發：暫停中的 routine 會略過該時段；被拒絕的啟動（來源不見了、超過每小時上限、上一個 Run 還在進行）不會建立 Run，錯誤會以 `schedule_error` 留在 routine 上並顯示在面板中，直到之後有一次啟動成功。只有在工作台執行時才會依時段啟動；工作台關閉期間錯過的時段不會補跑：最多啟動一次，然後移到下一個還沒到的時段。不論工作台是否開著都必須執行的工作，請像上面一樣使用作業系統的排程工具。
 
 ### 追蹤（OpenTelemetry）
 

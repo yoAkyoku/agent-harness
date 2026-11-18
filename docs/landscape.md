@@ -67,7 +67,7 @@ The sections above compare mechanisms. This one compares what a person sees and 
 | Turn a finished task into a reusable method | “Save the process as a skill” in Grok Bot | **Taken in this pass.** A finished Run has “Draft it”, which shows the SKILL.md draft to review and download. The workbench does not install it |
 | See what happened afterwards | Run history in Grok Bot, traces in the SDKs | **Taken.** History per Session, every event kept, and a trace download on each finished Run |
 | A home view of what needs you | Grok Bot's primary Bot and morning brief | **Partly.** A “Waiting for your decision” notice in the sidebar lists every Run paused at an approval, in any Session or routine, and opens it; it and the Routines panel refresh on their own. There is no summary of finished work |
-| Schedules set in plain words, with a Test button | Grok Bot routines | **Partly.** “Run now” is the test; the schedule itself is set outside the workbench (cron, Task Scheduler) |
+| Schedules set in plain words, with a Test button | Grok Bot routines | **Partly.** “Run now” is the test, and a schedule is picked in the routine's row (hourly, daily, weekdays or weekly at a time), not typed in words. It runs only while the workbench is running and does not catch up on missed slots; a refused start is shown on the routine |
 | Chat as the main surface, voice, mobile | Grok Bot, Claude, ChatGPT | **Not taken.** The workbench is a form: sources, task, options. That fits tasks over selected files and is clumsy for back-and-forth conversation |
 | Starter prompts and templates | Grok Bot's marketplace and use cases | **Partly.** One bundled demo workspace and task; no gallery |
 

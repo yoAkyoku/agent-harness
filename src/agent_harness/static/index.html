@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' ws://127.0.0.1:* ws://localhost:*; img-src 'self' data:; object-src 'none'; base-uri 'none'">
   <title>Agent Harness Demo</title>
-  <link rel="stylesheet" href="/assets/styles.css?v=10.3.0">
-  <script type="module" src="/assets/app.js?v=15.4"></script>
+  <link rel="stylesheet" href="/assets/styles.css?v=10.4.1">
+  <script type="module" src="/assets/app.js?v=15.5"></script>
   <script type="module" src="/assets/shell.js?v=1.3"></script>
 </head>
 <body>
@@ -60,6 +60,7 @@
       <details id="routines-panel" class="memory-panel" data-side-section="routines">
         <summary>Routines <span id="routine-count">0</span></summary>
         <p class="sidebar-note">儲存起來的任務，可以立即執行，或由排程與其他服務觸發。每次執行都是一般的任務，核准與驗證照常。</p>
+        <p class="sidebar-note">排程只在工作台執行時才會啟動；工作台關閉時錯過的時段不會補跑。</p>
         <p id="routine-empty" class="sidebar-note">還沒有 routine。完成一個任務後，可以把它存成 routine。</p>
         <ul id="routine-list" class="routine-list"></ul>
         <p id="routine-feedback" role="status" class="sidebar-note"></p>

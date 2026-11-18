@@ -162,7 +162,7 @@ Exit codes: `0` completed, `1` failed, `2` refused request or usage error, `3` c
 
 ### Scheduled and unattended runs
 
-There is no built-in scheduler; the operating system's scheduler calls headless mode. Keep the workbench running (for example started at logon) with a fixed token in `AGENT_HARNESS_TOKEN`, stored in a file only your account can read rather than in the job definition. Pass `--unattended` so a Run that asks for an approval (a plan, a publication or an `askTools` MCP call) is cancelled and the job exits with code `5` and a `needs_approval` entry instead of waiting; nothing that needs a person runs unseen. A dated `--submission-key` makes a retried job return the same Run instead of starting another.
+The workbench can start saved routines on a schedule while it is running (see [Routines](#routines)); for anything else, the operating system's scheduler calls headless mode. Keep the workbench running (for example started at logon) with a fixed token in `AGENT_HARNESS_TOKEN`, stored in a file only your account can read rather than in the job definition. Pass `--unattended` so a Run that asks for an approval (a plan, a publication or an `askTools` MCP call) is cancelled and the job exits with code `5` and a `needs_approval` entry instead of waiting; nothing that needs a person runs unseen. A dated `--submission-key` makes a retried job return the same Run instead of starting another.
 
 cron (Linux, macOS):
 
@@ -198,7 +198,15 @@ curl -s -X POST -H "Authorization: Bearer $AGENT_HARNESS_TOKEN" http://127.0.0.1
 
 The trigger answers `202` with the new Run as soon as it is accepted; that means it started, not that it finished. `GET /api/routines/{id}` shows the routine with its 20 most recent Runs (status, error, start of the result), `/pause` and `/resume` switch it off and on, and `DELETE` removes it while leaving its past Runs inspectable. Each routine has its own Session, so two Runs of one routine never overlap (a trigger while one is running gets `409`), and a routine accepts at most 60 triggers an hour (`429` after that).
 
-A routine is a way to start a Run, never a way around one. The sources' current versions are admitted on every trigger (a missing source fails the trigger and creates no Run), and the Run keeps its limits, verifiers and approvals. Nobody is there to answer an approval, so it expires after the Run's approval timeout and the Run fails without the effect; prefer routines that only prepare, and keep publishing behind a person. The workbench has no clock of its own: use cron or Task Scheduler as above, with the `curl` trigger in place of the headless command. The workbench's Routines panel lists a workspace's routines with Run now, Pause, View runs and Delete, and a finished Run has “Save as routine”; everything is also available through the API.
+A routine is a way to start a Run, never a way around one. The sources' current versions are admitted on every trigger (a missing source fails the trigger and creates no Run), and the Run keeps its limits, verifiers and approvals. Nobody is there to answer an approval, so it expires after the Run's approval timeout and the Run fails without the effect; prefer routines that only prepare, and keep publishing behind a person. Other systems (cron, Task Scheduler, CI) can start it with the `curl` trigger above. The workbench's Routines panel lists a workspace's routines with Run now, Pause, View runs, Delete and its schedule, and a finished Run has “Save as routine”; everything is also available through the API.
+
+A routine can also start on its own while the workbench is running. Set a schedule in the Routines panel, or:
+
+```bash
+curl -s -X PUT -H "Authorization: Bearer $AGENT_HARNESS_TOKEN" -H "Content-Type: application/json" http://127.0.0.1:8787/api/routines/ROUTINE_ID/schedule -d '{"every": "weekdays", "at": "09:00"}'
+```
+
+There are four kinds, in the machine's local time: `{"every": "hourly", "minute": 15}`, `{"every": "daily", "at": "09:00"}`, `{"every": "weekdays", "at": "09:00"}` and `{"every": "weekly", "at": "09:00", "weekday": 0}` (0 is Monday); `DELETE` on the same path clears it. There is no free-form cron. A scheduled start is an ordinary trigger: a paused routine skips its slot, and a refused start (a missing source, the hourly limit, a Run still going) creates no Run and stays on the routine as `schedule_error`, shown in the panel, until a later start succeeds. Slots are only started while the workbench is running, and slots missed while it was closed are not caught up: it starts at most once and moves to the next slot still in the future. For a job that must run whether or not the workbench is open, use the operating system's scheduler as above.
 
 ### Traces (OpenTelemetry)
 

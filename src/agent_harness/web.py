@@ -40,6 +40,7 @@ from .local import MIN_TOKEN_LENGTH, OAUTH_CALLBACK_PATH, AccessTokenMiddleware,
 from .model import DecisionModel, FixtureTransport, ModelAdapter, ModelSettings
 from .ownership import StoreLease
 from .runtime import Runtime
+from .schedule import Schedule, next_after, stamp
 from .sources import MAX_SOURCES, admit_sources, catalog, read_source, relevant_excerpts, workspace_root
 from .storage import Store
 from .sandbox import PythonSandbox, Runner
@@ -59,6 +60,7 @@ class WorkspaceInput(BaseModel):
 
 
 ROUTINE_RUNS_PER_HOUR = 60  # triggers accepted per routine in any hour
+SCHEDULE_TICK_SECONDS = 20.0  # how often the workbench looks for routines whose slot has come
 
 
 class SessionInput(BaseModel):
@@ -252,6 +254,27 @@ def create_app(
               if python_image is not None else None)
 
     @asynccontextmanager
+    async def scheduling() -> AsyncIterator[None]:
+        """Look for due routine slots every SCHEDULE_TICK_SECONDS while the workbench is running."""
+        async def loop() -> None:
+            while True:
+                await asyncio.sleep(SCHEDULE_TICK_SECONDS)
+                try:
+                    await run_due_routines()
+                except Exception:  # a broken tick must not end the schedule; the next one tries again
+                    pass
+
+        task = asyncio.create_task(loop())
+        try:
+            yield
+        finally:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+
+    @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         nonlocal storage, runtime, model
         lease = await asyncio.to_thread(StoreLease, store_directory)
@@ -280,7 +303,8 @@ def create_app(
                                       extraction=extraction,
                                       on_finished=export_trace if exporter is not None else None)
                     try:
-                        yield
+                        async with scheduling():
+                            yield
                     finally:
                         await runtime.close()
                         await claude.aclose()
@@ -294,7 +318,8 @@ def create_app(
                                       extraction=extraction,
                                       on_finished=export_trace if exporter is not None else None)
                         try:
-                            yield
+                            async with scheduling():
+                                yield
                         finally:
                             await runtime.close()
             finally:
@@ -640,6 +665,50 @@ def create_app(
     async def delete_routine(routine_id: str) -> Response:
         await storage.delete_routine((await saved_routine(routine_id))["id"])
         return Response(status_code=204)
+
+    @app.put("/api/routines/{routine_id}/schedule")
+    async def set_routine_schedule(routine_id: str, body: Schedule) -> dict[str, Any]:
+        """Start the routine on its own at fixed wall-clock times, while the workbench is running (see schedule.py)."""
+        routine = await saved_routine(routine_id)
+        schedule = body.as_dict()
+        await storage.set_schedule(routine["id"], schedule, stamp(next_after(schedule, datetime.now(timezone.utc))))
+        return await get_routine(routine_id)
+
+    @app.delete("/api/routines/{routine_id}/schedule")
+    async def clear_routine_schedule(routine_id: str) -> dict[str, Any]:
+        await storage.set_schedule((await saved_routine(routine_id))["id"], None, None)
+        return await get_routine(routine_id)
+
+    async def run_due_routines(now: datetime | None = None) -> list[dict[str, Any]]:
+        """Start every routine whose slot has come, once, as an ordinary trigger; then move each to its next slot.
+
+        Missed slots are not caught up: the next slot is the first one after `now`. A paused routine skips its
+        slot. A refused start (a missing source, the hourly limit) creates no Run and stays on the routine as
+        `schedule_error` until a later start succeeds.
+        """
+        moment = now or datetime.now(timezone.utc)
+        started = []
+        for routine in await storage.due_routines(stamp(moment)):
+            expected = routine["next_run_at"]
+            following = stamp(next_after(routine["schedule"], moment))
+            # Claim the slot first, so a slow start can never be started twice by the next tick.
+            if not await storage.advance_schedule(routine["id"], expected, following, routine["schedule_error"]):
+                continue
+            if routine["paused"]:
+                continue
+            error = None
+            try:
+                started.append(await trigger_routine(routine["id"]))
+            except HTTPException as refused:
+                detail = refused.detail if isinstance(refused.detail, dict) else {"message": str(refused.detail)}
+                error = {"code": detail.get("code") or f"http_{refused.status_code}", "message": str(detail.get("message", "")),
+                         "at": stamp(moment)}
+            except Exception as failure:  # the loop must outlive any one routine
+                error = {"code": "trigger_failed", "message": f"{type(failure).__name__}: {failure}", "at": stamp(moment)}
+            await storage.advance_schedule(routine["id"], following, following, error)
+        return started
+
+    app.state.run_due_routines = run_due_routines
 
     @app.post("/api/routines/{routine_id}/trigger", status_code=202)
     async def trigger_routine(routine_id: str) -> dict[str, Any]:
