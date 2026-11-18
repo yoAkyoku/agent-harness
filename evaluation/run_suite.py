@@ -96,6 +96,8 @@ def main() -> int:
     cli.add_argument("--repeat", type=int, default=1, help="Runs per case (default 1); every run is kept and counted.")
     cli.add_argument("--temperature", type=float, default=0,
                      help="Sampling temperature for the workbench's model (default 0, where repeats reproduce the same run).")
+    cli.add_argument("--exact-tokenizer-model", type=Path,
+                     help="The model's GGUF blob, to count context tokens exactly instead of by the byte bound.")
     cli.add_argument("--grade", action="store_true", help="Only re-apply the grader to the saved results in OUTPUT.")
     arguments = cli.parse_args()
     here, out = arguments.suite.resolve(), arguments.output.resolve()
@@ -110,7 +112,8 @@ def main() -> int:
     server = subprocess.Popen(
         [sys.executable, "-m", "agent_harness", "--model", suite["model"], "--decision-protocol", "json_tools",
          "--store", str(out / "store"), "--port", str(PORT), *suite.get("workbench_args", []),
-         *(["--temperature", str(arguments.temperature)] if arguments.temperature else [])],
+         *(["--temperature", str(arguments.temperature)] if arguments.temperature else []),
+         *(["--exact-tokenizer-model", str(arguments.exact_tokenizer_model)] if arguments.exact_tokenizer_model else [])],
         env=env, stdout=log, stderr=subprocess.STDOUT)
     results: list[dict[str, Any]] = []
     try:

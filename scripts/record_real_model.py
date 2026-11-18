@@ -42,6 +42,8 @@ def main() -> int:
                         help="The Run's time limit in seconds, chosen in Advanced options as a person would (default 180).")
     parser.add_argument("--temperature", type=float, default=0,
                         help="Sampling temperature for the workbench's model (default 0, where a repeat reproduces the same Run).")
+    parser.add_argument("--exact-tokenizer-model", type=Path,
+                        help="The model's GGUF blob, to count context tokens exactly instead of by the byte bound.")
     arguments = parser.parse_args()
     out = arguments.out.resolve()
     out.mkdir(parents=True, exist_ok=False)
@@ -53,10 +55,11 @@ def main() -> int:
     log = (out / "server.log").open("wb")
     server = subprocess.Popen([sys.executable, "-m", "agent_harness", "--model", arguments.model, "--decision-protocol", "json_tools",
                                "--store", str(store), "--port", str(port),
-                               *(["--temperature", str(arguments.temperature)] if arguments.temperature else [])], cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,
+                               *(["--temperature", str(arguments.temperature)] if arguments.temperature else []),
+                               *(["--exact-tokenizer-model", str(arguments.exact_tokenizer_model)] if arguments.exact_tokenizer_model else [])], cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,
                               env={**os.environ, "AGENT_HARNESS_TOKEN": token})
     api = httpx.Client(base_url=f"http://127.0.0.1:{port}", headers={"Authorization": f"Bearer {token}"}, trust_env=False, timeout=30)
-    outcome: dict = {"model": arguments.model, "task": TASK, "time_limit_seconds": int(arguments.time_limit), "temperature": arguments.temperature, "started_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    outcome: dict = {"model": arguments.model, "task": TASK, "time_limit_seconds": int(arguments.time_limit), "temperature": arguments.temperature, "exact_tokens": arguments.exact_tokenizer_model is not None, "started_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                      "criteria": "Run ends completed with one saved artifact (all citations verified by the harness)"}
     try:
         deadline = time.monotonic() + 120
