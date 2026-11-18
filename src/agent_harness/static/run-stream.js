@@ -1,5 +1,5 @@
 // One observer owns a contiguous cursor; retries never submit a new task.
-import {t} from "/assets/i18n.js?v=2.1";
+import {t} from "/assets/i18n.js?v=2.2";
 export function observeEvents(runId, {onEvent, onState, onError}) {
   let socket = null, timer = null, stopped = false, cursor = 0, attempts = 0;
   function state(value) { onState(value, cursor); }

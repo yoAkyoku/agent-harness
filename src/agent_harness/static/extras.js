@@ -1,6 +1,6 @@
 // Workbench parts added around the Run view: the compact activity list, the actions on a finished Run
 // (save as routine, draft a skill, download the trace) and the routines panel.
-import {t} from "/assets/i18n.js?v=2.1";
+import {t} from "/assets/i18n.js?v=2.2";
 
 const $ = (id) => document.getElementById(id);
 const showAllKey = "agent-harness.show-all-events.v1";

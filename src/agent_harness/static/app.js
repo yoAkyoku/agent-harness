@@ -1,6 +1,6 @@
 import {observeEvents} from "/assets/run-stream.js?v=7.7";
 import {memoryPanel} from "/assets/memory.js?v=6.7";
-import {lang, saveLang, t, translatePage} from "/assets/i18n.js?v=2.1";
+import {lang, saveLang, t, translatePage} from "/assets/i18n.js?v=2.2";
 import {initExtras, noteEvent, refreshAttention, refreshRoutines, renderRunActions} from "/assets/extras.js?v=1.7";
 const $ = (id) => document.getElementById(id);
 translatePage();
@@ -692,6 +692,20 @@ $("lang-select").value = lang;
 $("upload-files").addEventListener("click", () => $("upload-input").click());
 $("upload-input").addEventListener("change", () => uploadFiles([...$("upload-input").files]).catch(showError));
 $("lang-select").addEventListener("change", () => { saveLang($("lang-select").value); location.reload(); });
+// Started with --preload-model: the status bar says whether the model is loaded yet, checking until it is settled.
+function showPreload(preload) {
+  const label = $("model-preload");
+  if (!preload?.enabled || !preload.status) return;
+  label.hidden = false;
+  label.dataset.status = preload.status;
+  label.textContent = preload.status === "loading" ? t("模型載入中…")
+    : preload.status === "ready" ? t("模型已載入（{seconds} 秒）").replace("{seconds}", preload.seconds)
+    : t("預先載入失敗；第一個任務會自己載入模型");
+  if (preload.status === "loading") setTimeout(async () => {
+    try { showPreload((await api("/api/config")).preload); } catch { /* the next config read shows it */ }
+  }, 3000);
+}
+
 updateControls();
 try {
   state.pendingSubmission = readPendingSubmission();
@@ -715,7 +729,7 @@ try {
   $("subagents-option").hidden = !state.config.subagents?.enabled;
   $("compaction-option").hidden = state.config.mode === "fixture";
   $("search-option").hidden = state.config.mode === "fixture";
-  renderMcpTools(); selectSkills(); renderModelChoices();
+  renderMcpTools(); selectSkills(); renderModelChoices(); showPreload(state.config.preload);
   initExtras({api, statusNames, getWorkspace: () => state.workspace, openSession, showError});
   await refreshRoutines(); await refreshAttention();
   await refreshSessions(); await restorePendingSubmission(); updateControls();

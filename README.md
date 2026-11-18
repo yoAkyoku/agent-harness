@@ -83,6 +83,8 @@ uv run python -m agent_harness --model qwen3.5:9b-q4_K_M --decision-protocol jso
 
 The file is hashed against the pinned digest at startup and only its vocabulary is read, in Python, on any platform. `scripts/compare_tokenizers.py` checks it against the pinned llama.cpp library string by string: 60,838 strings (repository text in English and Chinese, chat-template prompts, random Unicode) gave no mismatch. Text with characters newer than Python's Unicode tables is counted by its bytes instead, which keeps the count from falling short. Every reply is also checked: if Ollama reports more prompt tokens than were counted, the reply is discarded and the Run fails with `exact_context_mismatch`. Adding `--exact-tokenizer-library` with Ollama's `libllama.dll` counts with that library instead (Windows only).
 
+Loading a 9B model from disk can take over a minute, and that time counts against the first Run's limit. `--preload-model` asks Ollama to load it in the background as soon as the workbench starts (it then stays loaded for 30 minutes without use); the status bar shows when it is ready, and a failed preload only means the first Run loads the model itself.
+
 Or with Docker (fixture by default; publish only to loopback):
 
 ```bash

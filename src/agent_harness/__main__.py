@@ -43,6 +43,9 @@ def parser() -> argparse.ArgumentParser:
     parser.add_argument("--temperature", type=float, default=0,
                         help="Sampling temperature for a local Ollama model, 0 to 1.5 (default 0: a repeated task reproduces "
                              "the same Run). Raise it only to measure how much results vary.")
+    parser.add_argument("--preload-model", action="store_true",
+                        help="Load the local Ollama model in the background when the workbench starts, so the first Run "
+                             "does not spend its time limit loading it; it then stays loaded for 30 minutes without use.")
     parser.add_argument("--thinking", action="store_true", help="Opt in to the verified local boolean-thinking profile; defaults off.")
     parser.add_argument("--model-authored-initial-plan", action="store_true",
                         help="Allow a free-form model-written initial plan; by default real models use harness-owned action stages.")
@@ -230,7 +233,7 @@ def main() -> None:
                          allow_web=arguments.allow_web, web_allow_domains=web_domains,
                          python_image=python_image, docker_command=arguments.docker,
                          vision_model=arguments.vision_model, allow_subagents=arguments.allow_subagents,
-                         otlp_endpoint=arguments.otlp_endpoint)
+                         otlp_endpoint=arguments.otlp_endpoint, preload_model=arguments.preload_model)
     except ValueError as error:
         cli.error(str(error))
     shown = "<the value of " + TOKEN_ENV + ">" if configured else token

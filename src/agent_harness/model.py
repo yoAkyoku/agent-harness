@@ -205,6 +205,10 @@ def model_choices(settings: ModelSettings) -> dict[str, list[str]]:
             "efforts": ["low", "medium", "high", "xhigh", "max"] if settings.mode == "anthropic" else []}
 
 
+# How long a preloaded model stays in memory without a request (Ollama's own default is 5 minutes).
+PRELOAD_KEEP_ALIVE = "30m"
+
+
 class ModelAdapter:
     def __init__(self, client: httpx.AsyncClient, settings: ModelSettings, *, transport_fixture: bool) -> None:
         self.client = client
@@ -323,6 +327,17 @@ class ModelAdapter:
             raise RunFailure("exact_context_mismatch",
                              "The model server reported a larger prompt than was counted, so the count cannot be trusted.",
                              diagnostics={"counted_tokens": counted, "reported_prompt_tokens": reported})
+
+    async def preload(self, keep_alive: str = PRELOAD_KEEP_ALIVE) -> None:
+        """Ask Ollama to load the model now, so the first Run does not spend its time limit on loading it.
+
+        A generate request with no prompt only loads the model (Ollama answers `done_reason: load`).
+        """
+        if self.settings.mode != "local":
+            raise ValueError("Only a local Ollama model can be preloaded.")
+        response = await self.client.post("http://127.0.0.1:11434/api/generate",
+                                          json={"model": self.settings.name, "keep_alive": keep_alive}, timeout=600)
+        response.raise_for_status()
 
     async def context_budget(self, body: dict[str, Any], capacity: int, reserve: int, profile: str) -> dict[str, Any]:
         if self.exact_counter is not None:

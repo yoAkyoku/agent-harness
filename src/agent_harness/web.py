@@ -8,6 +8,7 @@ import hashlib
 import html
 import json
 import re
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from typing import Annotated, Literal
@@ -37,7 +38,7 @@ from .uploads import save_upload, upload_limit
 from .mcp_hub import MODEL_NAME, McpHub
 from .skills import SKILL_NAME, SkillLibrary, skill_draft
 from .local import MIN_TOKEN_LENGTH, OAUTH_CALLBACK_PATH, AccessTokenMiddleware, LocalOriginMiddleware, SecurityHeadersMiddleware
-from .model import DecisionModel, FixtureTransport, ModelAdapter, ModelSettings
+from .model import PRELOAD_KEEP_ALIVE, DecisionModel, FixtureTransport, ModelAdapter, ModelSettings
 from .ownership import StoreLease
 from .runtime import Runtime
 from .schedule import Schedule, next_after, stamp
@@ -184,6 +185,7 @@ def create_app(
     allow_subagents: bool = False,
     otlp_endpoint: str | None = None,
     otlp_transport: httpx.AsyncBaseTransport | None = None,
+    preload_model: bool = False,
 ) -> FastAPI:
     """Build the workbench app.
 
@@ -216,6 +218,9 @@ def create_app(
     `otlp_endpoint` pushes each finished Run's trace to an OTLP/HTTP collector (`otlp_transport` replaces
     the network in tests); without it traces are only available from GET /api/runs/{id}/trace.
 
+    `preload_model` asks a local Ollama to load the model when the workbench starts, in the background, so the
+    first Run's time limit is not spent loading it; `/api/config` reports its progress under `preload`.
+
     `ocr_command` names a local Tesseract; `ocr_docker_image` runs Tesseract in a locked-down container
     instead (`ocr_runner` replaces Docker in tests). At most one of the two may be set.
     """
@@ -225,6 +230,9 @@ def create_app(
     runtime: Runtime
     model: DecisionModel
     settings = model_settings or ModelSettings()
+    if preload_model and settings.mode != "local":
+        raise ValueError("Preloading applies only to a local Ollama model.")
+    preload: dict[str, Any] = {"enabled": preload_model}
     validation: dict[str, Any] = {"fault_once_source_read": fault_once_source_read}
     if hold_first_tool is not None:
         validation["hold_first_tool"] = hold_first_tool
@@ -274,6 +282,18 @@ def create_app(
             except asyncio.CancelledError:
                 pass
 
+    async def load_model(adapter: ModelAdapter) -> None:
+        preload.update(status="loading", keep_alive=PRELOAD_KEEP_ALIVE)
+        started = time.monotonic()
+        try:
+            await adapter.preload()
+        except (httpx.HTTPError, ValueError) as error:
+            # A failed preload changes nothing else: the first Run loads the model as it would have anyway.
+            preload.update(status="failed", error=type(error).__name__)
+        else:
+            preload.update(status="ready")
+        preload["seconds"] = round(time.monotonic() - started, 1)
+
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         nonlocal storage, runtime, model
@@ -314,6 +334,7 @@ def create_app(
                         adapter = ModelAdapter(client, settings, transport_fixture=transport is not None)
                         await adapter.prepare()
                         model = adapter
+                        loading = asyncio.create_task(load_model(adapter)) if preload_model else None
                         runtime = Runtime(storage, model, hold_first_tool=hold_first_tool, mcp=mcp, skills=skills, hooks=hooks, web=web, python=python, subagents=allow_subagents,
                                       extraction=extraction,
                                       on_finished=export_trace if exporter is not None else None)
@@ -321,6 +342,12 @@ def create_app(
                             async with scheduling():
                                 yield
                         finally:
+                            if loading is not None:
+                                loading.cancel()
+                                try:
+                                    await loading
+                                except asyncio.CancelledError:
+                                    pass
                             await runtime.close()
             finally:
                 if mcp is not None:
@@ -364,7 +391,8 @@ def create_app(
                 "python": python.status() if python is not None else {"enabled": False},
                 "vision": vision.status() if vision is not None else {"enabled": False},
                 "subagents": subagent_status(allow_subagents),
-                "trace_export": exporter.status() if exporter is not None else {"enabled": False}}
+                "trace_export": exporter.status() if exporter is not None else {"enabled": False},
+                "preload": preload}
 
     @app.post("/api/workspaces", status_code=201)
     async def add_workspace(body: WorkspaceInput) -> dict[str, Any]:

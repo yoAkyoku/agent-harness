@@ -136,3 +136,7 @@ body.resizing{cursor:col-resize;user-select:none}
 .routine-schedule select,.routine-schedule input{width:auto;border:1px solid #607194;color:#fff;background:#1d2942;border-radius:6px;padding:5px 6px;font:inherit;font-size:11px}
 .routine-schedule input[type=number]{width:4.5em}
 .schedule-error{color:#f6c1c7}
+
+.model-preload { color: var(--muted, #5a6580); }
+.model-preload[data-status="ready"]::before { content: "● "; color: #1f7a4d; }
+.model-preload[data-status="failed"] { color: #a33a1c; }
