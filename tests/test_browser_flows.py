@@ -10,6 +10,8 @@ skipped, unless REQUIRE_BROWSER_TESTS is set, as it is in CI.
 
 E2E_SLOW_MO (ms between browser actions), E2E_HOLD_MS (pause on each state worth seeing) and
 E2E_REPLY_DELAY (seconds before each scripted model reply) slow a run down so the videos can be followed.
+E2E_BROWSERS (default "chromium") runs every flow in each listed engine, e.g. "chromium,firefox,webkit"; the
+videos of engines other than Chromium are named <flow>.<engine>.webm.
 """
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -37,14 +39,16 @@ SERVER = Path(__file__).with_name("e2e_server.py")
 VIDEOS = Path(os.environ.get("E2E_VIDEO_DIR") or Path(__file__).resolve().parents[1] / ".tmp" / "e2e-videos")
 HOLD_MS = int(os.environ.get("E2E_HOLD_MS", "0"))
 SIZE = {"width": 1280, "height": 800}
+ENGINES = [name.strip() for name in os.environ.get("E2E_BROWSERS", "chromium").split(",") if name.strip()]
 expect.set_options(timeout=20_000)
 
 
-@pytest.fixture(scope="module")
-def browser() -> Iterator[playwright_api.Browser]:
+@pytest.fixture(scope="module", params=ENGINES)
+def browser(request: pytest.FixtureRequest) -> Iterator[playwright_api.Browser]:
     with playwright_api.sync_playwright() as playwright:
-        launched = playwright.chromium.launch(channel=os.environ.get("E2E_BROWSER_CHANNEL") or None,
-                                              slow_mo=int(os.environ.get("E2E_SLOW_MO", "0")))
+        engine = getattr(playwright, request.param)
+        channel = os.environ.get("E2E_BROWSER_CHANNEL") if request.param == "chromium" else None  # msedge and chrome are Chromium
+        launched = engine.launch(channel=channel or None, slow_mo=int(os.environ.get("E2E_SLOW_MO", "0")))
         yield launched
         launched.close()
 
@@ -124,7 +128,9 @@ def workbench(browser: playwright_api.Browser, tmp_path: Path, scenario: str, vi
             context.close()  # the video file is complete only after the context closes
             if recorded is not None:
                 VIDEOS.mkdir(parents=True, exist_ok=True)
-                shutil.move(recorded.path(), VIDEOS / f"{video}.webm" if passed else VIDEOS / f"{video}.failed.webm")
+                engine = browser.browser_type.name
+                name = video if engine == "chromium" else f"{video}.{engine}"
+                shutil.move(recorded.path(), VIDEOS / (f"{name}.webm" if passed else f"{name}.failed.webm"))
         server.stop()
 
 

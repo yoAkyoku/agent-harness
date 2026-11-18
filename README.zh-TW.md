@@ -25,7 +25,7 @@ flowchart LR
 <td><img src="docs/images/publish-approval.png" alt="發布核准：確切的成果內容、證據雜湊，以及核准所綁定的參數摘要"></td>
 </tr></table>
 
-*截圖使用英文介面（右上角可切換為繁中），以內建的示範用模擬模型產生（沒有呼叫任何模型或 API），並開啟計畫與發布核准。十三段瀏覽器流程的錄影（核准、MCP 工具、skills、hook、子代理加搜尋、桌面式外殼、中斷與續做、補充指示與取消、錯誤、無障礙掃描、中文介面與兩種窄版版面）在[測試](#測試)一節。*
+*截圖使用英文介面（右上角可切換為繁中），以內建的示範用模擬模型產生（沒有呼叫任何模型或 API），並開啟計畫與發布核准；`scripts/readme_screenshots.py` 可以重拍。十三段瀏覽器流程的錄影（核准、MCP 工具、skills、hook、子代理加搜尋、桌面式外殼、中斷與續做、補充指示與取消、錯誤、無障礙掃描、中文介面與兩種窄版版面）在[測試](#測試)一節。*
 
 工作台的版面像桌面應用程式，佔滿整個視窗：標題列、切換側邊面板的活動列（來源、routines、記憶、紀錄）、含「設定任務」與「執行過程」兩個分頁的任務區、右側的成果預覽，以及狀態列。每個區域各自捲動；側邊面板與成果預覽可以拖曳邊緣調整寬度（也可以用方向鍵，寬度會記在瀏覽器裡）；較少用到的設定（包括 Run 的時間上限）收在「進階選項」。
 
@@ -268,7 +268,7 @@ uv run mypy
 for file in src/agent_harness/static/*.js; do node --check "$file"; done
 ```
 
-另外有十三個流程會在真正的瀏覽器（透過 Playwright 的 Chromium）裡執行並錄影。模型是腳本，但工作台、MCP 伺服器與指令 hook 都是真正的行程：
+另外有十三個流程會透過 Playwright 在真正的瀏覽器裡執行並錄影（Chromium；CI 另外也跑 Firefox 與 WebKit）。模型是腳本，但工作台、MCP 伺服器與指令 hook 都是真正的行程：
 
 | 影片（動態預覽，點擊放大） | 內容 |
 |---|---|
@@ -292,7 +292,7 @@ uv run playwright install chromium   # 或設定 E2E_BROWSER_CHANNEL=msedge 使�
 E2E_SLOW_MO=250 E2E_HOLD_MS=1500 E2E_REPLY_DELAY=0.7 uv run pytest -q tests/test_browser_flows.py
 ```
 
-影片會寫到 `.tmp/e2e-videos/`（`E2E_VIDEO_DIR`）。`docs/videos/` 裡的影片是在 Windows 上以 headless Edge 和上述設定錄製的。執行 `uv run python scripts/record_flows.py [--channel msedge]` 可以重錄：它會慢速跑完各流程，替換通過的流程影片，失敗的流程保留舊影片，並產生 GIF 預覽（GitHub 不會在網頁上播放 `.webm`，所以每段影片另有一張每秒 5 格、寬 800 像素的動態預覽）。`tests/test_readme_media.py` 會檢查每個連結的檔案都存在、每段影片都有預覽。CI 的「Browser flows (recorded)」工作會執行同樣的流程，並把影片保留為 `browser-flow-videos` artifact。沒有安裝 Playwright 時，`uv run pytest` 會略過這十三個測試。它們檢查的是頁面對腳本模型顯示了什麼，不能說明真實模型的行為。真實模型的部分由 `scripts/record_real_model.py` 以同樣方式操作一個任務，並保留所有結果：最初兩次以 Qwen3.5 9B 錄製，都沒有通過，原因各不相同（[browser-01](docs/evaluation/records/qwen3.5-9b-browser-01-2026-11-18/README.md)）。
+設定 `E2E_BROWSERS=chromium,firefox,webkit` 會在每個引擎各跑一次。影片會寫到 `.tmp/e2e-videos/`（`E2E_VIDEO_DIR`）。`docs/videos/` 裡的影片是在 Windows 上以 headless Edge 和上述設定錄製的。執行 `uv run python scripts/record_flows.py [--channel msedge]` 可以重錄：它會慢速跑完各流程，替換通過的流程影片，失敗的流程保留舊影片，並產生 GIF 預覽（GitHub 不會在網頁上播放 `.webm`，所以每段影片另有一張每秒 5 格、寬 800 像素的動態預覽）。`tests/test_readme_media.py` 會檢查每個連結的檔案都存在、每段影片都有預覽。CI 的「Browser flows (recorded)」工作會執行同樣的流程，並把影片保留為 `browser-flow-videos` artifact。沒有安裝 Playwright 時，`uv run pytest` 會略過這十三個測試。它們檢查的是頁面對腳本模型顯示了什麼，不能說明真實模型的行為。真實模型的部分由 `scripts/record_real_model.py` 以同樣方式操作一個任務，並保留所有結果：最初兩次以 Qwen3.5 9B 錄製，都沒有通過，原因各不相同（[browser-01](docs/evaluation/records/qwen3.5-9b-browser-01-2026-11-18/README.md)）。
 
 也可以在乾淨的 Linux 容器中執行其餘所有檢查（含真正的 Tesseract）：
 

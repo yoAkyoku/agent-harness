@@ -25,7 +25,7 @@ flowchart LR
 <td><img src="docs/images/publish-approval.png" alt="Publish approval: the exact artifact, its evidence hashes and the parameter digest the approval binds to"></td>
 </tr></table>
 
-*Screenshots: the built-in scripted demo model (no model and no API is called), with plan and publish approval on. Thirteen recorded browser flows (approvals, MCP tools, skills, a hook, a subagent with search, the app shell, crash and resume, steering and cancelling, errors, an accessibility scan, the Chinese interface and two narrow layouts) are under [Tests](#tests).*
+*Screenshots: the built-in scripted demo model (no model and no API is called), with plan and publish approval on; `scripts/readme_screenshots.py` retakes them. Thirteen recorded browser flows (approvals, MCP tools, skills, a hook, a subagent with search, the app shell, crash and resume, steering and cancelling, errors, an accessibility scan, the Chinese interface and two narrow layouts) are under [Tests](#tests).*
 
 The workbench is laid out like a desktop app and fills the window: a title bar, a rail that switches the side panel (sources, routines, memory, history), the task area with a “Set up the task” tab and a “Run progress” tab, the artifact preview on the right and a status bar. Each region scrolls on its own, the side panel and the preview can be resized by dragging their edge (or with the arrow keys; the widths are remembered in the browser), and the less-used settings, including the Run's time limit, sit under “Advanced options”.
 
@@ -268,7 +268,7 @@ uv run mypy
 for file in src/agent_harness/static/*.js; do node --check "$file"; done
 ```
 
-Thirteen flows also run in a real browser (Chromium through Playwright) and are recorded. The model is a script, but the workbench, the MCP server and the command hook are real processes:
+Thirteen flows also run in real browsers through Playwright (Chromium, and in CI also Firefox and WebKit) and are recorded. The model is a script, but the workbench, the MCP server and the command hook are real processes:
 
 | Recording (animated preview; click to enlarge) | What it shows |
 |---|---|
@@ -292,7 +292,7 @@ uv run playwright install chromium   # or set E2E_BROWSER_CHANNEL=msedge to use 
 E2E_SLOW_MO=250 E2E_HOLD_MS=1500 E2E_REPLY_DELAY=0.7 uv run pytest -q tests/test_browser_flows.py
 ```
 
-The videos are written to `.tmp/e2e-videos/` (`E2E_VIDEO_DIR`). The copies in `docs/videos/` were recorded on Windows with headless Edge at those settings. `uv run python scripts/record_flows.py [--channel msedge]` re-records them: it runs the flows slowly, replaces each passing flow's video, keeps the old one for a flow that fails, and makes the GIF previews (GitHub does not play `.webm` files in the browser, so each has an animated preview at 5 frames per second and 800 pixels wide). `tests/test_readme_media.py` checks that every linked file exists and every recording has its preview. CI runs the same flows in the “Browser flows (recorded)” job and keeps the videos as the `browser-flow-videos` artifact. Without Playwright installed, `uv run pytest` skips these thirteen tests. They check what the page shows for a scripted model; they say nothing about how a real model behaves. For that, `scripts/record_real_model.py` drives one task with a real local model the same way and keeps whatever happens: the first two recordings, with Qwen3.5 9B, both failed, for different reasons ([browser-01](docs/evaluation/records/qwen3.5-9b-browser-01-2026-11-18/README.md)).
+`E2E_BROWSERS=chromium,firefox,webkit` runs them in each engine. The videos are written to `.tmp/e2e-videos/` (`E2E_VIDEO_DIR`). The copies in `docs/videos/` were recorded on Windows with headless Edge at those settings. `uv run python scripts/record_flows.py [--channel msedge]` re-records them: it runs the flows slowly, replaces each passing flow's video, keeps the old one for a flow that fails, and makes the GIF previews (GitHub does not play `.webm` files in the browser, so each has an animated preview at 5 frames per second and 800 pixels wide). `tests/test_readme_media.py` checks that every linked file exists and every recording has its preview. CI runs the same flows in the “Browser flows (recorded)” job and keeps the videos as the `browser-flow-videos` artifact. Without Playwright installed, `uv run pytest` skips these thirteen tests. They check what the page shows for a scripted model; they say nothing about how a real model behaves. For that, `scripts/record_real_model.py` drives one task with a real local model the same way and keeps whatever happens: the first two recordings, with Qwen3.5 9B, both failed, for different reasons ([browser-01](docs/evaluation/records/qwen3.5-9b-browser-01-2026-11-18/README.md)).
 
 Or run every other check in a clean Linux container, with the real Tesseract:
 

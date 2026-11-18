@@ -68,7 +68,7 @@ def main() -> int:
     arguments = parser.parse_args()
     ffmpeg = find_ffmpeg()
     with tempfile.TemporaryDirectory() as recorded:
-        environment = {**os.environ, **SLOW, "E2E_VIDEO_DIR": recorded, "REQUIRE_BROWSER_TESTS": "1"}
+        environment = {**os.environ, **SLOW, "E2E_VIDEO_DIR": recorded, "REQUIRE_BROWSER_TESTS": "1", "E2E_BROWSERS": "chromium"}
         if arguments.channel:
             environment["E2E_BROWSER_CHANNEL"] = arguments.channel
         command = [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests/test_browser_flows.py"]

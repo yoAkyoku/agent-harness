@@ -73,25 +73,33 @@ jobs:
           docker rm -f harness
 
   browser:
-    name: Browser flows (recorded)
+    name: Browser flows (recorded; Chromium, Firefox, WebKit)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.12"
-      - name: Install dependencies and Chromium
+      - name: Install dependencies and the three browser engines
         run: |
           uv sync --locked --group e2e
-          uv run playwright install --with-deps chromium
-      - name: Drive the workbench in a browser
+          uv run playwright install --with-deps chromium firefox webkit
+      - name: Drive the workbench in Chromium
         # A scripted model, a real MCP server and a real command hook; slowed down so the videos can be followed.
         run: uv run pytest -q tests/test_browser_flows.py
         env:
           REQUIRE_BROWSER_TESTS: "1"
+          E2E_BROWSERS: chromium
           E2E_SLOW_MO: "250"
           E2E_HOLD_MS: "1500"
           E2E_REPLY_DELAY: "0.7"
+          E2E_VIDEO_DIR: e2e-videos
+      - name: The same flows in Firefox and WebKit
+        if: always()
+        run: uv run pytest -q tests/test_browser_flows.py
+        env:
+          REQUIRE_BROWSER_TESTS: "1"
+          E2E_BROWSERS: firefox,webkit
           E2E_VIDEO_DIR: e2e-videos
       - name: Keep the recordings
         if: always()
