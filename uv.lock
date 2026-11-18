@@ -34,6 +34,7 @@ dev = [
     { name = "types-jsonschema" },
 ]
 e2e = [
+    { name = "pillow" },
     { name = "playwright" },
 ]
 
@@ -60,7 +61,10 @@ dev = [
     { name = "pytest", specifier = ">=8,<10" },
     { name = "types-jsonschema", specifier = ">=4" },
 ]
-e2e = [{ name = "playwright", specifier = ">=1.50,<2" }]
+e2e = [
+    { name = "pillow", specifier = ">=10" },
+    { name = "playwright", specifier = ">=1.50,<2" },
+]
 
 [[package]]
 name = "annotated-doc"

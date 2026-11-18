@@ -2,7 +2,7 @@
 
 Each test starts the workbench as a child process (tests/e2e_server.py) with a scripted model, opens it in
 Chromium through Playwright, does what a person would do, and checks what the page shows. Every flow is
-recorded; the videos are written to E2E_VIDEO_DIR (default .tmp/e2e-videos).
+recorded; the videos are written to E2E_VIDEO_DIR (default .tmp/e2e-videos), a failed flow's as <name>.failed.webm.
 
 Playwright is not a default dependency: `uv sync --group e2e`, then `uv run playwright install chromium`
 (or set E2E_BROWSER_CHANNEL=msedge / chrome to use an installed browser). Without it these tests are
@@ -59,6 +59,7 @@ def workbench(browser: playwright_api.Browser, tmp_path: Path, scenario: str, vi
         process = subprocess.Popen([sys.executable, str(SERVER), scenario, str(tmp_path), str(port)], stdout=output,
                                    stderr=subprocess.STDOUT, creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
     context = None
+    passed = False
     try:
         deadline = time.monotonic() + 60
         while True:
@@ -76,13 +77,14 @@ def workbench(browser: playwright_api.Browser, tmp_path: Path, scenario: str, vi
         expect(page.locator("#mode-badge")).not_to_have_text("")
         yield page, tmp_path / "workspace"
         hold(page)
+        passed = True
     finally:
         if context is not None:
             recorded = context.pages[0].video if context.pages else None
             context.close()  # the video file is complete only after the context closes
             if recorded is not None:
                 VIDEOS.mkdir(parents=True, exist_ok=True)
-                shutil.move(recorded.path(), VIDEOS / f"{video}.webm")
+                shutil.move(recorded.path(), VIDEOS / f"{video}.webm" if passed else VIDEOS / f"{video}.failed.webm")
         process.terminate()
         process.wait(timeout=20)
 

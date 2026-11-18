@@ -277,7 +277,7 @@ uv run playwright install chromium   # 或設定 E2E_BROWSER_CHANNEL=msedge 使�
 E2E_SLOW_MO=250 E2E_HOLD_MS=1500 E2E_REPLY_DELAY=0.7 uv run pytest -q tests/test_browser_flows.py
 ```
 
-影片會寫到 `.tmp/e2e-videos/`（`E2E_VIDEO_DIR`）。`docs/videos/` 裡的影片是在 Windows 上以 headless Edge 和上述設定錄製的，需要手動更新（`E2E_VIDEO_DIR=docs/videos`）。GitHub 不會在網頁上播放 `.webm`（只提供下載），所以每段影片另有一張每秒 5 格、寬 800 像素的動態 GIF 預覽。CI 的「Browser flows (recorded)」工作會執行同樣的流程，並把影片保留為 `browser-flow-videos` artifact。沒有安裝 Playwright 時，`uv run pytest` 會略過這六個測試。它們檢查的是頁面對腳本模型顯示了什麼，不能說明真實模型的行為。
+影片會寫到 `.tmp/e2e-videos/`（`E2E_VIDEO_DIR`）。`docs/videos/` 裡的影片是在 Windows 上以 headless Edge 和上述設定錄製的。執行 `uv run python scripts/record_flows.py [--channel msedge]` 可以重錄：它會慢速跑完各流程，替換通過的流程影片，失敗的流程保留舊影片，並產生 GIF 預覽（GitHub 不會在網頁上播放 `.webm`，所以每段影片另有一張每秒 5 格、寬 800 像素的動態預覽）。`tests/test_readme_media.py` 會檢查每個連結的檔案都存在、每段影片都有預覽。CI 的「Browser flows (recorded)」工作會執行同樣的流程，並把影片保留為 `browser-flow-videos` artifact。沒有安裝 Playwright 時，`uv run pytest` 會略過這六個測試。它們檢查的是頁面對腳本模型顯示了什麼，不能說明真實模型的行為。
 
 也可以在乾淨的 Linux 容器中執行其餘所有檢查（含真正的 Tesseract）：
 
