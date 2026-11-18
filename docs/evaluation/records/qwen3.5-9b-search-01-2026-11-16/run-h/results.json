@@ -1,0 +1,115 @@
+[
+  {
+    "id": "search-single",
+    "attempt": 1,
+    "run_id": "af852c9d43684b3f8ac3549548772d6b",
+    "exit_code": 0,
+    "seconds": 10,
+    "status": "completed",
+    "result": "根據維運日誌，支付閘道憑證更新造成結帳中斷 47 分鐘，負責處理的是平台組蔡宗翰。[ops-log.md E1]",
+    "error": null,
+    "usage": {
+      "model_calls": 4,
+      "tool_calls": 4
+    },
+    "token_usage": {
+      "input_tokens": 4154,
+      "output_tokens": 206,
+      "reported_responses": 4,
+      "unreported_responses": 0
+    },
+    "artifacts": [],
+    "artifact_text": null,
+    "tools": [
+      "plan_update",
+      "workspace_list",
+      "source_search",
+      "task_finish"
+    ],
+    "reads": [],
+    "rejected": [],
+    "subagents": 0,
+    "compacted": [],
+    "stderr": "Run af852c9d43684b3f8ac3549548772d6b accepted; events follow on stdout.\n",
+    "problems": [],
+    "passed": true
+  },
+  {
+    "id": "search-scattered",
+    "attempt": 1,
+    "run_id": "7929630658074de5967ed285f6e5bf36",
+    "exit_code": 0,
+    "seconds": 18,
+    "status": "completed",
+    "result": "根據維運日誌，共記錄了三次服務中斷事件：\n\n1. **第 12 週**：訂單寫入中斷 31 分鐘，負責處理的是資料組 許雅雯 [ops-log-incidents.md E1]。\n2. **第 67 週**：結帳中斷 47 分鐘，負責處理的是平台組 蔡宗翰 [ops-log-incidents.md E1]。\n3. **第 109 週**：搜尋中斷 58 分鐘，負責處理的是搜尋組 鄭凱文 [ops-log-incidents.md E1]。",
+    "error": null,
+    "usage": {
+      "model_calls": 5,
+      "tool_calls": 5
+    },
+    "token_usage": {
+      "input_tokens": 5515,
+      "output_tokens": 380,
+      "reported_responses": 5,
+      "unreported_responses": 0
+    },
+    "artifacts": [],
+    "artifact_text": null,
+    "tools": [
+      "plan_update",
+      "workspace_list",
+      "source_search",
+      "task_finish"
+    ],
+    "reads": [],
+    "rejected": [
+      "source_read:source_too_large_for_context"
+    ],
+    "subagents": 0,
+    "compacted": [],
+    "stderr": "Run 7929630658074de5967ed285f6e5bf36 accepted; events follow on stdout.\n",
+    "problems": [],
+    "passed": true
+  },
+  {
+    "id": "search-absent",
+    "attempt": 1,
+    "run_id": "1bc5d17981ee4384a708088ee5d0b1a3",
+    "exit_code": 0,
+    "seconds": 24,
+    "status": "completed",
+    "result": "維運日誌中沒有記錄資料外洩事件。已搜尋關鍵字「外洩」、「洩漏」及英文對應詞彙，均未找到相關記錄 [ops-log.md E1] [ops-log.md E2] [ops-log.md E3] [ops-log.md E4]。",
+    "error": null,
+    "usage": {
+      "model_calls": 9,
+      "tool_calls": 9
+    },
+    "token_usage": {
+      "input_tokens": 12551,
+      "output_tokens": 369,
+      "reported_responses": 9,
+      "unreported_responses": 0
+    },
+    "artifacts": [],
+    "artifact_text": null,
+    "tools": [
+      "plan_update",
+      "workspace_list",
+      "source_search",
+      "source_search",
+      "source_search",
+      "source_search",
+      "task_finish"
+    ],
+    "reads": [],
+    "rejected": [
+      "source_read:source_too_large_for_context",
+      "source_search:repeated_search"
+    ],
+    "subagents": 0,
+    "compacted": [],
+    "stderr": "Run 1bc5d17981ee4384a708088ee5d0b1a3 accepted; events follow on stdout.\n",
+    "problems": [],
+    "passed": true
+  }
+]

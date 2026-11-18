@@ -1,0 +1,29 @@
+{
+  "model": "qwen3.5:9b-q4_K_M",
+  "runs": 3,
+  "passed": 3,
+  "rejected_calls": 3,
+  "cases": [
+    {
+      "id": "search-single",
+      "runs": 1,
+      "passed": 1,
+      "distinct_answers": 1,
+      "problems": []
+    },
+    {
+      "id": "search-scattered",
+      "runs": 1,
+      "passed": 1,
+      "distinct_answers": 1,
+      "problems": []
+    },
+    {
+      "id": "search-absent",
+      "runs": 1,
+      "passed": 1,
+      "distinct_answers": 1,
+      "problems": []
+    }
+  ]
+}
