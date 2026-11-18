@@ -827,10 +827,36 @@ class Tools:
         covered = set().union(*(sources for identity, sources in roots.items() if identity in mentioned))
         if expected - covered:
             raise RunFailure("missing_body_citation",
-                "Multiple source versions are cited, but the body does not reference each source through its current evidence IDs. "
-                "Add the appropriate IDs next to supported body statements; a global server appendix alone does not link entries to sources. "
-                "Missing source versions: " + json.dumps(sorted(expected - covered), ensure_ascii=False)
-                + self._citation_hint(), correctable_fields=("content",))
+                "Several sources are cited, but the body does not cite each one where it is used. Put the citation next to "
+                "the statements taken from: " + self._uncited_sources(expected - covered, roots, expected)
+                + ". Only the content can change in this retry; the server appendix alone does not link statements to sources.",
+                correctable_fields=("content",))
+
+    def _uncited_sources(self, missing: set[tuple[str, str, str]], roots: dict[str, set[tuple[str, str, str]]],
+                         expected: set[tuple[str, str, str]]) -> str:
+        """Each source the body leaves uncited, with the exact form to cite it by.
+
+        A version is told apart by a short hash only when two cited versions share a name; the model cannot use a full
+        SHA-256, and it only lengthens the request that carries the correction.
+        """
+        def label(source: tuple[str, str, str]) -> str:
+            kind, key, _ = source
+            if kind == "artifact":
+                return next((evidence["name"] for evidence in self.evidence.values() if evidence.get("artifact_id") == key), key)
+            return key
+
+        names = [label(source) for source in expected]
+        parts = []
+        for source in sorted(missing):
+            name = label(source)
+            # Prefer the evidence read straight from this source over a calculation that used it.
+            ids = sorted((identity for identity, sources in roots.items() if source in sources),
+                         key=lambda identity: ("path" not in self.evidence[identity] and "artifact_id" not in self.evidence[identity],
+                                               int(identity[1:]) if identity[1:].isdigit() else 0))
+            cite = ", ".join(f"[{name} {identity}]" for identity in ids[:2])
+            version = f" (version {source[2][:12]})" if names.count(name) > 1 else ""
+            parts.append(f"{name}{version} as {cite}")
+        return "; ".join(parts)
 
     def _artifact_arguments(self, arguments: Record, *, reconcile_body_citations: bool = True) -> Record:
         content = arguments["content"]

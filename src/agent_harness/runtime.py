@@ -700,6 +700,14 @@ class Runtime:
                 + ([search.definition()] if searching else [])
                 + ([loader_definition(selected_skills)] if selected_skills else []))
             pending_tools = {correction.call.name for correction in pending.values()}
+            # A body that only lacks citations is fixed with evidence the Run already has: offer artifact_write alone.
+            if pending_tools == {"artifact_write"} and all(correction.error_code == "missing_body_citation"
+                                                         for correction in pending.values()):
+                focused = [tool for tool in available_tools if tool["function"]["name"] == "artifact_write"]
+                if focused:
+                    available_tools = focused
+                    await self._record(identity, "context.pruned", {
+                        "step": step, "reason": "focused_correction_tools", "tools": ["artifact_write"]})
             if pending_tools == {"number_calculate"}:
                 correction_tools = [tool for tool in available_tools
                                     if tool["function"]["name"] == "number_calculate"]
