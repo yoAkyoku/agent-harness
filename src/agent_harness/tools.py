@@ -727,7 +727,19 @@ class Tools:
         previous = self.evidence.get(self._searches.get(key, ""))
         if previous is not None and len(previous["text"].encode("utf-8")) <= limit:
             # The same search on the same file version cannot return anything new. It is refused, and the refusal
-            # spends the correction budget: a model that keeps asking stops early instead of at the step limit.
+            # spends the lookup budget: a model that keeps asking stops early instead of at the step limit.
+            if previous["matched_lines"] == 0:
+                # Repeating a search that found nothing usually means the model is looking for something absent.
+                # Say what the searches already show instead of inviting yet another wording.
+                misses = [evidence for evidence in self.evidence.values()
+                          if evidence.get("evidence_type") == "source_search" and evidence.get("matched_lines") == 0
+                          and evidence["path"] == source["path"] and evidence["sha256"] == source["sha256"]]
+                listed = "; ".join(f"{json.dumps(evidence['query'], ensure_ascii=False)} [{evidence['path']} {evidence['evidence_id']}]"
+                                   for evidence in misses[-5:])
+                raise RunFailure("repeated_search", (
+                    f"Already searched; no line matched, and that cannot change. Searches of {source['path']} with no match: "
+                    f"{listed}. No match is evidence of what this version does not contain: if the question is whether it "
+                    "mentions this, answer that it does not and cite these searches."), correctable_fields=("query",))
             raise RunFailure("repeated_search", (
                 f"This exact search already ran; its result is evidence {previous['evidence_id']} "
                 f"({previous['matched_lines']} matching lines) and cannot change. Answer from the evidence you have, "

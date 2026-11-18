@@ -267,7 +267,7 @@ def test_a_search_result_fits_the_room_left_and_identical_searches_share_evidenc
 
     miss = asyncio.run(tools._search({"path": "log.md", "query": "earthquake"}))
     assert miss["evidence_id"] == "E2"
-    with pytest.raises(RunFailure, match="0 matching lines"):
+    with pytest.raises(RunFailure, match=r"no line matched.*\[log\.md E2\]"):
         asyncio.run(tools._search({"path": "log.md", "query": "earthquake"}))
     assert list(tools.evidence) == ["E1", "E2"]
 
@@ -290,16 +290,43 @@ def test_a_repeated_search_is_refused_and_the_run_can_still_finish_or_stops_earl
     failed = next(event["data"] for event in events if event["kind"] == "tool.failed")
     assert (failed["call_id"], failed["code"]) == ("again", "repeated_search")
     correction = next(event["data"] for event in events if event["kind"] == "correction.available")
-    assert correction["error"]["retryable"] is True and "evidence E1" in correction["error"]["message"]
+    assert correction["error"]["retryable"] is True and "[log.md E1]" in correction["error"]["message"]
     assert correction["error"]["remaining_refused_lookups"] == 1 and "remaining_corrections" not in correction["error"]
 
     looping = [tool_reply("plan_update", {"steps": ["Search"]}, "plan"), miss,
                *(tool_reply("source_search", {"path": "log.md", "query": "earthquake"}, f"loop-{index}") for index in range(3))]
     app, _ = _client(tmp_path / "loop", looping)
-    with app as client:
-        final, events = finish(client, _start(client, tmp_path, source_search=True, completion_workflow="answer").json())
+    with app as client:  # the real model's window: the refusals now quote earlier misses, which a 6,000-token one cannot hold
+        final, events = finish(client, _start(client, tmp_path, source_search=True, completion_workflow="answer",
+                                              limits={"context_window_tokens": 8192, "max_output_tokens": 256}).json())
     assert final["status"] == "failed" and final["error"]["code"] == "lookup_limit_exceeded"
     assert final["usage"]["model_calls"] == 5  # stopped by the lookup budget, well before the step limit
+
+
+def test_repeating_a_search_that_found_nothing_says_what_the_misses_show(tmp_path: Path) -> None:
+    """After searches with no match, a repeat is refused with the misses listed and the answer they support named.
+
+    A repeat of a search that did match keeps the ordinary refusal, which still allows other words.
+    """
+    app, _ = _client(tmp_path, [
+        tool_reply("plan_update", {"steps": ["Search the log", "Answer"]}, "plan"),
+        tool_reply("source_search", {"path": "log.md", "query": "earthquake"}, "miss-1"),
+        tool_reply("source_search", {"path": "log.md", "query": "tremor"}, "miss-2"),
+        tool_reply("source_search", {"path": "log.md", "query": "checkout down"}, "hit"),
+        tool_reply("source_search", {"path": "log.md", "query": "checkout down"}, "hit-again"),
+        tool_reply("source_search", {"path": "log.md", "query": "tremor"}, "miss-again"),
+        tool_reply("task_finish", {"summary": "The log does not mention an earthquake [log.md E1] [log.md E2]."}, "finish"),
+    ])
+    with app as client:
+        final, events = finish(client, _start(client, tmp_path, source_search=True, completion_workflow="answer",
+                                              limits={"context_window_tokens": 8192, "max_output_tokens": 256}).json())
+    assert final["status"] == "completed", final["error"]
+    refusals = {event["data"]["call_id"]: event["data"]["error"]["message"] for event in events if event["kind"] == "correction.available"}
+    assert "different words" in refusals["hit-again"]  # it matched: other words may find more
+    miss = refusals["miss-again"]
+    assert "different words" not in miss and "Searches of log.md with no match" in miss
+    assert '"earthquake" [log.md E1]' in miss and '"tremor" [log.md E2]' in miss
+    assert "answer that it does not" in miss
 
 
 def test_refused_lookups_leave_the_answer_its_own_corrections(tmp_path: Path) -> None:
