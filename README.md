@@ -75,6 +75,14 @@ A local model runs at temperature 0, so the same task reproduces the same Run. `
 
 The local path needs Ollama 0.40.10 with a Qwen3.5 model, because its context bound is verified against that renderer; any other local model fails closed with `context_profile_unsupported` instead of guessing.
 
+By default the local context bound counts every UTF-8 byte of the rendered prompt as a token. That can never fall short, so Ollama never silently cuts a prompt, but it is several times too high: on a replay of a real browser-01 Run the rendered requests were 3.4 to 4.0 times more bytes than tokens. For exact counts, pass the model's own GGUF file (Ollama keeps it as `blobs/sha256-02d45dc1…`):
+
+```bash
+uv run python -m agent_harness --model qwen3.5:9b-q4_K_M --decision-protocol json_tools --exact-tokenizer-model <path to the blob>
+```
+
+The file is hashed against the pinned digest at startup and only its vocabulary is read, in Python, on any platform. `scripts/compare_tokenizers.py` checks it against the pinned llama.cpp library string by string: 60,838 strings (repository text in English and Chinese, chat-template prompts, random Unicode) gave no mismatch. Text with characters newer than Python's Unicode tables is counted by its bytes instead, which keeps the count from falling short. Every reply is also checked: if Ollama reports more prompt tokens than were counted, the reply is discarded and the Run fails with `exact_context_mismatch`. Adding `--exact-tokenizer-library` with Ollama's `libllama.dll` counts with that library instead (Windows only).
+
 Or with Docker (fixture by default; publish only to loopback):
 
 ```bash

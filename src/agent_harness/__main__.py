@@ -48,8 +48,11 @@ def parser() -> argparse.ArgumentParser:
                         help="Allow a free-form model-written initial plan; by default real models use harness-owned action stages.")
     parser.add_argument("--decision-protocol", choices=("native", "json_tools"), default="native",
                         help="Ollama decision wire protocol; JSON tools is experimental and requires --model.")
-    parser.add_argument("--exact-tokenizer-library", type=Path, help="Explicit pinned local Windows libllama DLL; requires matching model asset.")
-    parser.add_argument("--exact-tokenizer-model", type=Path, help="Explicit pinned local Qwen35 9B GGUF blob; vocab-only, no inference.")
+    parser.add_argument("--exact-tokenizer-library", type=Path,
+                        help="Explicit pinned local Windows libllama DLL to count with; requires --exact-tokenizer-model.")
+    parser.add_argument("--exact-tokenizer-model", type=Path,
+                        help="Explicit pinned local Qwen35 9B GGUF blob; only its vocabulary is read. Alone, tokens are counted "
+                             "in Python on any platform; with --exact-tokenizer-library, by that library.")
     parser.add_argument("--mcp-config", type=Path,
                         help="JSON file with mcpServers (command, args, allowedTools); their allowed read-only tools can be selected by Runs.")
     parser.add_argument("--skills-dir", type=Path,

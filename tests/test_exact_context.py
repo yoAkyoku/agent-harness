@@ -125,7 +125,8 @@ def test_recorded_revision_prefix_can_finish_approved_second_version_with_comple
     source = tmp_path / "source"
     source.mkdir()
     (source / "metrics.csv").write_bytes((root / "evaluation/slice-09/analysis-standard/metrics.csv").read_bytes())
-    replies = [tool_reply("artifact_write", {"name":"report.md","content":original.decode()}),
+    replies = [tool_reply("plan_update", {"steps":["Seed the base version"]}, "seed-plan"),
+               tool_reply("artifact_write", {"name":"report.md","content":original.decode()}),
                httpx.Response(200,json={"choices":[{"message":{"role":"assistant","content":"Seeded."}}]})]
     async def seed_transport(request: httpx.Request) -> httpx.Response:
         return replies.pop(0)

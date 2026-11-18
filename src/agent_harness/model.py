@@ -15,7 +15,7 @@ import httpx
 from .contracts import Decision, RunFailure, ToolCall
 from .json_tools import decode_calls, project_request, strict_json_loads
 from .context import ADDED_MESSAGE_PREFIX, request_budget
-from .exact_context import ExactCounter, LIBRARY_SHA, MODEL_SHA, MODEL_DIGEST, PROFILE
+from .exact_context import ExactCounter, LIBRARY_SHA, MODEL_SHA, MODEL_DIGEST, PORTABLE_PROFILE, PROFILE, PortableCounter
 from .streaming import MAX_RESPONSE_BYTES, TextSink, read_chat_stream, token_usage
 
 
@@ -91,9 +91,9 @@ class ModelSettings:
             return
         if self.alternatives:
             raise ValueError("Only remote providers offer alternative models per Run.")
-        if (self.exact_tokenizer_library is None) != (self.exact_tokenizer_model is None):
-            raise ValueError("Specify both local tokenizer assets.")
-        if self.exact_tokenizer_library is not None and (self.mode != "local" or self.thinking or self.decision_protocol != "json_tools"):
+        if self.exact_tokenizer_library is not None and self.exact_tokenizer_model is None:
+            raise ValueError("The tokenizer library needs the matching model file.")
+        if self.exact_tokenizer_model is not None and (self.mode != "local" or self.thinking or self.decision_protocol != "json_tools"):
             raise ValueError("Exact local accounting requires nonthinking JSON tools.")
         if self.decision_protocol not in {"native", "json_tools"}:
             raise ValueError("Choose native or json_tools decision protocol.")
@@ -209,7 +209,7 @@ class ModelAdapter:
     def __init__(self, client: httpx.AsyncClient, settings: ModelSettings, *, transport_fixture: bool) -> None:
         self.client = client
         self.settings = settings
-        self.exact_counter: ExactCounter | None = None
+        self.exact_counter: ExactCounter | PortableCounter | None = None
         self._headers: dict[str, str] = {}
         configured = settings.mode != "fixture"
         self.info: dict[str, Any] = {
@@ -289,17 +289,40 @@ class ModelAdapter:
             self.info.update({"digest": found["digest"], "server_version": version.json()["version"],
                               "capabilities": metadata["capabilities"],
                               "reasoning_effort": "low" if self.settings.thinking else "none"})
-            if self.settings.exact_tokenizer_library is not None and self.settings.exact_tokenizer_model is not None:
+            if self.settings.exact_tokenizer_model is not None:
                 if not profile_matches or found["digest"] != MODEL_DIGEST:
                     raise RunFailure("exact_context_unavailable", "Exact accounting has no verified profile for this model.")
-                self.exact_counter = await asyncio.to_thread(ExactCounter, self.settings.exact_tokenizer_library, self.settings.exact_tokenizer_model)
-                self.info["context_profile"] = PROFILE
-                self.info["tokenizer_verification"] = {"library_sha256":LIBRARY_SHA,"model_blob_sha256":MODEL_SHA,
-                    "vocab_only":True,"add_special":True,"parse_special":True,"renderer":"qwen3.5"}
+                if self.settings.exact_tokenizer_library is not None:
+                    self.exact_counter = await asyncio.to_thread(ExactCounter, self.settings.exact_tokenizer_library, self.settings.exact_tokenizer_model)
+                    self.info["context_profile"] = PROFILE
+                    self.info["tokenizer_verification"] = {"library_sha256":LIBRARY_SHA,"model_blob_sha256":MODEL_SHA,
+                        "vocab_only":True,"add_special":True,"parse_special":True,"renderer":"qwen3.5"}
+                else:
+                    self.exact_counter = await asyncio.to_thread(PortableCounter, self.settings.exact_tokenizer_model)
+                    self.info["context_profile"] = PORTABLE_PROFILE
+                    self.info["tokenizer_verification"] = {"implementation":"portable_python","model_blob_sha256":MODEL_SHA,
+                        "vocab_only":True,"add_special":True,"parse_special":True,"renderer":"qwen3.5"}
         except httpx.HTTPError as error:
             raise RunFailure("model_unavailable", "Start the configured local Ollama service and use an already-installed model.") from error
         except (KeyError, TypeError, ValueError) as error:
             raise RunFailure("model_metadata_invalid", "The local model metadata could not be verified.") from error
+
+    async def _check_reported_prompt(self, body: dict[str, Any], usage: object) -> None:
+        """With exact accounting, a reply whose reported prompt is larger than the count is discarded.
+
+        Ollama reports the prompt tokens it evaluated; reusing a cached prefix can only make that smaller. A larger
+        number means the count was wrong, and the prompt may have been cut (llama-server shifts its context).
+        """
+        if self.exact_counter is None or not isinstance(usage, dict):
+            return
+        reported = usage.get("prompt_tokens")
+        if type(reported) is not int:
+            return
+        counted = await self.exact_counter.counted_tokens(body)
+        if reported > counted:
+            raise RunFailure("exact_context_mismatch",
+                             "The model server reported a larger prompt than was counted, so the count cannot be trusted.",
+                             diagnostics={"counted_tokens": counted, "reported_prompt_tokens": reported})
 
     async def context_budget(self, body: dict[str, Any], capacity: int, reserve: int, profile: str) -> dict[str, Any]:
         if self.exact_counter is not None:
@@ -353,6 +376,7 @@ class ModelAdapter:
             if self.settings.decision_protocol == "json_tools":
                 if raw.get("tool_calls") not in (None, []):
                     raise ValueError
+                await self._check_reported_prompt(body, payload.get("usage"))
                 structured = decode_calls(text, tools)
                 structured_message = {"role": "assistant", "content": None, "decision_protocol": "json_tools", "wire_content": text,
                     "tool_calls": [{"id": call.identity, "type": "function", "function": {"name": call.name,

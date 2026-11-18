@@ -75,6 +75,14 @@ uv run python -m agent_harness --model qwen3.5:9b-q4_K_M --decision-protocol jso
 
 本機路徑需要 Ollama 0.40.10 搭配 Qwen3.5 模型，因為 Context 上限只針對該 renderer 驗證過；其他本機模型會以 `context_profile_unsupported` 直接拒絕，而不是猜測。
 
+預設的本機 Context 上限把渲染後提示的每個 UTF-8 byte 都當成一個 token。這個算法不可能少算，所以 Ollama 不會悄悄截斷提示，但會高估好幾倍：重播一次真實的 browser-01 Run，渲染後的請求 bytes 是實際 token 數的 3.4 到 4.0 倍。要精確計算，就把模型自己的 GGUF 檔交給 harness（Ollama 存成 `blobs/sha256-02d45dc1…`）：
+
+```bash
+uv run python -m agent_harness --model qwen3.5:9b-q4_K_M --decision-protocol json_tools --exact-tokenizer-model <blob 的路徑>
+```
+
+啟動時會比對檔案的 SHA-256，之後只讀取其中的詞彙表，用 Python 計算，任何平台都能用。`scripts/compare_tokenizers.py` 會逐字串和釘選的 llama.cpp 函式庫比對：60,838 個字串（repo 內的中英文文字、套上對話模板的提示、隨機 Unicode）沒有任何不一致。含有比 Python Unicode 表更新的字元時，那一段改用 byte 數計算，確保不會少算。每次回覆也會檢查：如果 Ollama 回報的提示 token 數比計算的多，這次回覆會被捨棄，Run 以 `exact_context_mismatch` 結束。另外加上 `--exact-tokenizer-library` 指向 Ollama 的 `libllama.dll`，則改由該函式庫計算（僅限 Windows）。
+
 或使用 Docker（預設是固定腳本，只發布到 loopback）：
 
 ```bash

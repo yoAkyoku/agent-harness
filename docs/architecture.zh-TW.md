@@ -49,7 +49,7 @@ PDF 與 Word 檔在 `sources.py` 中也是來源：`read_source` 保留檔案本
 
 ## 模型供應商
 
-Runtime 只依賴 `model.py` 的 `DecisionModel` 介面（`request_body`、`context_budget`、`decide`、`settings`、`info`）。支援四種供應商：fixture（固定腳本，只證明控制流程）、本機 Ollama（核對模型 digest 與 renderer，Qwen3.5 可精確計量，小模型可用 JSON-tools 協定）、OpenAI 相容端點（原生 tool calling，只允許 HTTPS，loopback 例外，API key 從指定環境變數讀取），以及透過官方 `anthropic` SDK 的 Claude（Messages API，把 Runtime 的 Chat Completions 歷史轉成 Messages 格式再轉回）。遠端模型的 Context 上限以標明的 UTF-8 bytes 上界計算。遠端供應商可列出替代模型（`--alt-model`），Claude 另提供思考強度，兩者都公開在 `info.choices`。Run 受理時會依這些選項檢查 `model` 與 `effort`，並寫入 Run 的模型紀錄；決策循環改用 `with_settings(...)`，也就是共用啟動時 client、只改模型名稱與強度的轉接器變體。續做時接受 checkpoint 中任何已設定的模型名稱並保留。本機 Ollama 模型不能逐 Run 切換，因為每個模型都需要各自的 digest 與 tokenizer 驗證。
+Runtime 只依賴 `model.py` 的 `DecisionModel` 介面（`request_body`、`context_budget`、`decide`、`settings`、`info`）。支援四種供應商：fixture（固定腳本，只證明控制流程）、本機 Ollama（核對模型 digest 與 renderer；Qwen3.5 可精確計量：`qwen35_tokenizer.py` 從釘選的 GGUF 標頭讀取詞彙與合併規則，重現 llama.cpp 的 `qwen35` 前處理與 BPE，或在 Windows 上由釘選的 `libllama.dll` 在獨立程序中計算；每次回覆後都會和 Ollama 回報的提示 token 數比對，回報較多就以 `exact_context_mismatch` 結束，因為 llama-server 遇到過長的提示會移動 Context 而不是拒絕；小模型可用 JSON-tools 協定）、OpenAI 相容端點（原生 tool calling，只允許 HTTPS，loopback 例外，API key 從指定環境變數讀取），以及透過官方 `anthropic` SDK 的 Claude（Messages API，把 Runtime 的 Chat Completions 歷史轉成 Messages 格式再轉回）。遠端模型的 Context 上限以標明的 UTF-8 bytes 上界計算。遠端供應商可列出替代模型（`--alt-model`），Claude 另提供思考強度，兩者都公開在 `info.choices`。Run 受理時會依這些選項檢查 `model` 與 `effort`，並寫入 Run 的模型紀錄；決策循環改用 `with_settings(...)`，也就是共用啟動時 client、只改模型名稱與強度的轉接器變體。續做時接受 checkpoint 中任何已設定的模型名稱並保留。本機 Ollama 模型不能逐 Run 切換，因為每個模型都需要各自的 digest 與 tokenizer 驗證。
 
 目前的 Claude 模型一定會思考，且每個思考區塊綁定產生它的對話前綴；本 harness 會刻意改寫歷史（裁切、執行狀態快照、發布後收尾），改寫後重送思考區塊會被拒絕，所以 Claude adapter 從不重送思考區塊，模型每一輪看不到前一輪的私密推理。這是明確記錄的取捨。
 
