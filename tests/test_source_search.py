@@ -277,7 +277,7 @@ def test_a_search_result_fits_the_room_left_and_identical_searches_share_evidenc
 
 
 def test_a_repeated_search_is_refused_and_the_run_can_still_finish_or_stops_early(tmp_path: Path) -> None:
-    """A model that repeats a search gets a refusal it can act on; one that keeps repeating runs out of corrections."""
+    """A model that repeats a search gets a refusal it can act on; one that keeps repeating runs out of lookups."""
     miss = tool_reply("source_search", {"path": "log.md", "query": "earthquake"}, "miss")
     app, _ = _client(tmp_path, [
         tool_reply("plan_update", {"steps": ["Search", "Answer"]}, "plan"), miss,
@@ -291,11 +291,35 @@ def test_a_repeated_search_is_refused_and_the_run_can_still_finish_or_stops_earl
     assert (failed["call_id"], failed["code"]) == ("again", "repeated_search")
     correction = next(event["data"] for event in events if event["kind"] == "correction.available")
     assert correction["error"]["retryable"] is True and "evidence E1" in correction["error"]["message"]
+    assert correction["error"]["remaining_refused_lookups"] == 1 and "remaining_corrections" not in correction["error"]
 
     looping = [tool_reply("plan_update", {"steps": ["Search"]}, "plan"), miss,
                *(tool_reply("source_search", {"path": "log.md", "query": "earthquake"}, f"loop-{index}") for index in range(3))]
     app, _ = _client(tmp_path / "loop", looping)
     with app as client:
         final, events = finish(client, _start(client, tmp_path, source_search=True, completion_workflow="answer").json())
-    assert final["status"] == "failed" and final["error"]["code"] == "correction_limit_exceeded"
-    assert final["usage"]["model_calls"] == 5  # stopped by the correction budget, well before the step limit
+    assert final["status"] == "failed" and final["error"]["code"] == "lookup_limit_exceeded"
+    assert final["usage"]["model_calls"] == 5  # stopped by the lookup budget, well before the step limit
+
+
+def test_refused_lookups_leave_the_answer_its_own_corrections(tmp_path: Path) -> None:
+    """A read that cannot fit and a repeated search, then an uncited answer: the answer can still be corrected.
+
+    Before lookups had their own budget, the two refusals used up both corrections and the uncited answer ended the Run.
+    """
+    app, _ = _client(tmp_path, [
+        tool_reply("plan_update", {"steps": ["Look in the log", "Answer"]}, "plan"),
+        tool_reply("source_read", {"path": "log.md", "labels": []}, "read"),
+        tool_reply("source_search", {"path": "log.md", "query": "earthquake"}, "search"),
+        tool_reply("source_search", {"path": "log.md", "query": "earthquake"}, "again"),
+        tool_reply("task_finish", {"summary": "The log does not mention an earthquake."}, "uncited"),
+        tool_reply("task_finish", {"summary": "No line of the log mentions an earthquake [log.md E1]."}, "cited"),
+    ])
+    with app as client:
+        final, events = finish(client, _start(client, tmp_path, source_search=True, completion_workflow="answer",
+                                              limits={"context_window_tokens": 8192, "max_output_tokens": 256}).json())
+    assert final["status"] == "completed", final["error"]
+    corrections = [event["data"]["error"] for event in events if event["kind"] == "correction.available"]
+    assert [error["code"] for error in corrections] == ["source_too_large_for_context", "repeated_search", "missing_answer_citation"]
+    assert [error.get("remaining_refused_lookups") for error in corrections[:2]] == [1, 0]
+    assert corrections[2]["remaining_corrections"] == 1  # the answer's budget was untouched by the lookups

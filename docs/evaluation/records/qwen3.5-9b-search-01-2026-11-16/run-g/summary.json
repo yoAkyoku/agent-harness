@@ -1,0 +1,31 @@
+{
+  "model": "qwen3.5:9b-q4_K_M",
+  "runs": 3,
+  "passed": 2,
+  "rejected_calls": 5,
+  "cases": [
+    {
+      "id": "search-single",
+      "runs": 1,
+      "passed": 1,
+      "distinct_answers": 1,
+      "problems": []
+    },
+    {
+      "id": "search-scattered",
+      "runs": 1,
+      "passed": 1,
+      "distinct_answers": 1,
+      "problems": []
+    },
+    {
+      "id": "search-absent",
+      "runs": 1,
+      "passed": 0,
+      "distinct_answers": 1,
+      "problems": [
+        "status failed: lookup_limit_exceeded"
+      ]
+    }
+  ]
+}

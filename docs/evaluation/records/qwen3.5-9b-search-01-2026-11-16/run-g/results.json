@@ -1,0 +1,122 @@
+[
+  {
+    "id": "search-single",
+    "attempt": 1,
+    "run_id": "4e5d872f9f584b7590cf700bf4ad11cf",
+    "exit_code": 0,
+    "seconds": 24,
+    "status": "completed",
+    "result": "根據維運日誌，支付閘道憑證更新造成結帳中斷 47 分鐘，負責處理的是平台組蔡宗翰。[ops-log.md E1]",
+    "error": null,
+    "usage": {
+      "model_calls": 5,
+      "tool_calls": 5
+    },
+    "token_usage": {
+      "input_tokens": 5823,
+      "output_tokens": 252,
+      "reported_responses": 5,
+      "unreported_responses": 0
+    },
+    "artifacts": [],
+    "artifact_text": null,
+    "tools": [
+      "plan_update",
+      "workspace_list",
+      "source_search",
+      "task_finish"
+    ],
+    "reads": [],
+    "rejected": [
+      "task_finish:missing_answer_citation"
+    ],
+    "subagents": 0,
+    "compacted": [],
+    "stderr": "Run 4e5d872f9f584b7590cf700bf4ad11cf accepted; events follow on stdout.\n",
+    "problems": [],
+    "passed": true
+  },
+  {
+    "id": "search-scattered",
+    "attempt": 1,
+    "run_id": "84ae261547f84718b83aa779852441bd",
+    "exit_code": 0,
+    "seconds": 56,
+    "status": "completed",
+    "result": "根據維運日誌，共記錄了三次服務中斷事件：\n\n1. **第 12 週**：訂單寫入中斷 31 分鐘，負責處理的是資料組 許雅雯 [ops-log-incidents.md E1]。\n2. **第 67 週**：結帳中斷 47 分鐘，負責處理的是平台組 蔡宗翰 [ops-log-incidents.md E1]。\n3. **第 109 週**：搜尋中斷 58 分鐘，負責處理的是搜尋組 鄭凱文 [ops-log-incidents.md E1]。",
+    "error": null,
+    "usage": {
+      "model_calls": 5,
+      "tool_calls": 5
+    },
+    "token_usage": {
+      "input_tokens": 5515,
+      "output_tokens": 432,
+      "reported_responses": 5,
+      "unreported_responses": 0
+    },
+    "artifacts": [],
+    "artifact_text": null,
+    "tools": [
+      "plan_update",
+      "workspace_list",
+      "source_search",
+      "task_finish"
+    ],
+    "reads": [],
+    "rejected": [
+      "source_read:source_too_large_for_context"
+    ],
+    "subagents": 0,
+    "compacted": [],
+    "stderr": "Run 84ae261547f84718b83aa779852441bd accepted; events follow on stdout.\n",
+    "problems": [],
+    "passed": true
+  },
+  {
+    "id": "search-absent",
+    "attempt": 1,
+    "run_id": "fa1f9f8a051c4b4badeabbdd2798a3e2",
+    "exit_code": 1,
+    "seconds": 29,
+    "status": "failed",
+    "result": "",
+    "error": {
+      "code": "lookup_limit_exceeded",
+      "message": "This Run exhausted its budget for refused reads and searches."
+    },
+    "usage": {
+      "model_calls": 9,
+      "tool_calls": 9
+    },
+    "token_usage": {
+      "input_tokens": 12475,
+      "output_tokens": 328,
+      "reported_responses": 9,
+      "unreported_responses": 0
+    },
+    "artifacts": [],
+    "artifact_text": null,
+    "tools": [
+      "plan_update",
+      "workspace_list",
+      "source_search",
+      "source_search",
+      "source_search",
+      "source_search"
+    ],
+    "reads": [],
+    "rejected": [
+      "source_read:source_too_large_for_context",
+      "source_search:repeated_search",
+      "source_search:repeated_search"
+    ],
+    "subagents": 0,
+    "compacted": [],
+    "stderr": "Run fa1f9f8a051c4b4badeabbdd2798a3e2 accepted; events follow on stdout.\n",
+    "problems": [
+      "status failed: lookup_limit_exceeded"
+    ],
+    "passed": false
+  }
+]

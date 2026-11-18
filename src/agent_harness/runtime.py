@@ -56,6 +56,10 @@ RETRYABLE_FAILURES = frozenset({
     "source_unavailable", "invalid_table", "invalid_calculation", "mcp_tool_error", "mcp_result_too_large",
     *WEB_ERRORS, *SANDBOX_ERRORS, "subagent_failed", "source_too_large_for_context", "repeated_search"})
 FAILURES_NOT_OWED = frozenset({"source_too_large_for_context", "repeated_search"})
+# Refused lookups (a read too large for the window, a search already made) spend their own budget, the same size as
+# the correction budget: they still stop a model that keeps looping, but cannot use up the corrections that the
+# final answer or artifact may need.
+LOOKUP_REFUSALS = FAILURES_NOT_OWED
 
 
 @dataclass(frozen=True)
@@ -549,6 +553,7 @@ class Runtime:
             tools.subagent_runner = run_subagent
         seen_calls: set[str] = set()
         corrections = 0
+        lookups = 0
         completion_recovery_pending = False
         completion_recovery_attempted = False
         completion_recovery_note = (" The previous completion reply contained no visible text. The artifact is already published. "
@@ -570,18 +575,24 @@ class Runtime:
                         error_code=attempt["error"].get("code"))
 
         async def feedback(call: ToolCall, error: RunFailure, *, retryable: bool, owed: bool = True,
-                           budgeted: bool = True) -> None:
+                           budgeted: bool = True, lookup: bool = False) -> None:
             """Return a correctable error to the model; `owed` calls must be corrected before completion.
 
-            Model errors spend the correction budget; a user's change request (`budgeted=False`) does not.
+            Model errors spend the correction budget; a user's change request (`budgeted=False`) does not. A refused
+            lookup (`lookup=True`) spends the separate lookup budget instead.
             """
-            nonlocal corrections
+            nonlocal corrections, lookups
             if budgeted:
                 if not retryable or limits.max_corrections == 0:
                     raise error
-                if corrections >= limits.max_corrections:
-                    raise RunFailure("correction_limit_exceeded", "This Run exhausted its recoverable tool correction budget.")
-                corrections += 1
+                if lookup:
+                    if lookups >= limits.max_corrections:
+                        raise RunFailure("lookup_limit_exceeded", "This Run exhausted its budget for refused reads and searches.")
+                    lookups += 1
+                else:
+                    if corrections >= limits.max_corrections:
+                        raise RunFailure("correction_limit_exceeded", "This Run exhausted its recoverable tool correction budget.")
+                    corrections += 1
             superseded: list[str] = []
             if owed:
                 superseded = [failed for failed, correction in pending.items() if correction.matches(call, step)]
@@ -590,7 +601,9 @@ class Runtime:
                 for failed in superseded:
                     del pending[failed]
             details: Record = {"code": error.code, "message": error.message, "retryable": True}
-            if budgeted:
+            if budgeted and lookup:
+                details["remaining_refused_lookups"] = limits.max_corrections - lookups
+            elif budgeted:
                 details["remaining_corrections"] = limits.max_corrections - corrections
             details["correctable_fields"] = list(error.correctable_fields)
             result = {"ok": False, "error": details}
@@ -934,7 +947,8 @@ class Runtime:
                         # A failed sub-task may be done by the parent itself, a read that cannot fit is replaced by a search,
                         # and a repeated search needs no retry at all: none of them must be redone to finish.
                         await feedback(call, error, retryable=call.name in read_tools and error.code in RETRYABLE_FAILURES,
-                                       owed=call.name != subagent.TOOL_NAME and error.code not in FAILURES_NOT_OWED)
+                                       owed=call.name != subagent.TOOL_NAME and error.code not in FAILURES_NOT_OWED,
+                                       lookup=error.code in LOOKUP_REFUSALS)
                         continue
                     if (run["mode"] != "fixture" and call.name == "source_read"
                             and not any(later.name == "source_read" for later in decision.calls[call_index + 1:])):
