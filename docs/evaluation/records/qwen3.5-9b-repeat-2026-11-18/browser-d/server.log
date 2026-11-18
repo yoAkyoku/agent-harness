@@ -1,0 +1,8 @@
+Open the workbench at http://127.0.0.1:63360/?token=<the value of AGENT_HARNESS_TOKEN>
+Scripts: send the same token as 'Authorization: Bearer <token>'.
+INFO:     Started server process [10180]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:63360 (Press CTRL+C to quit)
+INFO:     127.0.0.1:58896 - "WebSocket /api/runs/f13d83d43fdd4e93ba8cc8ab18522d9f/stream?after=0&flow=ack" [accepted]
+INFO:     connection open

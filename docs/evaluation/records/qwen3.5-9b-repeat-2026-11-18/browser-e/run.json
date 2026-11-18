@@ -1,0 +1,163 @@
+{
+  "id": "39c1a22adf3549258f06a1a27fc3962d",
+  "session_id": "4ee03a5b9c134242a4df046c42cc7a5b",
+  "task": "整理這個改版的目標、已知風險，以及三週訂單數的變化，存成一份附引用的摘要。",
+  "status": "completed",
+  "mode": "local",
+  "result": "已完成《訂單追蹤改版摘要》，內容包含改版目標（單一頁面查看進度）、已知風險（配送狀態命名不一致、歷史欄位未核對）及三週訂單數變化（450 單），並附上對應資料來源引用。",
+  "created_at": "2026-11-18T05:33:17.171703+00:00",
+  "sources": [
+    {
+      "path": "brief.md",
+      "sha256": "052b349403397ce33e71bb4eb861f51777312cceba2be98730712c4ae2d0fe57",
+      "bytes": 297
+    },
+    {
+      "path": "metrics.csv",
+      "sha256": "0b83926d68f86f8d019ecdede89333a607dd320351583d42f7d0e2731f02155b",
+      "bytes": 48
+    },
+    {
+      "path": "notes.md",
+      "sha256": "8c6ad0691bb7dafcacbd7765c6870234c1fbb03d17ff5892cbf8bbccf2817876",
+      "bytes": 258
+    }
+  ],
+  "limits": {
+    "context_window_tokens": null,
+    "max_output_tokens": 1024,
+    "max_excerpt_bytes": 512,
+    "max_memory_bytes": 1024,
+    "max_history_bytes": 16384,
+    "max_steps": 12,
+    "max_tool_calls": 20,
+    "max_corrections": 2,
+    "timeout_seconds": 600.0,
+    "approval_timeout_seconds": 120
+  },
+  "model": {
+    "mode": "local",
+    "name": "qwen3.5:9b-q4_K_M",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+    "stream": true,
+    "transport_fixture": false,
+    "decision_protocol": "json_tools",
+    "requires_tool_finish": true,
+    "offers_tool_finish": false,
+    "context_capacity_tokens": 8192,
+    "context_capacity_source": "application_configuration",
+    "context_profile": "ollama-0.40.10-qwen35-gpt2",
+    "server_controlled_initial_plan": true,
+    "temperature": 0.7,
+    "renderer_verification": {
+      "renderer": "qwen3.5",
+      "parser": "qwen3.5",
+      "template_source": "renderer_parser",
+      "implicit_messages": false,
+      "implicit_system": false,
+      "tokenizer_model": "gpt2",
+      "tokenizer_pre": "qwen35",
+      "add_bos_token": false
+    },
+    "digest": "56671c2ab9385f9cfcb404638e32cd62d88e3501d44822208363c010179a3c90",
+    "server_version": "0.40.10",
+    "capabilities": [
+      "completion",
+      "vision",
+      "tools",
+      "thinking"
+    ],
+    "reasoning_effort": "none"
+  },
+  "validation": {
+    "fault_once_source_read": false
+  },
+  "policy": {
+    "require_publish_approval": true
+  },
+  "context": {
+    "turns": [],
+    "history": [],
+    "history_run_ids": [],
+    "omitted": [],
+    "source_excerpts": [
+      {
+        "path": "brief.md",
+        "sha256": "052b349403397ce33e71bb4eb861f51777312cceba2be98730712c4ae2d0fe57",
+        "start_line": 7,
+        "end_line": 7,
+        "text": "已知風險：舊系統的配送狀態命名不一致；尚未核對所有歷史欄位。"
+      }
+    ],
+    "memories": [],
+    "memory_omitted": []
+  },
+  "base_artifact": null,
+  "resume_checkpoint": null,
+  "recovery": null,
+  "cancellation": null,
+  "error": null,
+  "usage": {
+    "model_calls": 7,
+    "tool_calls": 10
+  },
+  "token_usage": {
+    "input_tokens": 10251,
+    "output_tokens": 657,
+    "reported_responses": 7,
+    "unreported_responses": 0
+  },
+  "artifacts": [
+    {
+      "id": "57231eb2fd9eb9d86ba9c01997829174",
+      "run_id": "39c1a22adf3549258f06a1a27fc3962d",
+      "name": "改版摘要.md",
+      "sha256": "dd08bc930f35e4bfadd14f347f351b2078fb8de2719dd00136247f1aae94eff7",
+      "bytes": 711,
+      "parent_artifact_id": null,
+      "version": 1,
+      "call_id": "json_0b07cadb374143d9b07b66914aba3269",
+      "download_url": "/api/runs/39c1a22adf3549258f06a1a27fc3962d/artifacts/57231eb2fd9eb9d86ba9c01997829174"
+    }
+  ],
+  "inherited_artifacts": [],
+  "approvals": [
+    {
+      "id": "fb2c02533056495389f035b435734ac7",
+      "run_id": "39c1a22adf3549258f06a1a27fc3962d",
+      "call_id": "json_0b07cadb374143d9b07b66914aba3269",
+      "tool": "artifact_write",
+      "parameters_sha256": "3a316dd846a272184744756a65e610cf8213aadeec8a7e777d37d8aad09d9024",
+      "status": "consumed",
+      "created_at": "2026-11-18T05:33:59.470708+00:00",
+      "expires_at": "2026-11-18T05:35:59.470708+00:00",
+      "arguments": {
+        "name": "改版摘要.md",
+        "content": "# 訂單追蹤改版摘要\n\n## 目標\n讓客服在同一頁查看訂單進度、配送節點與異常紀錄。\n\n## 已知風險\n- 舊系統的配送狀態命名不一致；\n- 尚未核對所有歷史欄位。\n\n## 三週訂單數變化\n本週（第 1 至 3 週）總訂單數為 450 單 [metrics.csv E4]。\n\n### 來源證據\n- **改版目標與風險**：來自 `brief.md` [E1]。\n- **三週訂單總計**：來自 `metrics.csv` 中 `orders` 欄位的加總結果 [E4]。\n\n\n## Verified tool evidence\n- [E1] brief.md:L1-L7 SHA-256 052b349403397ce33e71bb4eb861f51777312cceba2be98730712c4ae2d0fe57\n- [E4] metrics.csv:L2-L4 SHA-256 0b83926d68f86f8d019ecdede89333a607dd320351583d42f7d0e2731f02155b; sum(orders) = 450\n"
+      },
+      "scope": {
+        "workspace": "D:\\Worksapce\\Projects\\agent-harness\\src\\agent_harness\\demo_sources",
+        "artifact_directory": "C:\\Users\\USER\\AppData\\Local\\Temp\\real-model-store-1t3jy2ld\\artifacts",
+        "effect": "immutable_artifact",
+        "sources": [
+          {
+            "path": "brief.md",
+            "sha256": "052b349403397ce33e71bb4eb861f51777312cceba2be98730712c4ae2d0fe57",
+            "bytes": 297
+          },
+          {
+            "path": "metrics.csv",
+            "sha256": "0b83926d68f86f8d019ecdede89333a607dd320351583d42f7d0e2731f02155b",
+            "bytes": 48
+          },
+          {
+            "path": "notes.md",
+            "sha256": "8c6ad0691bb7dafcacbd7765c6870234c1fbb03d17ff5892cbf8bbccf2817876",
+            "bytes": 258
+          }
+        ]
+      }
+    }
+  ],
+  "last_sequence": 64
+}

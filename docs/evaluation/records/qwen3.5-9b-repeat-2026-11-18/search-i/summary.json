@@ -1,0 +1,32 @@
+{
+  "model": "qwen3.5:9b-q4_K_M",
+  "runs": 15,
+  "passed": 12,
+  "rejected_calls": 16,
+  "cases": [
+    {
+      "id": "search-single",
+      "runs": 5,
+      "passed": 5,
+      "distinct_answers": 4,
+      "problems": []
+    },
+    {
+      "id": "search-scattered",
+      "runs": 5,
+      "passed": 5,
+      "distinct_answers": 5,
+      "problems": []
+    },
+    {
+      "id": "search-absent",
+      "runs": 5,
+      "passed": 2,
+      "distinct_answers": 4,
+      "problems": [
+        "answer does not say the field is missing",
+        "status failed: context_limit_exceeded"
+      ]
+    }
+  ]
+}
