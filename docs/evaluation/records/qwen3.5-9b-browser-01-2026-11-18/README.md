@@ -18,11 +18,8 @@
 | B | 工作台新增「這次執行的時間上限」，選 10 分鐘 | **未通過**：`context_limit_exceeded` | 257 秒 | 6 / 10 |
 | C | 引用修正的訊息變短、修正時只提供 `artifact_write`（提交 `5e3ccd4`）；時間上限同 B | **通過** | 51 秒 | 7 / 10 |
 
-A、B 都沒有保存成果，所以沒有出現核准卡片；C 保存了一份成果，核准卡片出現並被核准。每次的完整事件在 `run-a/`、`run-b/`、`run-c/`（`events.ndjson`、`run.json`、`outcome.json`、伺服器紀錄），錄影的縮時 GIF（每 2 秒一格、10 倍速）在 `run-*/recording.gif`。原始錄影（webm，17.6、24.9 與 7.4 MB）太大，沒有放進 repo；C 另外保存了成果檔。
+A、B 都沒有保存成果，所以沒有出現核准卡片；C 保存了一份成果，核准卡片出現並被核准。每次的完整事件在 `run-a/`、`run-b/`、`run-c/`（`events.ndjson`、`run.json`、`outcome.json`、伺服器紀錄）。錄影（webm，17.6、24.9 與 7.4 MB）沒有放進 repo；C 另外保存了成果檔。
 
-| A | B | C |
-|---|---|---|
-| <img src="run-a/recording.gif" width="300" alt="observation A"> | <img src="run-b/recording.gif" width="300" alt="observation B"> | <img src="run-c/recording.gif" width="300" alt="observation C"> |
 
 ## 每一次發生了什麼
 

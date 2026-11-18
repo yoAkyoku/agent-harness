@@ -1,12 +1,14 @@
-"""Re-record the browser flows shown in the README: run them slowly, keep the videos, make the GIF previews.
+"""Re-record the browser flows shown in the README and make their previews.
 
     uv sync --group e2e
     uv run playwright install chromium ffmpeg      # or pass --channel msedge to use an installed Edge
-    uv run python scripts/record_flows.py [--channel msedge] [-k pattern]
+    uv run python scripts/record_flows.py [--channel msedge] [-k pattern] [--out DIR]
+    uv run python scripts/record_flows.py --from-videos DIR     # only rebuild the previews from existing videos
 
-The flows are tests/test_browser_flows.py with the same scripted model as in CI. The videos go to
-docs/videos/<name>.webm and each gets docs/videos/<name>.gif (5 frames per second, 800 pixels wide), because
-GitHub offers .webm files only as a download. A flow that fails is reported and its old recording is kept.
+The flows are tests/test_browser_flows.py with the same scripted model as in CI, run slowly so they can be
+followed. The videos go to DIR (default `.tmp/recordings/`, outside version control); the repository keeps only
+previews in docs/previews/: a still of each flow's last frame, and a small animated GIF for the featured flows.
+The full videos are published elsewhere (see the README). A flow that fails is reported and gets no new preview.
 """
 import argparse
 import glob
@@ -20,8 +22,10 @@ import tempfile
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
-VIDEOS = ROOT / "docs" / "videos"
+PREVIEWS = ROOT / "docs" / "previews"
 SLOW = {"E2E_SLOW_MO": "250", "E2E_HOLD_MS": "1500", "E2E_REPLY_DELAY": "0.7"}
+# Shown animated in the README; the others get a still. Kept few so the repository stays small.
+FEATURED = ("01", "02", "07", "08")
 
 
 def find_ffmpeg() -> str:
@@ -38,35 +42,52 @@ def find_ffmpeg() -> str:
     sys.exit("No ffmpeg found: run `uv run playwright install ffmpeg`.")
 
 
-def gif(ffmpeg: str, video: Path, fps: float = 5, width: int = 800, speed: float = 1) -> Path:
-    """An animated preview: one palette for the whole clip (the interface colours barely change), a pause at the end.
-
-    `speed` above 1 makes a time-lapse: frames are taken `fps` times a second and shown `speed` times faster.
-    """
+def frames(ffmpeg: str, video: Path, fps: float, width: int) -> list[Image.Image]:
     with tempfile.TemporaryDirectory() as work:
         # Playwright's ffmpeg is a minimal build without the fps and scale filters: set the output rate, scale in Pillow.
         subprocess.run([ffmpeg, "-y", "-loglevel", "error", "-i", str(video), "-r", str(fps), str(Path(work) / "f%04d.png")], check=True)
-        frames = []
+        result = []
         for path in sorted(Path(work).glob("f*.png")):
             with Image.open(path) as frame:
                 scale = min(1, width / frame.width)  # never enlarge a small recording
-                frames.append(frame.convert("RGB").resize((round(frame.width * scale), round(frame.height * scale)), Image.Resampling.LANCZOS))
-    if not frames:
+                result.append(frame.convert("RGB").resize((round(frame.width * scale), round(frame.height * scale)), Image.Resampling.LANCZOS))
+    if not result:
         raise RuntimeError(f"No frames in {video}")
-    palette = frames[-1].quantize(colors=96, method=Image.Quantize.MEDIANCUT)
-    quantized = [frame.quantize(palette=palette, dither=Image.Dither.NONE) for frame in frames]
-    target = video.with_suffix(".gif")
-    quantized[0].save(target, save_all=True, append_images=quantized[1:], loop=0, optimize=True, disposal=1,
-                      duration=[int(1000 / (fps * speed))] * (len(quantized) - 1) + [2500])
-    return target
+    return result
+
+
+def previews(ffmpeg: str, video: Path) -> list[Path]:
+    """A still of the last frame for every flow, and for a featured one a GIF: 4 frames a second, 560 pixels wide."""
+    PREVIEWS.mkdir(parents=True, exist_ok=True)
+    made = []
+    still = PREVIEWS / f"{video.stem}.png"
+    frames(ffmpeg, video, 1, 480)[-1].save(still, optimize=True)
+    made.append(still)
+    if video.stem[:2] in FEATURED:
+        clip = frames(ffmpeg, video, 4, 560)
+        palette = clip[-1].quantize(colors=64, method=Image.Quantize.MEDIANCUT)  # the interface colours barely change
+        quantized = [frame.quantize(palette=palette, dither=Image.Dither.NONE) for frame in clip]
+        target = PREVIEWS / f"{video.stem}.gif"
+        quantized[0].save(target, save_all=True, append_images=quantized[1:], loop=0, optimize=True, disposal=1,
+                          duration=[250] * (len(quantized) - 1) + [2500])
+        made.append(target)
+    return made
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--channel", help="An installed browser to use instead of Playwright's Chromium, e.g. msedge.")
     parser.add_argument("-k", dest="pattern", help="Only the flows whose test name matches (pytest -k).")
+    parser.add_argument("--out", type=Path, default=ROOT / ".tmp" / "recordings", help="Where the videos go.")
+    parser.add_argument("--from-videos", type=Path, help="Skip recording; make the previews from the videos in this folder.")
     arguments = parser.parse_args()
     ffmpeg = find_ffmpeg()
+    if arguments.from_videos:
+        videos = sorted(video for video in arguments.from_videos.glob("[0-9][0-9]-*.webm") if "." not in video.stem)
+        for video in videos:
+            for made in previews(ffmpeg, video):
+                print(f"{made.relative_to(ROOT)}  {made.stat().st_size / 1e3:.0f} kB")
+        return 0 if videos else 1
     with tempfile.TemporaryDirectory() as recorded:
         environment = {**os.environ, **SLOW, "E2E_VIDEO_DIR": recorded, "REQUIRE_BROWSER_TESTS": "1", "E2E_BROWSERS": "chromium"}
         if arguments.channel:
@@ -76,19 +97,19 @@ def main() -> int:
             command += ["-k", arguments.pattern]
         result = subprocess.run(command, cwd=ROOT, env=environment)
         failed = sorted(video.name.removesuffix(".failed.webm") for video in Path(recorded).glob("*.failed.webm"))
-        VIDEOS.mkdir(parents=True, exist_ok=True)
+        arguments.out.mkdir(parents=True, exist_ok=True)
         kept = 0
         for video in sorted(Path(recorded).glob("*.webm")):
             if video.name.endswith(".failed.webm"):
                 continue
-            target = VIDEOS / video.name
+            target = arguments.out / video.name
             shutil.move(str(video), target)
-            preview = gif(ffmpeg, target)
+            made = previews(ffmpeg, target)
             kept += 1
-            print(f"{target.relative_to(ROOT)}  {target.stat().st_size / 1e6:.1f} MB, {preview.name} {preview.stat().st_size / 1e6:.1f} MB")
+            print(f"{target}  {target.stat().st_size / 1e6:.1f} MB; " + ", ".join(f"{path.name} {path.stat().st_size / 1e3:.0f} kB" for path in made))
     if failed:
-        print("Failed, old recordings kept: " + ", ".join(failed))
-    print(f"{kept} recordings updated.")
+        print("Failed, previews not updated: " + ", ".join(failed))
+    print(f"{kept} recordings made.")
     return result.returncode
 
 
