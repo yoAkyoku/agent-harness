@@ -1,0 +1,64 @@
+{
+  "model": "qwen3.5:9b-q4_K_M",
+  "task": "整理這個改版的目標、已知風險，以及三週訂單數的變化，存成一份附引用的摘要。",
+  "time_limit_seconds": 600,
+  "temperature": 0.7,
+  "exact_tokens": true,
+  "started_at": "2026-11-18T06:25:52+00:00",
+  "criteria": "Run ends completed with one saved artifact (all citations verified by the harness)",
+  "model_config": {
+    "mode": "local",
+    "name": "qwen3.5:9b-q4_K_M",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+    "stream": true,
+    "transport_fixture": false,
+    "decision_protocol": "json_tools",
+    "requires_tool_finish": true,
+    "offers_tool_finish": false,
+    "context_capacity_tokens": 8192,
+    "context_capacity_source": "application_configuration",
+    "context_profile": "ollama-0.40.10-qwen35-exact-portable",
+    "server_controlled_initial_plan": true,
+    "temperature": 0.7,
+    "renderer_verification": {
+      "renderer": "qwen3.5",
+      "parser": "qwen3.5",
+      "template_source": "renderer_parser",
+      "implicit_messages": false,
+      "implicit_system": false,
+      "tokenizer_model": "gpt2",
+      "tokenizer_pre": "qwen35",
+      "add_bos_token": false
+    },
+    "digest": "56671c2ab9385f9cfcb404638e32cd62d88e3501d44822208363c010179a3c90",
+    "server_version": "0.40.10",
+    "capabilities": [
+      "completion",
+      "vision",
+      "tools",
+      "thinking"
+    ],
+    "reasoning_effort": "none",
+    "tokenizer_verification": {
+      "implementation": "portable_python",
+      "model_blob_sha256": "02d45dc1cf451ba2475ac33b301c2dd8f985abe4c182ce04a1f2f5bf0260278d",
+      "vocab_only": true,
+      "add_special": true,
+      "parse_special": true,
+      "renderer": "qwen3.5"
+    }
+  },
+  "seconds": 157,
+  "approvals_given": 1,
+  "run_id": "4c94bea828af4288b62038f84a4d5935",
+  "status": "completed",
+  "error": null,
+  "artifacts": [
+    "summary.md"
+  ],
+  "usage": {
+    "model_calls": 10,
+    "tool_calls": 10
+  },
+  "passed": true
+}

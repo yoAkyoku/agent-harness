@@ -1,0 +1,32 @@
+{
+  "model": "qwen3.5:9b-q4_K_M",
+  "runs": 15,
+  "passed": 13,
+  "rejected_calls": 17,
+  "cases": [
+    {
+      "id": "search-single",
+      "runs": 5,
+      "passed": 5,
+      "distinct_answers": 5,
+      "problems": []
+    },
+    {
+      "id": "search-scattered",
+      "runs": 5,
+      "passed": 5,
+      "distinct_answers": 5,
+      "problems": []
+    },
+    {
+      "id": "search-absent",
+      "runs": 5,
+      "passed": 3,
+      "distinct_answers": 5,
+      "problems": [
+        "answer does not say the field is missing",
+        "status failed: correction_limit_exceeded"
+      ]
+    }
+  ]
+}

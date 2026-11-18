@@ -1,0 +1,265 @@
+{
+  "id": "21fbec75776a4a928578c8555b38f5d3",
+  "session_id": "8f2ef133e82f438d979e58a91bde92e6",
+  "task": "整理這個改版的目標、已知風險，以及三週訂單數的變化，存成一份附引用的摘要。",
+  "status": "completed",
+  "mode": "local",
+  "result": "摘要已發布，內容包含改版目標、已知風險及三週訂單數變化數據與備註。",
+  "created_at": "2026-11-18T06:29:03.114271+00:00",
+  "sources": [
+    {
+      "path": "brief.md",
+      "sha256": "052b349403397ce33e71bb4eb861f51777312cceba2be98730712c4ae2d0fe57",
+      "bytes": 297
+    },
+    {
+      "path": "metrics.csv",
+      "sha256": "0b83926d68f86f8d019ecdede89333a607dd320351583d42f7d0e2731f02155b",
+      "bytes": 48
+    },
+    {
+      "path": "notes.md",
+      "sha256": "8c6ad0691bb7dafcacbd7765c6870234c1fbb03d17ff5892cbf8bbccf2817876",
+      "bytes": 258
+    }
+  ],
+  "limits": {
+    "context_window_tokens": null,
+    "max_output_tokens": 1024,
+    "max_excerpt_bytes": 512,
+    "max_memory_bytes": 1024,
+    "max_history_bytes": 16384,
+    "max_steps": 12,
+    "max_tool_calls": 20,
+    "max_corrections": 2,
+    "timeout_seconds": 600.0,
+    "approval_timeout_seconds": 120
+  },
+  "model": {
+    "mode": "local",
+    "name": "qwen3.5:9b-q4_K_M",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+    "stream": true,
+    "transport_fixture": false,
+    "decision_protocol": "json_tools",
+    "requires_tool_finish": true,
+    "offers_tool_finish": false,
+    "context_capacity_tokens": 8192,
+    "context_capacity_source": "application_configuration",
+    "context_profile": "ollama-0.40.10-qwen35-exact-portable",
+    "server_controlled_initial_plan": true,
+    "temperature": 0.7,
+    "renderer_verification": {
+      "renderer": "qwen3.5",
+      "parser": "qwen3.5",
+      "template_source": "renderer_parser",
+      "implicit_messages": false,
+      "implicit_system": false,
+      "tokenizer_model": "gpt2",
+      "tokenizer_pre": "qwen35",
+      "add_bos_token": false
+    },
+    "digest": "56671c2ab9385f9cfcb404638e32cd62d88e3501d44822208363c010179a3c90",
+    "server_version": "0.40.10",
+    "capabilities": [
+      "completion",
+      "vision",
+      "tools",
+      "thinking"
+    ],
+    "reasoning_effort": "none",
+    "tokenizer_verification": {
+      "implementation": "portable_python",
+      "model_blob_sha256": "02d45dc1cf451ba2475ac33b301c2dd8f985abe4c182ce04a1f2f5bf0260278d",
+      "vocab_only": true,
+      "add_special": true,
+      "parse_special": true,
+      "renderer": "qwen3.5"
+    }
+  },
+  "validation": {
+    "fault_once_source_read": false
+  },
+  "policy": {
+    "require_publish_approval": true
+  },
+  "context": {
+    "turns": [],
+    "history": [],
+    "history_run_ids": [],
+    "omitted": [],
+    "source_excerpts": [
+      {
+        "path": "brief.md",
+        "sha256": "052b349403397ce33e71bb4eb861f51777312cceba2be98730712c4ae2d0fe57",
+        "start_line": 7,
+        "end_line": 7,
+        "text": "已知風險：舊系統的配送狀態命名不一致；尚未核對所有歷史欄位。"
+      }
+    ],
+    "memories": [],
+    "memory_omitted": []
+  },
+  "base_artifact": null,
+  "resume_checkpoint": null,
+  "recovery": null,
+  "cancellation": null,
+  "error": null,
+  "usage": {
+    "model_calls": 7,
+    "tool_calls": 12
+  },
+  "token_usage": {
+    "input_tokens": 12374,
+    "output_tokens": 1116,
+    "reported_responses": 7,
+    "unreported_responses": 0
+  },
+  "artifacts": [
+    {
+      "id": "29f0ea9692f92294c56d21e89d32ca0c",
+      "run_id": "21fbec75776a4a928578c8555b38f5d3",
+      "name": "summary.md",
+      "sha256": "67988e67d382e32fe9581690a4c854fe23287eea744c2439f189ec729c699b1d",
+      "bytes": 1157,
+      "parent_artifact_id": null,
+      "version": 1,
+      "call_id": "json_4ff89eebf8094576a42aad3c396eb3cc",
+      "download_url": "/api/runs/21fbec75776a4a928578c8555b38f5d3/artifacts/29f0ea9692f92294c56d21e89d32ca0c"
+    },
+    {
+      "id": "efb556f9146d5fce8ee9db6a94d4b69c",
+      "run_id": "21fbec75776a4a928578c8555b38f5d3",
+      "name": "summary.md",
+      "sha256": "e9f2db74d3d1640534269ec44784e5bbe1e8a5b5c0f3a1a3af07a15662e2c258",
+      "bytes": 1157,
+      "parent_artifact_id": null,
+      "version": 1,
+      "call_id": "json_22686ac6130b444fbfa8730303f0b05e",
+      "download_url": "/api/runs/21fbec75776a4a928578c8555b38f5d3/artifacts/efb556f9146d5fce8ee9db6a94d4b69c"
+    },
+    {
+      "id": "996b7bfd013bfada935e3ac389f7f1f9",
+      "run_id": "21fbec75776a4a928578c8555b38f5d3",
+      "name": "summary.md",
+      "sha256": "e9f2db74d3d1640534269ec44784e5bbe1e8a5b5c0f3a1a3af07a15662e2c258",
+      "bytes": 1157,
+      "parent_artifact_id": null,
+      "version": 1,
+      "call_id": "json_6319e976ee414ae5a00ca6aca1a29349",
+      "download_url": "/api/runs/21fbec75776a4a928578c8555b38f5d3/artifacts/996b7bfd013bfada935e3ac389f7f1f9"
+    }
+  ],
+  "inherited_artifacts": [],
+  "approvals": [
+    {
+      "id": "8f82dfd27ab04cdaa0b331abba9561ec",
+      "run_id": "21fbec75776a4a928578c8555b38f5d3",
+      "call_id": "json_4ff89eebf8094576a42aad3c396eb3cc",
+      "tool": "artifact_write",
+      "parameters_sha256": "3bc7493ec80c79dba16f008081edb761bde4300bbf60ef32f95e94f9b998a0ac",
+      "status": "consumed",
+      "created_at": "2026-11-18T06:30:15.686117+00:00",
+      "expires_at": "2026-11-18T06:32:15.686117+00:00",
+      "arguments": {
+        "name": "summary.md",
+        "content": "# 訂單追蹤改版摘要\n\n## 目標\n讓客服在同一頁查看訂單進度、配送節點與異常紀錄 [brief.md E1]。\n\n## 已知風險\n- 舊系統的配送狀態命名不一致；尚未核對所有歷史欄位 [brief.md E1]。\n\n## 三週訂單數變化\n- **總訂單數**：450 [metrics.csv E2, E4]\n- **異常訂單總數**：30 [metrics.csv E2, E5]\n- **週別數據**（[metrics.csv E2]）：\n  - 第1週：120 訂單（12 異常）\n  - 第2週：150 訂單（9 異常）\n  - 第3週：180 訂單（9 異常）\n\n> 備註：範例資料僅供本機 Demo，沒有客戶個人資料 [notes.md E3]。\n\n## Verified tool evidence\n- [E1] brief.md:L1-L7 SHA-256 052b349403397ce33e71bb4eb861f51777312cceba2be98730712c4ae2d0fe57\n- [E2] metrics.csv:L1-L4 SHA-256 0b83926d68f86f8d019ecdede89333a607dd320351583d42f7d0e2731f02155b\n- [E4] metrics.csv:L2-L4 SHA-256 0b83926d68f86f8d019ecdede89333a607dd320351583d42f7d0e2731f02155b; sum(orders) = 450\n- [E5] metrics.csv:L2-L4 SHA-256 0b83926d68f86f8d019ecdede89333a607dd320351583d42f7d0e2731f02155b; sum(exceptions) = 30\n- [E3] notes.md:L1-L6 SHA-256 8c6ad0691bb7dafcacbd7765c6870234c1fbb03d17ff5892cbf8bbccf2817876\n"
+      },
+      "scope": {
+        "workspace": "D:\\Worksapce\\Projects\\agent-harness\\src\\agent_harness\\demo_sources",
+        "artifact_directory": "C:\\Users\\USER\\AppData\\Local\\Temp\\real-model-store-e0j_hh4o\\artifacts",
+        "effect": "immutable_artifact",
+        "sources": [
+          {
+            "path": "brief.md",
+            "sha256": "052b349403397ce33e71bb4eb861f51777312cceba2be98730712c4ae2d0fe57",
+            "bytes": 297
+          },
+          {
+            "path": "metrics.csv",
+            "sha256": "0b83926d68f86f8d019ecdede89333a607dd320351583d42f7d0e2731f02155b",
+            "bytes": 48
+          },
+          {
+            "path": "notes.md",
+            "sha256": "8c6ad0691bb7dafcacbd7765c6870234c1fbb03d17ff5892cbf8bbccf2817876",
+            "bytes": 258
+          }
+        ]
+      }
+    },
+    {
+      "id": "f15570b38c374b35831a63d33841f926",
+      "run_id": "21fbec75776a4a928578c8555b38f5d3",
+      "call_id": "json_22686ac6130b444fbfa8730303f0b05e",
+      "tool": "artifact_write",
+      "parameters_sha256": "c91407c148f03fdd36609caad53958788239956f6dc28f6cb32a0712e9cde2ec",
+      "status": "consumed",
+      "created_at": "2026-11-18T06:30:19.613310+00:00",
+      "expires_at": "2026-11-18T06:32:19.613310+00:00",
+      "arguments": {
+        "name": "summary.md",
+        "content": "# 訂單追蹤改版摘要\n\n## 目標\n讓客服在同一頁查看訂單進度、配送節點與異常紀錄 [brief.md E1]。\n\n## 已知風險\n- 舊系統的配送狀態命名不一致；尚未核對所有歷史欄位 [brief.md E1]。\n\n## 三週訂單數變化\n- **總訂單數**：450 [metrics.csv E2, E4]\n- **異常訂單總數**：30 [metrics.csv E2, E5]\n- **每週數據**（[metrics.csv E2]）：\n  - 第1週：120 訂單（12 異常）\n  - 第2週：150 訂單（9 異常）\n  - 第3週：180 訂單（9 異常）\n\n> 備註：範例資料僅供本機 Demo，沒有客戶個人資料 [notes.md E3]。\n\n## Verified tool evidence\n- [E1] brief.md:L1-L7 SHA-256 052b349403397ce33e71bb4eb861f51777312cceba2be98730712c4ae2d0fe57\n- [E2] metrics.csv:L1-L4 SHA-256 0b83926d68f86f8d019ecdede89333a607dd320351583d42f7d0e2731f02155b\n- [E4] metrics.csv:L2-L4 SHA-256 0b83926d68f86f8d019ecdede89333a607dd320351583d42f7d0e2731f02155b; sum(orders) = 450\n- [E5] metrics.csv:L2-L4 SHA-256 0b83926d68f86f8d019ecdede89333a607dd320351583d42f7d0e2731f02155b; sum(exceptions) = 30\n- [E3] notes.md:L1-L6 SHA-256 8c6ad0691bb7dafcacbd7765c6870234c1fbb03d17ff5892cbf8bbccf2817876\n"
+      },
+      "scope": {
+        "workspace": "D:\\Worksapce\\Projects\\agent-harness\\src\\agent_harness\\demo_sources",
+        "artifact_directory": "C:\\Users\\USER\\AppData\\Local\\Temp\\real-model-store-e0j_hh4o\\artifacts",
+        "effect": "immutable_artifact",
+        "sources": [
+          {
+            "path": "brief.md",
+            "sha256": "052b349403397ce33e71bb4eb861f51777312cceba2be98730712c4ae2d0fe57",
+            "bytes": 297
+          },
+          {
+            "path": "metrics.csv",
+            "sha256": "0b83926d68f86f8d019ecdede89333a607dd320351583d42f7d0e2731f02155b",
+            "bytes": 48
+          },
+          {
+            "path": "notes.md",
+            "sha256": "8c6ad0691bb7dafcacbd7765c6870234c1fbb03d17ff5892cbf8bbccf2817876",
+            "bytes": 258
+          }
+        ]
+      }
+    },
+    {
+      "id": "05c1081b8f904337b76c05517e4ff2d0",
+      "run_id": "21fbec75776a4a928578c8555b38f5d3",
+      "call_id": "json_6319e976ee414ae5a00ca6aca1a29349",
+      "tool": "artifact_write",
+      "parameters_sha256": "0fe3226770b369f2430736abb0fb1b5f7abf9d4b348bb8c38128f4db18d58b7b",
+      "status": "consumed",
+      "created_at": "2026-11-18T06:30:49.238592+00:00",
+      "expires_at": "2026-11-18T06:32:49.238592+00:00",
+      "arguments": {
+        "name": "summary.md",
+        "content": "# 訂單追蹤改版摘要\n\n## 目標\n讓客服在同一頁查看訂單進度、配送節點與異常紀錄 [brief.md E1]。\n\n## 已知風險\n- 舊系統的配送狀態命名不一致；尚未核對所有歷史欄位 [brief.md E1]。\n\n## 三週訂單數變化\n- **總訂單數**：450 [metrics.csv E2, E4]\n- **異常訂單總數**：30 [metrics.csv E2, E5]\n- **每週數據**（[metrics.csv E2]）：\n  - 第1週：120 訂單（12 異常）\n  - 第2週：150 訂單（9 異常）\n  - 第3週：180 訂單（9 異常）\n\n> 備註：範例資料僅供本機 Demo，沒有客戶個人資料 [notes.md E3]。\n\n## Verified tool evidence\n- [E1] brief.md:L1-L7 SHA-256 052b349403397ce33e71bb4eb861f51777312cceba2be98730712c4ae2d0fe57\n- [E2] metrics.csv:L1-L4 SHA-256 0b83926d68f86f8d019ecdede89333a607dd320351583d42f7d0e2731f02155b\n- [E4] metrics.csv:L2-L4 SHA-256 0b83926d68f86f8d019ecdede89333a607dd320351583d42f7d0e2731f02155b; sum(orders) = 450\n- [E5] metrics.csv:L2-L4 SHA-256 0b83926d68f86f8d019ecdede89333a607dd320351583d42f7d0e2731f02155b; sum(exceptions) = 30\n- [E3] notes.md:L1-L6 SHA-256 8c6ad0691bb7dafcacbd7765c6870234c1fbb03d17ff5892cbf8bbccf2817876\n"
+      },
+      "scope": {
+        "workspace": "D:\\Worksapce\\Projects\\agent-harness\\src\\agent_harness\\demo_sources",
+        "artifact_directory": "C:\\Users\\USER\\AppData\\Local\\Temp\\real-model-store-e0j_hh4o\\artifacts",
+        "effect": "immutable_artifact",
+        "sources": [
+          {
+            "path": "brief.md",
+            "sha256": "052b349403397ce33e71bb4eb861f51777312cceba2be98730712c4ae2d0fe57",
+            "bytes": 297
+          },
+          {
+            "path": "metrics.csv",
+            "sha256": "0b83926d68f86f8d019ecdede89333a607dd320351583d42f7d0e2731f02155b",
+            "bytes": 48
+          },
+          {
+            "path": "notes.md",
+            "sha256": "8c6ad0691bb7dafcacbd7765c6870234c1fbb03d17ff5892cbf8bbccf2817876",
+            "bytes": 258
+          }
+        ]
+      }
+    }
+  ],
+  "last_sequence": 70
+}
